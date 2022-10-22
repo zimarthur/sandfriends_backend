@@ -3,6 +3,7 @@ from ..extensions import db
 class Notification(db.Model):
     __tablename__ = 'notification'
     IdNotification = db.Column(db.Integer, primary_key=True)
+    Seen = db.Column(db.Boolean)
 
     IdMatch = db.Column(db.Integer, db.ForeignKey('match.IdMatch'))
     Match = db.relationship('Match', foreign_keys = [IdMatch])
@@ -22,4 +23,5 @@ class Notification(db.Model):
             'Color':self.NotificationCategory.ColorString,
             'Message':self.NotificationCategory.Message.replace("{user}", self.UserReplaceText.FirstName),
             'Match': self.Match.to_json(),
+            'Seen':self.Seen,
         }

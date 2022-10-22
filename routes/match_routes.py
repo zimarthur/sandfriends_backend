@@ -12,7 +12,7 @@ from ..Models.rank_category_model import RankCategory
 from ..Models.match_member_model import MatchMember
 from ..Models.city_model import City
 from ..Models.state_model import State
-from ..Models.available_hours_model import AvailableHours
+from ..Models.available_hour_model import AvailableHour
 from ..Models.store_model import Store
 from ..Models.store_price_model import StorePrice
 from ..Models.store_photo_model import StorePhoto
@@ -46,9 +46,24 @@ def daterange(start_date, end_date):
 
 @bp_match.route("/GetAllCities", methods=["GET"])
 def GetAllCities():
-    cities = db.session.query(City).all()
+    citiesList=[]
+    statesList=[]
+
     states = db.session.query(State).all()
-     
+
+    for state in states:
+        statesList.append(state.to_json())
+        for city in state.cities:
+            citiesList.append(city.to_json())
+    return jsonify({'cities': citiesList, 'states':statesList})
+
+@bp_match.route("/GetAvailableCities", methods=["GET"])
+def GetAvailableCities():
+    cities = db.session.query(City)\
+            .join(Store, Store.IdCity == City.IdCity).distinct()
+
+    states = db.session.query(State)\
+            .filter(State.IdState.in_([city.IdState for city in cities])).distinct()
     citiesList=[]
     statesList=[]
 
@@ -60,22 +75,7 @@ def GetAllCities():
 
     return jsonify({'cities': citiesList, 'states':statesList})
 
-
-@bp_match.route("/GetAvailableCities", methods=["GET"])
-def GetAvailableCities():
-    citiesWithStores = db.session.query(Store.City).distinct()
-
-    availableCities = db.session.query(City).filter(City.IdCity.in_(citiesWithStores)).all()
-    availableCitiesJson = []
-    for availableCity in availableCities:
-        availableCitiesJson.append(availableCity.to_json())
-
-    availableStates = db.session.query(State).filter(State.IdState.in_([availableCity.IdState for availableCity in availableCities])).distinct()
-    availableStatesJson = []
-    for availableState in availableStates:
-        availableStatesJson.append(availableState.to_json())
     
-    return jsonify({'cities': availableCitiesJson, 'states': availableStatesJson})
 
 @bp_match.route("/SearchCourts", methods=["POST"])
 def SearchCourts():
@@ -94,7 +94,7 @@ def SearchCourts():
     if user is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN
 
-    stores = db.session.query(Store).filter(Store.City == cityId).all()
+    stores = db.session.query(Store).filter(Store.IdCity == cityId).all()
 
     storePhotos = db.session.query(StorePhoto).filter(StorePhoto.IdStore.in_([store.IdStore for store in stores])).all()
 
@@ -109,7 +109,7 @@ def SearchCourts():
     matches = db.session.query(Match)\
                     .filter(Match.IdStoreCourt.in_(court.IdStoreCourt for court in courts))\
                     .filter(Match.Date.in_(daterange(datetime.strptime(dateStart, '%Y-%m-%d').date(), datetime.strptime(dateEnd, '%Y-%m-%d').date())))\
-                    .filter((Match.TimeBegin >= getHourIndex(timeStart)) & (Match.TimeBegin <= getHourIndex(timeEnd)))\
+                    .filter((Match.IdTimeBegin >= getHourIndex(timeStart)) & (Match.IdTimeBegin <= getHourIndex(timeEnd)))\
                     .filter(Match.Canceled == False).all()
     
     openMatchMembers = db.session.query(MatchMember)\
@@ -132,7 +132,7 @@ def SearchCourts():
                             .filter(UserRank.IdUser == idMatchCreator).first()
                 jsonOpenMatches.append({
                     'MatchDetails':match.to_json(),
-                    'MatchCreator': db.session.query(User).filter(User.IdUser == idMatchCreator).first().identification_to_json(),
+                    'MatchCreator': matchCreatorRank.User.identification_to_json(),
                     'SlotsRemaining': match.MaxUsers - len(matchMembers),
                     'MatchCreatorRank':matchCreatorRank.to_json(),
                     })
@@ -150,8 +150,8 @@ def SearchCourts():
             storeOperationHours = [storeOperationHour for storeOperationHour in courtHours if \
                                 (storeOperationHour.IdStoreCourt == filteredCourts[0].IdStoreCourt) and\
                                 (storeOperationHour.Weekday == validDate.weekday()) and \
-                                ((storeOperationHour.Hour >= getHourIndex(timeStart)) and (storeOperationHour.Hour <= getHourIndex(timeEnd))) and \
-                                (((validDate == datetime.today().date()) and (datetime.strptime(getHourString(storeOperationHour.Hour), '%H:%M').time() < datetime.now().time())) == False)\
+                                ((storeOperationHour.IdAvailableHour >= getHourIndex(timeStart)) and (storeOperationHour.IdAvailableHour <= getHourIndex(timeEnd))) and \
+                                (((validDate == datetime.today().date()) and (datetime.strptime(storeOperationHour.AvailableHour.HourString, '%H:%M').time() < datetime.now().time())) == False)\
                                 ]
             
             jsonStoreOperationHours =[]
@@ -161,12 +161,12 @@ def SearchCourts():
                     concurrentMatch = [match for match in matches if \
                                 (match.IdStoreCourt ==  filteredCourt.IdStoreCourt) and \
                                 (match.Canceled == False) and \
-                                ((match.TimeBegin == storeOperationHour.Hour) or ((match.TimeBegin < storeOperationHour.Hour) and (match.TimeEnd > storeOperationHour.Hour)))\
+                                ((match.IdTimeBegin == storeOperationHour.IdAvailableHour) or ((match.IdTimeBegin < storeOperationHour.IdAvailableHour) and (match.IdTimeEnd > storeOperationHour.IdAvailableHour)))\
                                 ]
                     if not concurrentMatch:
                         jsonAvailableCourts.append({
                             'IdStoreCourt':filteredCourt.IdStoreCourt,
-                            'Price': [int(courtHour.Price) for courtHour in courtHours if (courtHour.IdStoreCourt == filteredCourt.IdStoreCourt) and (courtHour.Weekday == validDate.weekday()) and (courtHour.Hour == storeOperationHour.Hour)][0]
+                            'Price': [int(courtHour.Price) for courtHour in courtHours if (courtHour.IdStoreCourt == filteredCourt.IdStoreCourt) and (courtHour.Weekday == validDate.weekday()) and (courtHour.IdAvailableHour == storeOperationHour.IdAvailableHour)][0]
                         })
                         if filteredCourt.IdStoreCourt not in IdStoreCourtList:
                             IdStoreCourtList.append(filteredCourt.IdStoreCourt)
@@ -174,9 +174,9 @@ def SearchCourts():
                 if jsonAvailableCourts:
                     jsonStoreOperationHours.append({
                         'Courts': jsonAvailableCourts, 
-                        'TimeBegin':getHourString(storeOperationHour.Hour),
-                        'TimeFinish':getHourString(storeOperationHour.Hour + 1),
-                        'TimeInteger': storeOperationHour.Hour
+                        'TimeBegin':storeOperationHour.AvailableHour.HourString,
+                        'TimeFinish':getHourString(storeOperationHour.IdAvailableHour + 1),
+                        'TimeInteger': storeOperationHour.IdAvailableHour
                     })
 
             if jsonStoreOperationHours:
@@ -212,7 +212,6 @@ def CourtReservation():
         abort(HttpCode.ABORT)
 
     accessToken = request.json.get('accessToken')
-    idStore = request.json.get('idStore')
     idStoreCourt = request.json.get('idStoreCourt')
     sportId = request.json.get('sportId')
     date = request.json.get('date')
@@ -221,9 +220,9 @@ def CourtReservation():
     cost = request.json.get('cost')
 
     matches = Match.query.filter((Match.IdStoreCourt == int(idStoreCourt)) & (Match.Date == date) & (\
-                ((Match.TimeBegin >= timeBegin) & (Match.TimeBegin < timeEnd))  | \
-                ((Match.TimeEnd > timeBegin) & (Match.TimeEnd <= timeEnd))      | \
-                ((Match.TimeBegin < timeBegin) & (Match.TimeEnd > timeBegin))   \
+                ((Match.IdTimeBegin >= timeBegin) & (Match.IdTimeBegin < timeEnd))  | \
+                ((Match.IdTimeEnd > timeBegin) & (Match.IdTimeEnd <= timeEnd))      | \
+                ((Match.IdTimeBegin < timeBegin) & (Match.IdTimeEnd > timeBegin))   \
                 )).first()
     if not(matches is None):
         return "TIME_NO_LONGER_AVAILABLE", HttpCode.TIME_NO_LONGER_AVAILABLE
@@ -233,12 +232,11 @@ def CourtReservation():
         if user is None:
             return '1', HttpCode.INVALID_ACCESS_TOKEN
         newMatch = Match(
-            IdStore = idStore,
             IdStoreCourt = idStoreCourt,
             IdSport = sportId,
             Date = date,
-            TimeBegin = timeBegin,
-            TimeEnd = timeEnd,
+            IdTimeBegin = timeBegin,
+            IdTimeEnd = timeEnd,
             Cost = cost,
             OpenUsers = False,
             MaxUsers = 0,
@@ -269,17 +267,21 @@ def GetMatchInfo(matchUrl):
     if match is None:
         abort(HttpCode.ABORT)
 
-    matchMembers = db.session.query(MatchMember).filter(MatchMember.IdMatch == match.IdMatch).\
-                    filter((MatchMember.Quit == False) &(MatchMember.Refused != True)).all()
+    matchMembers = db.session.query(MatchMember).\
+                    filter(MatchMember.IdMatch == match.IdMatch).\
+                    filter((MatchMember.Quit == False) & (MatchMember.Refused != True)).all()
     matchMembersList = []
     idUsers = []
     for matchMember in matchMembers:
         matchMembersList.append(matchMember.to_json())
         idUsers.append(matchMember.IdUser)
 
-    store = Store.query.get(match.IdStore)
+    store = db.session.query(Store)\
+        .join(StoreCourt, StoreCourt.IdStore == Store.IdStore)\
+        .filter(StoreCourt.IdStoreCourt == match.IdStoreCourt).first()
+
     storePhotoList = []
-    storePhotos = StorePhoto.query.filter_by(IdStore=store.IdStore).all()
+    storePhotos = db.session.query(StorePhoto).filter(StorePhoto.IdStore == store.IdStore).all()
     for storePhoto in storePhotos:
         storePhotoList.append(storePhoto.to_json())
 
@@ -314,7 +316,7 @@ def GetMatchInfo(matchUrl):
             .filter(MatchMember.Refused == False)\
             .filter(MatchMember.Quit == False)\
             .filter(Match.Canceled == False)\
-            .filter((Match.Date < datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.TimeEnd <= datetime.now().hour))).all()
+            .filter((Match.Date < datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeEnd <= datetime.now().hour))).all()
 
         matchCounterList.append({
             'MatchCounter': len(matchCounter),
@@ -340,7 +342,7 @@ def InvitationResponse():
     match = Match.query.get(idMatch)
     if match is None:
         return 'MATCH_NOT_FOUND', HttpCode.MATCH_NOT_FOUND
-    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.TimeBegin), '%H:%M') < datetime.now())):
+    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
          return 'MATCH_ALREADY_FINISHED', HttpCode.MATCH_ALREADY_FINISHED
     else:
         matchMember = MatchMember.query.filter((MatchMember.IdMatch == idMatch) & (MatchMember.IdUser == idUser)).first()
@@ -357,7 +359,8 @@ def InvitationResponse():
             IdUser = idUser,
             IdUserReplaceText = user.IdUser,
             IdMatch = idMatch,
-            IdNotificationCategory = idNotificationCategory
+            IdNotificationCategory = idNotificationCategory,
+            Seen = False
         )
         db.session.add(newNotification)
         db.session.commit()
@@ -378,7 +381,7 @@ def LeaveMatch():
     match = Match.query.get(idMatch)
     if match is None:
         return 'MATCH_NOT_FOUND', HttpCode.MATCH_NOT_FOUND
-    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.TimeBegin), '%H:%M') < datetime.now())):
+    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
          return 'MATCH_ALREADY_FINISHED', HttpCode.MATCH_ALREADY_FINISHED
     else:
         matchMember = MatchMember.query.filter((MatchMember.IdMatch == idMatch) & (MatchMember.IdUser == user.IdUser)).first()
@@ -404,7 +407,7 @@ def SaveCreatorNotes():
     match = db.session.query(Match).get(idMatch)
     if match is None:
         return 'MATCH_NOT_FOUND', HttpCode.MATCH_NOT_FOUND
-    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.TimeBegin), '%H:%M') < datetime.now())):
+    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
          return 'MATCH_ALREADY_FINISHED', HttpCode.MATCH_ALREADY_FINISHED
     else:
         match.CreatorNotes = newCreatorNotes
@@ -428,7 +431,7 @@ def SaveOpenMatch():
     match = db.session.query(Match).get(idMatch)
     if match is None:
         return 'MATCH_NOT_FOUND', HttpCode.MATCH_NOT_FOUND
-    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.TimeBegin), '%H:%M') < datetime.now())):
+    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
          return 'MATCH_ALREADY_FINISHED', HttpCode.MATCH_ALREADY_FINISHED
     else:
         match.OpenUsers = isOpenMatch
@@ -455,7 +458,7 @@ def JoinMatch():
     match = db.session.query(Match).get(idMatch)
     if match is None:
         return 'MATCH_NOT_FOUND', HttpCode.MATCH_NOT_FOUND
-    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.TimeBegin), '%H:%M') < datetime.now())):
+    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
          return 'MATCH_ALREADY_FINISHED', HttpCode.MATCH_ALREADY_FINISHED
     else:
         matchMember = db.session.query(MatchMember).filter((MatchMember.IdMatch == idMatch) & (MatchMember.IdUser == user.IdUser)).first()
@@ -485,14 +488,16 @@ def JoinMatch():
             IdUser = matchCreator.IdUser,
             IdUserReplaceText = user.IdUser,
             IdMatch = idMatch,
-            IdNotificationCategory = 1
+            IdNotificationCategory = 1,
+            Seen = False
         )
         db.session.add(newNotification)
         newNotification = Notification(
             IdUser = user.IdUser,
             IdUserReplaceText = matchCreator.IdUser,
             IdMatch = idMatch,
-            IdNotificationCategory = 2
+            IdNotificationCategory = 2,
+            Seen = False
         )
         db.session.add(newNotification)
         db.session.commit()
@@ -513,7 +518,7 @@ def CancelMatch():
     match = Match.query.get(idMatch)
     if match is None:
         return 'MATCH_NOT_FOUND', HttpCode.MATCH_NOT_FOUND
-    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.TimeBegin), '%H:%M') < datetime.now())):
+    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
          return 'MATCH_ALREADY_FINISHED', HttpCode.MATCH_ALREADY_FINISHED
     else:
         match.Canceled = True
@@ -531,7 +536,8 @@ def CancelMatch():
                     IdUser = matchMember.IdUser,
                     IdUserReplaceText = matchMember.IdUser,
                     IdMatch = idMatch,
-                    IdNotificationCategory = idNotificationCategory
+                    IdNotificationCategory = idNotificationCategory,
+            Seen = False
                 )
                 db.session.add(newNotification)
         db.session.commit()
@@ -553,7 +559,7 @@ def RemoveMatchMember():
     match = Match.query.get(idMatch)
     if match is None:
         return 'MATCH_NOT_FOUND', HttpCode.MATCH_NOT_FOUND
-    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.TimeBegin), '%H:%M') < datetime.now())):
+    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
          return 'MATCH_ALREADY_FINISHED', HttpCode.MATCH_ALREADY_FINISHED
     else:
         match.Canceled = True
@@ -569,7 +575,8 @@ def RemoveMatchMember():
             IdUser = idUserDelete,
             IdUserReplaceText = matchCreator.IdUser,
             IdMatch = idMatch,
-            IdNotificationCategory = 5
+            IdNotificationCategory = 5,
+            Seen = False
         )
         db.session.add(newNotification)
 
@@ -583,8 +590,8 @@ def AddMatch():
     match = Match(
         IdStore = request.json.get('IdStore'),
         Date = request.json.get('Date'),
-        TimeBegin = request.json.get('TimeBegin'),
-        TimeEnd = request.json.get('TimeEnd'),
+        IdTimeBegin = request.json.get('TimeBegin'),
+        IdTimeEnd = request.json.get('TimeEnd'),
         Cost = request.json.get('Cost'),
         OpenUsers = request.json.get('OpenUsers'),
         MaxUsers = request.json.get('MaxUsers'),
@@ -603,60 +610,60 @@ def GetOpenMatches():
     accessToken = request.json.get('accessToken')
 
     userLogin = UserLogin.query.filter_by(AccessToken = accessToken).first()
+
     if userLogin is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN
 
-    userInfo = User.query.get(userLogin.IdUser)
-
     openMatches = db.session.query(Match)\
-                .join(Store, Store.IdStore == Match.IdStore)\
+                .join(StoreCourt, StoreCourt.IdStoreCourt == Match.IdStoreCourt)\
+                .join(Store, Store.IdStore == StoreCourt.IdStore)\
                 .filter(Match.OpenUsers == True)\
-                .filter((Match.Date > datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.TimeBegin >= int(datetime.now().strftime("%H")))))\
+                .filter((Match.Date > datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeBegin >= int(datetime.now().strftime("%H")))))\
                 .filter(Match.Canceled == False)\
-                .filter(Match.IdSport == userInfo.IdSport)\
-                .filter(Store.City == userInfo.IdCity).all()
+                .filter(Match.IdSport == userLogin.User.IdSport)\
+                .filter(Store.IdCity == userLogin.User.IdCity).all()
     
-    openMatchMembers = db.session.query(MatchMember)\
-                .filter(MatchMember.IdMatch.in_([match.IdMatch for match in openMatches]))\
-                .filter(MatchMember.WaitingApproval == False)\
-                .filter(MatchMember.Refused == False)\
-                .filter(MatchMember.Quit == False).all()
-
     jsonOpenMatches = []
-    for match in openMatches:
-        matchMembers = [member for member in openMatchMembers if member.IdMatch == match.IdMatch]
-        if (len(matchMembers) < match.MaxUsers) and (any(member.IdUser == userInfo.IdUser for member in matchMembers) == False): 
-            idMatchCreator = [matchMember.IdUser for matchMember in matchMembers if matchMember.IsMatchCreator == True][0]
-            matchCreatorRank = db.session.query(UserRank)\
-                        .join(RankCategory, RankCategory.IdRankCategory == UserRank.IdRankCategory)\
-                        .filter(RankCategory.IdSport == match.IdSport)\
-                        .filter(UserRank.IdUser == idMatchCreator).first()
+    storeList = []
+
+    for openMatch in openMatches:
+        userAlreadyInMatch = False
+        matchMemberCounter = 0
+        for member in openMatch.Members:
+            #get matchCreator info
+            if member.IsMatchCreator == True:
+                matchCreator = member.User
+                for rank in matchCreator.Ranks:
+                    if rank.RankCategory.IdSport == openMatch.IdSport:
+                        matchCreatorRank = rank
+
+            if (member.User.IdUser == userLogin.IdUser) and (member.Quit == False) and (member.WaitingApproval == False):
+                userAlreadyInMatch = True
+                break
+            else:
+                if (member.WaitingApproval == False) and (member.Refused == False) and (member.Quit == False):
+                    matchMemberCounter +=1
+        if (userAlreadyInMatch == False) and (matchMemberCounter < openMatch.MaxUsers):
             jsonOpenMatches.append({
-                'MatchDetails':match.to_json(),
-                'MatchCreator': db.session.query(User).filter(User.IdUser == idMatchCreator).first().identification_to_json(),
-                'SlotsRemaining': match.MaxUsers - len(matchMembers),
-                'MatchCreatorRank':matchCreatorRank.to_json(),
+                'MatchDetails':openMatch.to_json(),
+                'MatchCreator': matchCreator.identification_to_json(),
+                'SlotsRemaining': openMatch.MaxUsers - matchMemberCounter,
+                'MatchCreatorRank':matchCreatorRank.to_json()
+            })
+            if len(storeList) == 0:
+                storeList.append(openMatch.StoreCourt.Store)
+            else:
+                if openMatch.StoreCourt.Store not in storeList:
+                    storeList.append(openMatch.StoreCourt.Store)
+        
+        distinctStores = []
+        for store in storeList:
+            distinctStores.append({
+                'Store': store.to_json(),
+                'StorePhoto': [photo.to_json() for photo in store.Photos]
                 })
 
-    stores = db.session.query(Store).filter(Store.IdStore.in_([match.IdStore for match in openMatches])).distinct()
-
-    storePhotos = db.session.query(StorePhoto).filter(StorePhoto.IdStore.in_([store.IdStore for store in stores])).all()
-
-    courts = db.session.query(StoreCourt)\
-            .filter(StoreCourt.IdStoreCourt.in_([match.IdStoreCourt for match in openMatches])).all()
-
-    jsonStoreList = []
-    for store in stores:
-        jsonStoreList.append({
-            'Store':store.to_json(),
-            'StorePhoto':[storePhoto.to_json() for storePhoto in storePhotos if storePhoto.IdStore==store.IdStore]
-        })
-
-    jsonCourtsList = []
-    for court in courts:
-        jsonCourtsList.append(court.to_json())
-
-    return jsonify({'OpenMatches': jsonOpenMatches, 'Stores':jsonStoreList, 'Courts':jsonCourtsList}), HttpCode.SUCCESS
+    return jsonify({'OpenMatches': jsonOpenMatches, 'Stores':distinctStores}), HttpCode.SUCCESS
 
 @bp_match.route("/match/<id>", methods=["GET"])
 def match(id):

@@ -1,4 +1,4 @@
-#$env:FLASK_APP="backend_project"
+#$env:FLASK_APP="sandfriends_backend"
 #$env:FLASK_ENV="development"  
 
 from flask import Flask
@@ -12,6 +12,7 @@ from .routes.store_photo_routes import bp_store_photo
 from .routes.store_price_routes import bp_store_price
 from .routes.sport_routes import bp_sport
 from .routes.feedback_routes import bp_feedback
+from .routes.debug_routes import bp_debug
 
 import json
 
@@ -32,6 +33,7 @@ def create_app():
     app.register_blueprint(bp_store_price)
     app.register_blueprint(bp_sport)
     app.register_blueprint(bp_feedback)
+    app.register_blueprint(bp_debug)
 
     db.init_app(app)
     return app

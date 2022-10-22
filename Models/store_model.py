@@ -7,13 +7,17 @@ class Store(db.Model):
     Address = db.Column(db.String(45))
     Latitude = db.Column(db.String(45))
     Longitude = db.Column(db.String(45))
-    City = db.Column(db.Integer)
     Email = db.Column(db.String(45))
     PhoneNumber1 = db.Column(db.String(45))
     PhoneNumber2 = db.Column(db.String(45))
     Description = db.Column(db.String(250))
     Instagram = db.Column(db.String(100))
 
+    IdCity = db.Column(db.Integer, db.ForeignKey('city.IdCity'))
+    City = db.relationship('City', foreign_keys = [IdCity])
+
+    Courts = db.relationship('StoreCourt', backref="Store")
+    Photos = db.relationship('StorePhoto', backref="Store")
     
     def to_json(self):
         return {
@@ -22,7 +26,7 @@ class Store(db.Model):
             'Address': self.Address,
             'Latitude': self.Latitude,
             'Longitude': self.Longitude,
-            'City': self.City,
+            'IdCity': self.IdCity,
             'Email': self.Email,
             'PhoneNumber1': self.PhoneNumber1,
             'PhoneNumber2': self.PhoneNumber2,

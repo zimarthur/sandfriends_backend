@@ -6,6 +6,7 @@ class State(db.Model):
     State = db.Column(db.String(255))
     UF = db.Column(db.String(5))
 
+    cities = db.relationship("City", backref="State")
     
     def to_json(self):
         return {

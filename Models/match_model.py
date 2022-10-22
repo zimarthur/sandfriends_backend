@@ -3,15 +3,7 @@ from ..extensions import db
 class Match(db.Model):
     __tablename__ = 'match'
     IdMatch = db.Column(db.Integer, primary_key=True)
-
-    IdStore = db.Column(db.Integer, db.ForeignKey('store.IdStore'))
-    Store = db.relationship('Store', foreign_keys = [IdStore])
-
-    IdStoreCourt = db.Column(db.Integer)
-    IdSport = db.Column(db.Integer)
     Date = db.Column(db.DateTime)
-    TimeBegin = db.Column(db.Integer)
-    TimeEnd = db.Column(db.Integer)
     Cost = db.Column(db.Integer)
     OpenUsers = db.Column(db.Boolean)
     MaxUsers = db.Column(db.Integer)
@@ -19,26 +11,37 @@ class Match(db.Model):
     CreationDate = db.Column(db.DateTime)
     MatchUrl = db.Column(db.String(255))
     CreatorNotes = db.Column(db.String(255))
-    
+
+    IdStoreCourt = db.Column(db.Integer, db.ForeignKey('store_court.IdStoreCourt'))
+    StoreCourt = db.relationship('StoreCourt', foreign_keys = [IdStoreCourt])
+
+    IdSport = db.Column(db.Integer, db.ForeignKey('sport.IdSport'))
+    Sport = db.relationship('Sport', foreign_keys = [IdSport])
+
+    IdTimeBegin = db.Column(db.Integer, db.ForeignKey('available_hour.IdAvailableHour'))
+    TimeBegin = db.relationship('AvailableHour', foreign_keys = [IdTimeBegin])
+
+    IdTimeEnd = db.Column(db.Integer, db.ForeignKey('available_hour.IdAvailableHour'))
+    TimeBegin = db.relationship('AvailableHour', foreign_keys = [IdTimeEnd])
+
+    Members = db.relationship('MatchMember', backref="Match")
 
     def to_json(self):
-        # return {
-        #     'IdMatch': self.IdMatch,
-        #     'IdStore': self.IdStore,
-        #     'IdStoreCourt': self.IdStoreCourt,
-        #     'IdSport': self.IdSport,
-        #     'Date': self.Date.strftime("%Y-%m-%d"),
-        #     'TimeBegin': f"{self.TimeBegin}:00", #GAMBIARRA
-        #     'TimeEnd': f"{self.TimeEnd}:00",
-        #     'TimeInteger': self.TimeBegin,
-        #     'Cost': int(self.Cost),
-        #     'OpenUsers': self.OpenUsers,
-        #     'MaxUsers': self.MaxUsers,
-        #     'Canceled': self.Canceled,
-        #     'CreationDate': self.CreationDate.strftime("%Y-%m-%d"),
-        #     'MatchUrl': self.MatchUrl,
-        #     'CreatorNotes': self.CreatorNotes,
-        # }
         return {
-            'Store': self.Store.Name,
+            'IdMatch': self.IdMatch,
+            'IdStoreCourt': self.IdStoreCourt,
+            'IdStore': self.StoreCourt.IdStore,
+            'IdSport': self.IdSport,
+            'Date': self.Date.strftime("%Y-%m-%d"),
+            'TimeBegin': self.TimeBegin.HourString,
+            'TimeEnd': self.TimeBegin.HourString,
+            'TimeInteger': self.IdTimeBegin,
+            'Cost': int(self.Cost),
+            'OpenUsers': self.OpenUsers,
+            'MaxUsers': self.MaxUsers,
+            'Canceled': self.Canceled,
+            'CreationDate': self.CreationDate.strftime("%Y-%m-%d"),
+            'MatchUrl': self.MatchUrl,
+            'CreatorNotes': self.CreatorNotes,
         }
+        

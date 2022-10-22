@@ -2,7 +2,9 @@ from ..extensions import db
 
 class UserLogin(db.Model):
     __tablename__ = 'user_login'
-    IdUser = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    IdUser = db.Column(db.Integer, db.ForeignKey('user.IdUser'), primary_key=True, autoincrement=True)
+    User = db.relationship('User', foreign_keys = [IdUser])
+    
     Email = db.Column(db.String(225), unique=True, nullable=False)
     Password = db.Column(db.String(225), nullable=False)
     AccessToken = db.Column(db.String(225), nullable=False)

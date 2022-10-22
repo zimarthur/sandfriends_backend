@@ -39,8 +39,6 @@ def IsNewUser(UserId):
     else:
         return False
 
-def SendEmailConfirmation(User):
-    return True
     
 @bp_user_login.route("/ValidateToken", methods=["POST"])
 def ValidateToken():
@@ -50,12 +48,9 @@ def ValidateToken():
 
     payloadUserId = DecodeToken(token)
     userLogin = UserLogin.query.filter_by(AccessToken = token).first()
+
     if userLogin is None:
-        userLogin = UserLogin.query.filter_by(IdUser = payloadUserId).first()
-        if userLogin is None:
-            return '2', HttpCode.INVALID_USER_ID
-        else:
-            return '1', HttpCode.INVALID_ACCESS_TOKEN
+        return '1', HttpCode.INVALID_ACCESS_TOKEN
     else:
         newToken = EncodeToken(payloadUserId)
 
@@ -88,7 +83,7 @@ def ValidateToken():
             .filter(MatchMember.Refused == False)\
             .filter(MatchMember.Quit == False)\
             .filter(Match.Canceled == False)\
-            .filter((Match.Date < datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.TimeEnd <= datetime.now().hour))).all()
+            .filter((Match.Date < datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeEnd <= datetime.now().hour))).all()
 
         sports = db.session.query(Sport).all()
 
@@ -223,7 +218,7 @@ def LogIn():
             .filter(MatchMember.Refused == False)\
             .filter(MatchMember.Quit == False)\
             .filter(Match.Canceled == False)\
-            .filter((Match.Date < datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.TimeEnd <= datetime.now().hour))).all()
+            .filter((Match.Date < datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeEnd <= datetime.now().hour))).all()
 
         sports = db.session.query(Sport).all()
 
@@ -278,7 +273,7 @@ def LogIn():
                             .filter(MatchMember.Refused == False)\
                             .filter(MatchMember.Quit == False)\
                             .filter(Match.Canceled == False)\
-                            .filter((Match.Date < datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.TimeEnd <= datetime.now().hour))).all()
+                            .filter((Match.Date < datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeEnd <= datetime.now().hour))).all()
 
                         sports = db.session.query(Sport).all()
 
@@ -352,76 +347,70 @@ def GetUserInfo():
     userInfo = User.query.get(userLogin.IdUser)
 
     openMatches = db.session.query(Match)\
-                .join(Store, Store.IdStore == Match.IdStore)\
+                .join(StoreCourt, StoreCourt.IdStoreCourt == Match.IdStoreCourt)\
+                .join(Store, Store.IdStore == StoreCourt.IdStore)\
                 .filter(Match.OpenUsers == True)\
-                .filter((Match.Date > datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.TimeBegin >= int(datetime.now().strftime("%H")))))\
+                .filter((Match.Date > datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeBegin >= int(datetime.now().strftime("%H")))))\
                 .filter(Match.Canceled == False)\
-                .filter(Match.IdSport == userInfo.IdSport)\
-                .filter(Store.City == userInfo.IdCity).all()
+                .filter(Match.IdSport == userLogin.User.IdSport)\
+                .filter(Store.IdCity == userLogin.User.IdCity).all()
     
-    openMatchMembers = db.session.query(MatchMember)\
-                .filter(MatchMember.IdMatch.in_([match.IdMatch for match in openMatches]))\
-                .filter(MatchMember.WaitingApproval == False)\
-                .filter(MatchMember.Refused == False)\
-                .filter(MatchMember.Quit == False).all()     
-
     openMatchesCounter = 0
-    for match in openMatches:
-        matchMembers = [member for member in openMatchMembers if member.IdMatch == match.IdMatch]
-        if (len(matchMembers) < match.MaxUsers) and (any(member.IdUser == userInfo.IdUser for member in matchMembers) == False): 
+
+    for openMatch in openMatches:
+        userAlreadyInMatch = False
+        matchMemberCounter = 0
+        for member in openMatch.Members:
+            if (member.User.IdUser == userLogin.IdUser) and (member.Quit == False) and (member.WaitingApproval == False):
+                userAlreadyInMatch = True
+                break
+            else:
+                if (member.WaitingApproval == False) and (member.Refused == False) and (member.Quit == False):
+                    matchMemberCounter +=1
+        if (userAlreadyInMatch == False) and (matchMemberCounter < openMatch.MaxUsers):
             openMatchesCounter +=1
 
     userMatchesList = []
+    storeList = []
 
-    userMatches =  db.session.query(Match, Sport, Store, StoreCourt)\
+    userMatches =  db.session.query(Match)\
                 .join(MatchMember, Match.IdMatch == MatchMember.IdMatch)\
-                .join(Store, Store.IdStore == Match.IdStore)\
-                .join(Sport, Sport.IdSport == Match.IdSport)\
-                .join(StoreCourt, StoreCourt.IdStoreCourt == Match.IdStoreCourt)\
                 .filter(MatchMember.IdUser == userInfo.IdUser)\
                 .filter(MatchMember.Quit == False)\
                 .filter(MatchMember.Refused == False).all()
 
-    userMatchesIds = [match[0].IdMatch for match in userMatches]
-
-    userMatchesMembers = db.session.query(MatchMember, User)\
-                .join(User, MatchMember.IdUser == User.IdUser)\
-                .filter(MatchMember.IdMatch.in_(userMatchesIds))\
-                .filter(MatchMember.Quit != True).all()
-
-    stores = db.session.query(Store)\
-            .join(Match, Store.IdStore == Match.IdStore)\
-            .filter(Match.IdMatch.in_(userMatchesIds)).distinct()
-
-    storesIds = [store.IdStore for store in stores]
-
-    storePhotos = db.session.query(StorePhoto).filter(StorePhoto.IdStore.in_(storesIds)).all()
-
-    storeList = []
-    for store in stores:
-        storePhotoJson = []
-        for storePhoto in storePhotos:
-            if storePhoto.IdStore == store.IdStore:
-                storePhotoJson.append(storePhoto.to_json())
-        storeList.append({
-            'store':store.to_json(),
-            'storePhotos': storePhotoJson,
-        })
-
     for userMatch in userMatches:
+        for member in userMatch.Members:
+            if member.IsMatchCreator == True:
+                matchCreator = member
+                break
         userMatchesList.append({
-                'match': userMatch[0].to_json(),
-                'matchCreator': [userMatchesMember[1].FirstName for userMatchesMember in userMatchesMembers if \
-                            ((userMatchesMember[0].IsMatchCreator == True) and (userMatchesMember[0].IdMatch == userMatch[0].IdMatch))][0]
+            'match': userMatch.to_json(),
+            'matchCreator': matchCreator.User.FirstName,
+            })
+
+        if len(storeList) == 0:
+            storeList.append(userMatch.StoreCourt.Store)
+        else:
+            if userMatch.StoreCourt.Store not in storeList:
+                storeList.append(userMatch.StoreCourt.Store)
+    
+    distinctStores = []
+    for store in storeList:
+        distinctStores.append({
+            'store': store.to_json(),
+            'storePhotos': [photo.to_json() for photo in store.Photos]
             })
 
     notificationList = []
     notifications = db.session.query(Notification).filter(Notification.IdUser == userLogin.IdUser).all()
-
+    
     for notification in notifications:
         notificationList.append(notification.to_json())
+        notification.Seen = True
+        db.session.commit()
+    return  jsonify({'stores': distinctStores, 'userMatches': userMatchesList, 'openMatchesCounter': openMatchesCounter, 'notifications': notificationList}), 200
 
-    return  jsonify({'stores': storeList, 'userMatches': userMatchesList, 'openMatchesCounter': openMatchesCounter, 'notifications': notificationList}), 200
 
 
 

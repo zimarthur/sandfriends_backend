@@ -1,4 +1,4 @@
-#!/home/zim/backend_project/venv/bin/python3
+#!/home/zim/sandfriends_backend/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys

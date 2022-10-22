@@ -11,7 +11,7 @@ def AddStore():
     store = Store(
         Name = request.json.get('Name'),
         Address = request.json.get('Address'),
-        City = request.json.get('City'),
+        IdCity = request.json.get('City'),
         Email = request.json.get('Email'),
         PhoneNumber1 = request.json.get('PhoneNumber1'),
         PhoneNumber2 = request.json.get('PhoneNumber2'),
@@ -42,7 +42,7 @@ def UpdateStore(id):
         abort(404)
     store.Name = request.json.get('Name')
     store.Address = request.json.get('Address')
-    store.City = request.json.get('City')
+    store.IdCity = request.json.get('City')
     store.Email = request.json.get('Email')
     store.PhoneNumber1 = request.json.get('PhoneNumber1')
     store.PhoneNumber2 = request.json.get('PhoneNumber2')

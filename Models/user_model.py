@@ -4,17 +4,29 @@ from datetime import datetime
 
 class User(db.Model):
     __tablename__ = 'user'
-    IdUser = db.Column(db.Integer, primary_key=True)
+    IdUser = db.Column(db.Integer, db.ForeignKey('user_login.IdUser'), primary_key=True)
+    UserLogin = db.relationship('UserLogin', foreign_keys = [IdUser])
+
     FirstName = db.Column(db.String(25))
     LastName = db.Column(db.String(25))
     PhoneNumber = db.Column(db.String(11))
-    IdGenderCategory = db.Column(db.Integer)
     Birthday = db.Column(db.DateTime)
     Height = db.Column(db.Float)
-    IdSidePreferenceCategory = db.Column(db.Integer)
     Photo = db.Column(db.String(100))
-    IdCity = db.Column(db.Integer)
-    IdSport = db.Column(db.Integer)
+
+    IdGenderCategory = db.Column(db.Integer, db.ForeignKey('gender_category.IdGenderCategory'))
+    GenderCategory = db.relationship('GenderCategory', foreign_keys = [IdGenderCategory])
+
+    IdSidePreferenceCategory = db.Column(db.Integer, db.ForeignKey('side_preference_category.IdSidePreferenceCategory'))
+    SidePreferenceCategory = db.relationship('SidePreferenceCategory', foreign_keys = [IdSidePreferenceCategory])
+
+    IdCity = db.Column(db.Integer, db.ForeignKey('city.IdCity'))
+    City = db.relationship('City', foreign_keys = [IdCity])
+
+    IdSport = db.Column(db.Integer, db.ForeignKey('sport.IdSport'))
+    Sport = db.relationship('Sport', foreign_keys = [IdSport])
+
+    Ranks = db.relationship("UserRank", backref="User")
 
     def to_json(self):
         if self.Birthday == None:
