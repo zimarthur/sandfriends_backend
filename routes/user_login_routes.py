@@ -32,76 +32,12 @@ bp_user_login = Blueprint('bp_user_login', __name__)
 
 
 
-def IsNewUser(UserId):
-    filledUser = User.query.filter_by(IdUser=UserId).first()
-    if filledUser == None:
+def IsNewUser(UserLogin):
+    if UserLogin.User == None:
         return True
     else:
         return False
 
-    
-@bp_user_login.route("/ValidateToken", methods=["POST"])
-def ValidateToken():
-    if not request.json:
-        abort(HttpCode.ABORT)
-    token = request.json.get('AccessToken')
-
-    payloadUserId = DecodeToken(token)
-    userLogin = UserLogin.query.filter_by(AccessToken = token).first()
-
-    if userLogin is None:
-        return '1', HttpCode.INVALID_ACCESS_TOKEN
-    else:
-        newToken = EncodeToken(payloadUserId)
-
-        login = {
-            'AccessToken': newToken,
-            'IsNewUser': IsNewUser(payloadUserId),
-            'EmailConfirmationDate':userLogin.EmailConfirmationDate,
-            'Email': userLogin.Email
-        }
-
-        userLogin.AccessToken = newToken
-        db.session.commit()
-
-        if IsNewUser(userLogin.IdUser):
-            return jsonify({'login': login}), HttpCode.SUCCESS
-
-        user = db.session.query(User).filter_by(IdUser = userLogin.IdUser).first()
-
-        userRanks = db.session.query(UserRank).filter_by(IdUser = user.IdUser).all()
-
-        userRanksList = []
-        for userRank in userRanks:
-            userRanksList.append(userRank.to_json())
-        
-        matchCounterList=[]
-        matchCounter = db.session.query(Match)\
-            .join(MatchMember, MatchMember.IdMatch == Match.IdMatch)\
-            .filter(MatchMember.IdUser == user.IdUser)\
-            .filter(MatchMember.WaitingApproval == False)\
-            .filter(MatchMember.Refused == False)\
-            .filter(MatchMember.Quit == False)\
-            .filter(Match.Canceled == False)\
-            .filter((Match.Date < datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeEnd <= datetime.now().hour))).all()
-
-        sports = db.session.query(Sport).all()
-
-        for sport in sports:
-            matchCounterList.append({
-                'idSport': sport.IdSport,
-                'matchCounter': len([match for match in matchCounter if match.IdSport == sport.IdSport])
-            })
-
-        userCityJson = ""
-        userStateJson = ""
-        if user.IdCity != None:
-            userCity = db.session.query(City).filter(City.IdCity == user.IdCity).first()
-            userState = db.session.query(State).filter(State.IdState == userCity.IdState).first()
-            userCityJson = userCity.to_json()
-            userStateJson = userState.to_json()
-            
-        return jsonify({'login': login, 'user': user.to_json(), 'userRanks': userRanksList, 'matchCounter':matchCounterList, 'userEmail':userLogin.Email, 'userCity': userCityJson, 'userState': userStateJson}), HttpCode.SUCCESS
 
 @bp_user_login.route("/SignIn", methods=["POST"])
 def SignIn():
@@ -113,6 +49,7 @@ def SignIn():
     time = datetime.now()
 
     user = UserLogin.query.filter_by(Email=email).first()
+
     if not user:        
         userLogin = UserLogin(
             Email = email,
@@ -129,11 +66,7 @@ def SignIn():
         userLogin.EmailConfirmationToken = str(datetime.now().timestamp()) + userLogin.AccessToken
         sendEmail("https://www.sandfriends.com.br/redirect/?ct=emcf&bd="+userLogin.EmailConfirmationToken)
         db.session.commit()
-        data ={
-            'AccessToken': userLogin.AccessToken,
-            'IsNewUser': True
-        }
-        return data, HttpCode.SUCCESS
+        return userLogin.to_json(), HttpCode.SUCCESS
     else:
         if user.ThirdPartyLogin:
             return "e-mail já cadastrado com Conta Google",HttpCode.EMAIL_ALREADY_USED_THIRDPARTY
@@ -164,6 +97,45 @@ def ConfirmEmail():
         return "Wrong Token", HttpCode.INVALID_EMAIL_CONFIRMATION_TOKEN
 
 
+@bp_user_login.route("/ValidateToken", methods=["POST"])
+def ValidateToken():
+    if not request.json:
+        abort(HttpCode.ABORT)
+    token = request.json.get('AccessToken')
+
+    payloadUserId = DecodeToken(token)
+    userLogin = UserLogin.query.filter_by(AccessToken = token).first()
+
+    if userLogin is None:
+        return '1', HttpCode.INVALID_ACCESS_TOKEN
+    else:
+        newToken = EncodeToken(payloadUserId)
+        userLogin.AccessToken = newToken
+        db.session.commit()
+
+        if userLogin.User == None:
+            return jsonify({'UserLogin': userLogin.to_json()}), HttpCode.SUCCESS
+        
+        matchCounterList=[]
+        matchCounter = db.session.query(Match)\
+            .join(MatchMember, MatchMember.IdMatch == Match.IdMatch)\
+            .filter(MatchMember.IdUser == userLogin.IdUser)\
+            .filter(MatchMember.WaitingApproval == False)\
+            .filter(MatchMember.Refused == False)\
+            .filter(MatchMember.Quit == False)\
+            .filter(Match.Canceled == False)\
+            .filter((Match.Date < datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeEnd <= datetime.now().hour))).all()
+
+        sports = db.session.query(Sport).all()
+
+        for sport in sports:
+            matchCounterList.append({
+                'Sport': sport.to_json(),
+                'MatchCounter': len([match for match in matchCounter if match.IdSport == sport.IdSport])
+            })
+            
+        return jsonify({'UserLogin': userLogin.to_json(), 'User': userLogin.User.to_json(), 'MatchCounter':matchCounterList,}), HttpCode.SUCCESS
+
 @bp_user_login.route("/LogIn", methods=["POST"])
 def LogIn():
     if not request.json:
@@ -176,7 +148,7 @@ def LogIn():
     userLogin = UserLogin.query.filter_by(Email=email).first()
 
     if thirdPartyLogin:
-        if not userLogin: #sign up with google new account
+        if not userLogin: #sign up with new google account
             userLogin = UserLogin(
             Email = email,
             Password = '',
@@ -190,53 +162,36 @@ def LogIn():
 
             userLogin.AccessToken = EncodeToken(userLogin.IdUser)
             db.session.commit()
-            login ={
-            'AccessToken': userLogin.AccessToken,
-            'IsNewUser': True
-            }
+            return jsonify({'UserLogin': userLogin.to_json()}), HttpCode.SUCCESS
         else:
             newToken = EncodeToken(userLogin.IdUser)
-            login = {
-            'AccessToken': newToken,
-            'IsNewUser': IsNewUser(userLogin.IdUser)
-            }
+
             userLogin.AccessToken = newToken
             db.session.commit()
-        user = db.session.query(User).filter_by(IdUser = userLogin.IdUser).first()
 
-        userRanks = db.session.query(UserRank).filter_by(IdUser = user.IdUser).all()
+            if userLogin.User == None:
+                return jsonify({'UserLogin': userLogin.to_json()}), HttpCode.SUCCESS
+            
+            matchCounterList=[]
+            matchCounter = db.session.query(Match)\
+                .join(MatchMember, MatchMember.IdMatch == Match.IdMatch)\
+                .filter(MatchMember.IdUser == userLogin.IdUser)\
+                .filter(MatchMember.WaitingApproval == False)\
+                .filter(MatchMember.Refused == False)\
+                .filter(MatchMember.Quit == False)\
+                .filter(Match.Canceled == False)\
+                .filter((Match.Date < datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeEnd <= datetime.now().hour))).all()
 
-        userRanksList = []
-        for userRank in userRanks:
-            userRanksList.append(userRank.to_json())
+            sports = db.session.query(Sport).all()
 
-        matchCounterList=[]
-        matchCounter = db.session.query(Match)\
-            .join(MatchMember, MatchMember.IdMatch == Match.IdMatch)\
-            .filter(MatchMember.IdUser == user.IdUser)\
-            .filter(MatchMember.WaitingApproval == False)\
-            .filter(MatchMember.Refused == False)\
-            .filter(MatchMember.Quit == False)\
-            .filter(Match.Canceled == False)\
-            .filter((Match.Date < datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeEnd <= datetime.now().hour))).all()
+            for sport in sports:
+                matchCounterList.append({
+                    'Sport': sport.to_json(),
+                    'MatchCounter': len([match for match in matchCounter if match.IdSport == sport.IdSport])
+                })
+                
+            return jsonify({'UserLogin': userLogin.to_json(), 'User': userLogin.User.to_json(), 'MatchCounter':matchCounterList,}), HttpCode.SUCCESS
 
-        sports = db.session.query(Sport).all()
-
-        for sport in sports:
-            matchCounterList.append({
-                'idSport': sport.IdSport,
-                'matchCounter': len([match for match in matchCounter if match.IdSport == sport.IdSport])
-            })
-
-        userCityJson = ""
-        userStateJson = ""
-        if user.IdCity != None:
-            userCity = db.session.query(City).filter(City.IdCity == user.IdCity).first()
-            userState = db.session.query(State).filter(State.IdState == userCity.IdState).first()
-            userCityJson = userCity.to_json()
-            userStateJson = userState.to_json()
-
-        return jsonify({'login': login, 'user': user.to_json(), 'userRanks': userRanksList, 'matchCounter': matchCounterList, 'userEmail':userLogin.Email, 'userCity': userCityJson, 'userState': userStateJson}), HttpCode.SUCCESS
     else:
         if not userLogin:
             return 'Esse email não está cadastrado', HttpCode.EMAIL_NOT_FOUND
@@ -247,28 +202,17 @@ def LogIn():
                 if userLogin.Password == password:
                     if userLogin.EmailConfirmationDate != None:
                         newToken = EncodeToken(userLogin.IdUser)
-                        login ={
-                        'AccessToken': newToken,
-                        'IsNewUser': IsNewUser(userLogin.IdUser)
-                        }
+
                         userLogin.AccessToken = newToken
                         db.session.commit()
 
-                        if IsNewUser(userLogin.IdUser):
-                            return jsonify({'login': login}), HttpCode.SUCCESS
-
-                        user = db.session.query(User).filter_by(IdUser = userLogin.IdUser).first()
-
-                        userRanks = db.session.query(UserRank).filter_by(IdUser = user.IdUser).all()
-
-                        userRanksList = []
-                        for userRank in userRanks:
-                            userRanksList.append(userRank.to_json())
-
+                        if userLogin.User == None:
+                            return jsonify({'UserLogin': userLogin.to_json()}), HttpCode.SUCCESS
+                        
                         matchCounterList=[]
                         matchCounter = db.session.query(Match)\
                             .join(MatchMember, MatchMember.IdMatch == Match.IdMatch)\
-                            .filter(MatchMember.IdUser == user.IdUser)\
+                            .filter(MatchMember.IdUser == userLogin.IdUser)\
                             .filter(MatchMember.WaitingApproval == False)\
                             .filter(MatchMember.Refused == False)\
                             .filter(MatchMember.Quit == False)\
@@ -279,18 +223,12 @@ def LogIn():
 
                         for sport in sports:
                             matchCounterList.append({
-                                'idSport': sport.IdSport,
-                                'matchCounter': len([match for match in matchCounter if match.IdSport == sport.IdSport])
+                                'Sport': sport.to_json(),
+                                'MatchCounter': len([match for match in matchCounter if match.IdSport == sport.IdSport])
                             })
+                            
+                        return jsonify({'UserLogin': userLogin.to_json(), 'User': userLogin.User.to_json(), 'MatchCounter':matchCounterList,}), HttpCode.SUCCESS
 
-                        userCityJson = ""
-                        userStateJson = ""
-                        if user.IdCity != None:
-                            userCity = db.session.query(City).filter(City.IdCity == user.IdCity).first()
-                            userState = db.session.query(State).filter(State.IdState == userCity.IdState).first()
-                            userCityJson = userCity.to_json()
-                            userStateJson = userState.to_json()
-                        return jsonify({'login': login, 'user': user.to_json(), 'userRanks': userRanksList, 'matchCounter': matchCounterList, 'userEmail':userLogin.Email, 'userCity': userCityJson, 'userState': userStateJson}), HttpCode.SUCCESS
                     else:
                         return "valide email", HttpCode.WAITING_EMAIL_CONFIRMATION
                 else:
@@ -344,8 +282,6 @@ def GetUserInfo():
     if userLogin is None:
         return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
 
-    userInfo = User.query.get(userLogin.IdUser)
-
     openMatches = db.session.query(Match)\
                 .join(StoreCourt, StoreCourt.IdStoreCourt == Match.IdStoreCourt)\
                 .join(Store, Store.IdStore == StoreCourt.IdStore)\
@@ -371,11 +307,10 @@ def GetUserInfo():
             openMatchesCounter +=1
 
     userMatchesList = []
-    storeList = []
 
     userMatches =  db.session.query(Match)\
                 .join(MatchMember, Match.IdMatch == MatchMember.IdMatch)\
-                .filter(MatchMember.IdUser == userInfo.IdUser)\
+                .filter(MatchMember.IdUser == userLogin.IdUser)\
                 .filter(MatchMember.Quit == False)\
                 .filter(MatchMember.Refused == False).all()
 
@@ -384,23 +319,9 @@ def GetUserInfo():
             if member.IsMatchCreator == True:
                 matchCreator = member
                 break
-        userMatchesList.append({
-            'match': userMatch.to_json(),
-            'matchCreator': matchCreator.User.FirstName,
-            })
+        userMatchesList.append(userMatch.to_json())
 
-        if len(storeList) == 0:
-            storeList.append(userMatch.StoreCourt.Store)
-        else:
-            if userMatch.StoreCourt.Store not in storeList:
-                storeList.append(userMatch.StoreCourt.Store)
-    
-    distinctStores = []
-    for store in storeList:
-        distinctStores.append({
-            'store': store.to_json(),
-            'storePhotos': [photo.to_json() for photo in store.Photos]
-            })
+
 
     notificationList = []
     notifications = db.session.query(Notification).filter(Notification.IdUser == userLogin.IdUser).all()
@@ -409,7 +330,8 @@ def GetUserInfo():
         notificationList.append(notification.to_json())
         notification.Seen = True
         db.session.commit()
-    return  jsonify({'stores': distinctStores, 'userMatches': userMatchesList, 'openMatchesCounter': openMatchesCounter, 'notifications': notificationList}), 200
+
+    return  jsonify({'UserMatches': userMatchesList, 'OpenMatchesCounter': openMatchesCounter, 'Notifications': notificationList}), 200
 
 
 
@@ -436,9 +358,4 @@ def GetAppCategories():
     for rank in ranks:
         ranksList.append(rank.to_json())
 
-    notifications = db.session.query(NotificationCategory).all()
-    notificationsList = []
-    for notification in notifications:
-        notificationsList.append(notification.to_json())
-
-    return  jsonify({'sports':sportsList, 'genders': gendersList, 'sidePreferences': sidePreferencesList, 'ranks': ranksList, 'notifications': notificationsList}), 200
+    return  jsonify({'Sports':sportsList, 'Genders': gendersList, 'SidePreferences': sidePreferencesList, 'Ranks': ranksList}), 200

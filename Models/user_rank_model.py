@@ -13,5 +13,5 @@ class UserRank(db.Model):
         return {
             'IdUserRank': self.IdUserRank,
             'IdUser': self.IdUser,
-            'IdRankCategory': self.IdRankCategory,
+            'RankCategory': self.RankCategory.to_json(),
         }

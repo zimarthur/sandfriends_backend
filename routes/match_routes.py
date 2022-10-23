@@ -55,7 +55,7 @@ def GetAllCities():
         statesList.append(state.to_json())
         for city in state.cities:
             citiesList.append(city.to_json())
-    return jsonify({'cities': citiesList, 'states':statesList})
+    return jsonify({'Cities': citiesList, 'States':statesList})
 
 @bp_match.route("/GetAvailableCities", methods=["GET"])
 def GetAvailableCities():
@@ -73,7 +73,7 @@ def GetAvailableCities():
     for state in states:
         statesList.append(state.to_json())
 
-    return jsonify({'cities': citiesList, 'states':statesList})
+    return jsonify({'Cities': citiesList, 'States':statesList})
 
     
 
@@ -267,51 +267,12 @@ def GetMatchInfo(matchUrl):
     if match is None:
         abort(HttpCode.ABORT)
 
-    matchMembers = db.session.query(MatchMember).\
-                    filter(MatchMember.IdMatch == match.IdMatch).\
-                    filter((MatchMember.Quit == False) & (MatchMember.Refused != True)).all()
-    matchMembersList = []
-    idUsers = []
-    for matchMember in matchMembers:
-        matchMembersList.append(matchMember.to_json())
-        idUsers.append(matchMember.IdUser)
-
-    store = db.session.query(Store)\
-        .join(StoreCourt, StoreCourt.IdStore == Store.IdStore)\
-        .filter(StoreCourt.IdStoreCourt == match.IdStoreCourt).first()
-
-    storePhotoList = []
-    storePhotos = db.session.query(StorePhoto).filter(StorePhoto.IdStore == store.IdStore).all()
-    for storePhoto in storePhotos:
-        storePhotoList.append(storePhoto.to_json())
-
-    storeCourt = StoreCourt.query.get(match.IdStoreCourt)
-
-    sports = db.session.query(Sport).all()
-    sportsList = []
-    for sport in sports:
-        sportsList.append(sport.to_json())
-
-    users = db.session.query(User)\
-                .filter(User.IdUser.in_(idUsers)).distinct()
-    usersList=[]
-    for user in users:
-        usersList.append(user.to_json())
-
-    userRankList = []
-    userRanks = db.session.query(UserRank)\
-                .join(RankCategory, RankCategory.IdRankCategory == UserRank.IdRankCategory)\
-                .filter(RankCategory.IdSport == match.IdSport)\
-                .filter(UserRank.IdUser.in_(idUsers)).all()
-    for userRank in userRanks:
-        userRankList.append(userRank.to_json())
-
     matchCounterList=[]
-    for idUser in idUsers:
+    for member in match.Members:
         matchCounter = db.session.query(Match)\
             .join(MatchMember, MatchMember.IdMatch == Match.IdMatch)\
             .filter(Match.IdSport == match.IdSport)\
-            .filter(MatchMember.IdUser == idUser)\
+            .filter(MatchMember.IdUser == member.User.IdUser)\
             .filter(MatchMember.WaitingApproval == False)\
             .filter(MatchMember.Refused == False)\
             .filter(MatchMember.Quit == False)\
@@ -320,10 +281,10 @@ def GetMatchInfo(matchUrl):
 
         matchCounterList.append({
             'MatchCounter': len(matchCounter),
-            'IdUser': idUser,
+            'IdUser': member.User.IdUser,
         })
 
-    return jsonify({'match': match.to_json(), 'matchMembers':matchMembersList, 'storeCourt': storeCourt.to_json(), 'users':usersList, 'store':store.to_json(), 'storePhotos':storePhotoList,'sports':sportsList, 'userRanks':userRankList, 'usersMatchCounter':matchCounterList}), HttpCode.SUCCESS
+    return jsonify({'Match': match.to_json(), 'UsersMatchCounter':matchCounterList}), HttpCode.SUCCESS
 
 @bp_match.route("/InvitationResponse", methods=["POST"])
 def InvitationResponse():
@@ -624,46 +585,50 @@ def GetOpenMatches():
                 .filter(Store.IdCity == userLogin.User.IdCity).all()
     
     jsonOpenMatches = []
-    storeList = []
-
     for openMatch in openMatches:
-        userAlreadyInMatch = False
-        matchMemberCounter = 0
-        for member in openMatch.Members:
-            #get matchCreator info
-            if member.IsMatchCreator == True:
-                matchCreator = member.User
-                for rank in matchCreator.Ranks:
-                    if rank.RankCategory.IdSport == openMatch.IdSport:
-                        matchCreatorRank = rank
+        jsonOpenMatches.append(openMatch.to_json())
 
-            if (member.User.IdUser == userLogin.IdUser) and (member.Quit == False) and (member.WaitingApproval == False):
-                userAlreadyInMatch = True
-                break
-            else:
-                if (member.WaitingApproval == False) and (member.Refused == False) and (member.Quit == False):
-                    matchMemberCounter +=1
-        if (userAlreadyInMatch == False) and (matchMemberCounter < openMatch.MaxUsers):
-            jsonOpenMatches.append({
-                'MatchDetails':openMatch.to_json(),
-                'MatchCreator': matchCreator.identification_to_json(),
-                'SlotsRemaining': openMatch.MaxUsers - matchMemberCounter,
-                'MatchCreatorRank':matchCreatorRank.to_json()
-            })
-            if len(storeList) == 0:
-                storeList.append(openMatch.StoreCourt.Store)
-            else:
-                if openMatch.StoreCourt.Store not in storeList:
-                    storeList.append(openMatch.StoreCourt.Store)
+    return jsonify({'OpenMatches': jsonOpenMatches}), HttpCode.SUCCESS
+    # storeList = []
+
+    # for openMatch in openMatches:
+    #     userAlreadyInMatch = False
+    #     matchMemberCounter = 0
+    #     for member in openMatch.Members:
+    #         #get matchCreator info
+    #         if member.IsMatchCreator == True:
+    #             matchCreator = member.User
+    #             for rank in matchCreator.Ranks:
+    #                 if rank.RankCategory.IdSport == openMatch.IdSport:
+    #                     matchCreatorRank = rank
+
+    #         if (member.User.IdUser == userLogin.IdUser) and (member.Quit == False) and (member.WaitingApproval == False):
+    #             userAlreadyInMatch = True
+    #             break
+    #         else:
+    #             if (member.WaitingApproval == False) and (member.Refused == False) and (member.Quit == False):
+    #                 matchMemberCounter +=1
+    #     if (userAlreadyInMatch == False) and (matchMemberCounter < openMatch.MaxUsers):
+    #         jsonOpenMatches.append({
+    #             'MatchDetails':openMatch.to_json(),
+    #             'MatchCreator': matchCreator.identification_to_json(),
+    #             'SlotsRemaining': openMatch.MaxUsers - matchMemberCounter,
+    #             'MatchCreatorRank':matchCreatorRank.to_json()
+    #         })
+    #         if len(storeList) == 0:
+    #             storeList.append(openMatch.StoreCourt.Store)
+    #         else:
+    #             if openMatch.StoreCourt.Store not in storeList:
+    #                 storeList.append(openMatch.StoreCourt.Store)
         
-        distinctStores = []
-        for store in storeList:
-            distinctStores.append({
-                'Store': store.to_json(),
-                'StorePhoto': [photo.to_json() for photo in store.Photos]
-                })
+    #     distinctStores = []
+    #     for store in storeList:
+    #         distinctStores.append({
+    #             'Store': store.to_json(),
+    #             'StorePhoto': [photo.to_json() for photo in store.Photos]
+    #             })
 
-    return jsonify({'OpenMatches': jsonOpenMatches, 'Stores':distinctStores}), HttpCode.SUCCESS
+    # return jsonify({'OpenMatches': jsonOpenMatches, 'Stores':distinctStores}), HttpCode.SUCCESS
 
 @bp_match.route("/match/<id>", methods=["GET"])
 def match(id):

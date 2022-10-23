@@ -16,14 +16,19 @@ class UserLogin(db.Model):
    
 
     def to_json(self):
+        if self.User == None:
+            isNewUser = True
+        else:
+            isNewUser = False
         return {
             'IdUser': self.IdUser,
             'Email': self.Email,
-            'Password': self.Password,
+            #'Password': self.Password,
             'AccessToken': self.AccessToken,
             'RegistrationDate': self.RegistrationDate,
             'EmailConfirmationDate': self.EmailConfirmationDate,
             'EmailConfirmationToken': self.EmailConfirmationToken,
             'ThirdPartyLogin': self.ThirdPartyLogin,
             'ResetPasswordValue':self.ResetPasswordValue,
+            'IsNewUser': isNewUser
         }

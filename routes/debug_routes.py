@@ -58,9 +58,9 @@ def getHourIndex(hourString):
 
 @bp_debug.route('/debug', methods=['GET'])
 def debug():
-        
+        user = Match.query.first()
 
-        return 'a'
+        return jsonify({'user': user.to_json()})
 
 
 

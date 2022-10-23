@@ -33,4 +33,5 @@ class Store(db.Model):
             'Logo': f"https://www.sandfriends.com.br/img/str/logo/{self.IdStore}.png",
             'Description': self.Description,
             'Instagram': self.Instagram,
+            'StorePhotos':[photo.to_json() for photo in self.Photos]
         }

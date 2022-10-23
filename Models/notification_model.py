@@ -24,4 +24,5 @@ class Notification(db.Model):
             'Message':self.NotificationCategory.Message.replace("{user}", self.UserReplaceText.FirstName),
             'Match': self.Match.to_json(),
             'Seen':self.Seen,
+            'User': self.UserReplaceText.to_json(),
         }

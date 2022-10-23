@@ -29,9 +29,8 @@ class Match(db.Model):
     def to_json(self):
         return {
             'IdMatch': self.IdMatch,
-            'IdStoreCourt': self.IdStoreCourt,
-            'IdStore': self.StoreCourt.IdStore,
-            'IdSport': self.IdSport,
+            'StoreCourt': self.StoreCourt.to_json(),
+            'Sport': self.Sport.to_json(),
             'Date': self.Date.strftime("%Y-%m-%d"),
             'TimeBegin': self.TimeBegin.HourString,
             'TimeEnd': self.TimeBegin.HourString,
@@ -43,5 +42,6 @@ class Match(db.Model):
             'CreationDate': self.CreationDate.strftime("%Y-%m-%d"),
             'MatchUrl': self.MatchUrl,
             'CreatorNotes': self.CreatorNotes,
+            'Members':[member.to_json() for member in self.Members]
         }
         

@@ -12,5 +12,5 @@ class City(db.Model):
         return {
             'IdCity': self.IdCity,
             'City': self.City,
-            'IdState': self.IdState,
+            'State': self.State.to_json(),
         }

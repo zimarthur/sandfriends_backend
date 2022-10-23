@@ -13,7 +13,7 @@ class StoreCourt(db.Model):
     def to_json(self):
         return {
             'IdStoreCourt': self.IdStoreCourt,
-            'IdStore': self.IdStore,
+            'Store': self.Store.to_json(),
             'Description':self.Description,
             'IsIndoor': self.IsIndoor,
         }

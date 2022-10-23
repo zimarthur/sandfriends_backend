@@ -35,24 +35,43 @@ class User(db.Model):
         else:
             birthday = self.Birthday.strftime("%d/%m/%Y")
             age = datetime.today().year - self.Birthday.year - ((datetime.today().month, datetime.today().day) < (self.Birthday.month, self.Birthday.day))
+        
         if self.Photo == None:
             photo = None
         else:
             photo = f"https://www.sandfriends.com.br/img/usr/{self.Photo}.png"
+        
+        rankList = []
+        for rank in self.Ranks:
+            rankList.append(rank.to_json())
+
+        if self.GenderCategory == None:
+            gender = None
+        else:
+            gender = self.GenderCategory.to_json(),
+
+        if self.SidePreferenceCategory == None:
+            sidePreferenceCategory = None
+        else:
+            sidePreferenceCategory = self.SidePreferenceCategory.to_json(),
+
         return {
             'IdUser': self.IdUser,
             'FirstName': self.FirstName,
             'LastName': self.LastName,
             'PhoneNumber': self.PhoneNumber,
-            'IdGenderCategory': self.IdGenderCategory,
+            'GenderCategory': gender,
             'Birthday': birthday,
             'Height': self.Height,
-            'IdSidePreferenceCategory': self.IdSidePreferenceCategory,
+            'SidePreferenceCategory': sidePreferenceCategory,
             'Photo': photo,
             'Age':age,
-            'IdCity':self.IdCity,
-            'IdSport':self.IdSport
+            'Sport':self.Sport.to_json(),
+            'Ranks':rankList,
+            'Email': self.UserLogin.Email,
+            'City': self.City.to_json(),
         }
+
     def identification_to_json(self):
         if self.Photo == None:
             photo = None

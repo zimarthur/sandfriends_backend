@@ -15,7 +15,7 @@ class RankCategory(db.Model):
     def to_json(self):
         return {
             'IdRankCategory': self.IdRankCategory,
-            'IdSport': self.IdSport,
+            'Sport': self.Sport.to_json(),
             'RankSportLevel': self.RankSportLevel,
             'RankName': self.RankName,
             'RankColor': self.RankColor,

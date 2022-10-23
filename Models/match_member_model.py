@@ -19,7 +19,7 @@ class MatchMember(db.Model):
     def to_json(self):
         return {
             'IdMatchMember': self.IdMatchMember,
-            'IdUser': self.IdUser,
+            'User': self.User.to_json(),
             'IsMatchCreator': self.IsMatchCreator,
             'WaitingApproval': self.WaitingApproval,
             'Refused': self.Refused,

@@ -10,6 +10,7 @@ from ..extensions import db
 from ..routes import user_login_routes
 from ..Models.http_codes import HttpCode
 from datetime import datetime
+import os
 
 
 bp_user = Blueprint('bp_user', __name__)
@@ -20,6 +21,7 @@ def AddUser():
         abort(400)
 
     payloadUserId = user_login_routes.DecodeToken(request.json.get('AccessToken'))
+
     user = User(
         IdUser = payloadUserId,
         FirstName = request.json.get('FirstName'),
@@ -34,23 +36,18 @@ def AddUser():
         IdSport = request.json.get('IdSport'),
     )
     db.session.add(user)
+
+    rankCategories = db.session.query(RankCategory).all()
+
+    for rankCategory in rankCategories:
+        if rankCategory.RankSportLevel == 0:
+            userRank = UserRank(
+                IdUser = user.IdUser,
+                IdRankCategory = rankCategory.IdRankCategory,
+            )
+            db.session.add(userRank)
     db.session.commit()
     return jsonify(user.to_json()), 201
-
-@bp_user.route("/GetUsers", methods=["GET"])
-def GetUsers():
-    users = User.query.all()
-    return jsonify([user.to_json() for user in users])
-
-@bp_user.route('/GetUser/<accessToken>', methods = ['GET'])
-def GetUser(accessToken):
-    userLogin = UserLogin.query.filter_by(AccessToken = accessToken).first()
-    if userLogin is None:
-        return '1', HttpCode.INVALID_ACCESS_TOKEN
-    else:
-        user = User.query.get(userLogin.IdUser)
-        return jsonify(user.to_json()), HttpCode.SUCCESS
-
 
 @bp_user.route("/UpdateUser", methods=["PUT"])
 def UpdateUser():
@@ -82,7 +79,6 @@ def UpdateUser():
                         db.session.add(rank)
                     else:
                         oldUserRanks.IdRankCategory = newRank['idRankCategory']
-                    db.session.commit()
 
         user = User.query.get(userLogin.IdUser)
         user.FirstName = request.json.get('FirstName')
@@ -114,6 +110,7 @@ def UpdateUser():
             user.Photo = None
         else:
             user.Photo = str(userLogin.RegistrationDate.timestamp()).replace(".","") + str(userLogin.IdUser)
+            print(user.Photo)
             decoded_data=base64.b64decode(request.json.get('Photo')+ '==')
             img_file = open(f'/var/www/html/img/usr/{user.Photo}.png', 'wb')
             img_file.write(decoded_data)
@@ -122,9 +119,3 @@ def UpdateUser():
         db.session.commit()
         return jsonify(user.to_json()), HttpCode.SUCCESS
 
-@bp_user.route("/DeleteUser/<id>", methods=["DELETE"])
-def DeleteUser(id):
-    user = User.query.get(id)
-    db.session.delete(user)
-    db.session.commit()
-    return jsonify({'result': True})
