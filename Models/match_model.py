@@ -22,7 +22,7 @@ class Match(db.Model):
     TimeBegin = db.relationship('AvailableHour', foreign_keys = [IdTimeBegin])
 
     IdTimeEnd = db.Column(db.Integer, db.ForeignKey('available_hour.IdAvailableHour'))
-    TimeBegin = db.relationship('AvailableHour', foreign_keys = [IdTimeEnd])
+    TimeEnd = db.relationship('AvailableHour', foreign_keys = [IdTimeEnd])
 
     Members = db.relationship('MatchMember', backref="Match")
 
@@ -33,7 +33,7 @@ class Match(db.Model):
             'Sport': self.Sport.to_json(),
             'Date': self.Date.strftime("%Y-%m-%d"),
             'TimeBegin': self.TimeBegin.HourString,
-            'TimeEnd': self.TimeBegin.HourString,
+            'TimeEnd': self.TimeEnd.HourString,
             'TimeInteger': self.IdTimeBegin,
             'Cost': int(self.Cost),
             'OpenUsers': self.OpenUsers,

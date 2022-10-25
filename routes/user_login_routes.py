@@ -1,8 +1,8 @@
 from flask import Blueprint, jsonify, abort, request
 from datetime import datetime
 import random
-
 from sqlalchemy import null, true, ForeignKey
+from ..routes.reward_routes import RewardStatus
 
 from ..Models.user_login_model import UserLogin
 from ..Models.store_model import Store
@@ -134,7 +134,7 @@ def ValidateToken():
                 'MatchCounter': len([match for match in matchCounter if match.IdSport == sport.IdSport])
             })
             
-        return jsonify({'UserLogin': userLogin.to_json(), 'User': userLogin.User.to_json(), 'MatchCounter':matchCounterList,}), HttpCode.SUCCESS
+        return jsonify({'UserLogin': userLogin.to_json(), 'User': userLogin.User.to_json(), 'MatchCounter':matchCounterList}), HttpCode.SUCCESS
 
 @bp_user_login.route("/LogIn", methods=["POST"])
 def LogIn():
@@ -331,7 +331,7 @@ def GetUserInfo():
         notification.Seen = True
         db.session.commit()
 
-    return  jsonify({'UserMatches': userMatchesList, 'OpenMatchesCounter': openMatchesCounter, 'Notifications': notificationList}), 200
+    return  jsonify({'UserMatches': userMatchesList, 'OpenMatchesCounter': openMatchesCounter, 'Notifications': notificationList, 'UserRewards': RewardStatus(userLogin.IdUser)}), 200
 
 
 
