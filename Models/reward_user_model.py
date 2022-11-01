@@ -9,6 +9,9 @@ class RewardUser(db.Model):
     IdUser = db.Column(db.Integer, db.ForeignKey('user.IdUser'))
     User = db.relationship('User', foreign_keys = [IdUser])
 
+    IdStore = db.Column(db.Integer, db.ForeignKey('store.IdStore'))
+    Store = db.relationship('Store', foreign_keys = [IdStore])
+
     IdRewardMonth = db.Column(db.Integer, db.ForeignKey('reward_month.IdRewardMonth'))
     RewardMonth = db.relationship('RewardMonth', foreign_keys = [IdRewardMonth])
 
@@ -26,6 +29,11 @@ class RewardUser(db.Model):
         else:
             rewardClaimedDate = self.RewardClaimedDate.strftime("%Y-%m-%d")
 
+        if self.IdStore == None:
+            store = None
+        else:
+            store = self.Store.to_json()
+
         return {
             'IdRewardUser': self.IdRewardUser,
             'RewardClaimed': self.RewardClaimed,
@@ -33,5 +41,6 @@ class RewardUser(db.Model):
             'RewardMonth': self.RewardMonth.to_json(),
             'RewardItem': rewardItem,
             'RewardClaimedDate': rewardClaimedDate,
+            'Store':store,
         }
         

@@ -297,7 +297,7 @@ def GetUserInfo():
         userAlreadyInMatch = False
         matchMemberCounter = 0
         for member in openMatch.Members:
-            if (member.User.IdUser == userLogin.IdUser) and (member.Quit == False) and (member.WaitingApproval == False):
+            if (member.User.IdUser == userLogin.IdUser)  and (member.Refused == False) and (member.Quit == False):
                 userAlreadyInMatch = True
                 break
             else:
@@ -310,15 +310,9 @@ def GetUserInfo():
 
     userMatches =  db.session.query(Match)\
                 .join(MatchMember, Match.IdMatch == MatchMember.IdMatch)\
-                .filter(MatchMember.IdUser == userLogin.IdUser)\
-                .filter(MatchMember.Quit == False)\
-                .filter(MatchMember.Refused == False).all()
+                .filter(MatchMember.IdUser == userLogin.IdUser).all()
 
     for userMatch in userMatches:
-        for member in userMatch.Members:
-            if member.IsMatchCreator == True:
-                matchCreator = member
-                break
         userMatchesList.append(userMatch.to_json())
 
 

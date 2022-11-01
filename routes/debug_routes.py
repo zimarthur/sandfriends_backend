@@ -58,67 +58,35 @@ def getHourIndex(hourString):
 
 @bp_debug.route('/debug', methods=['GET'])
 def debug():
-        user = Match.query.first()
 
-        return jsonify({'user': user.to_json()})
+    userLogin = UserLogin.query.filter_by(IdUser = 2).first()
 
+    if userLogin is None:
+        return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
 
+    openMatches = db.session.query(Match)\
+                .join(StoreCourt, StoreCourt.IdStoreCourt == Match.IdStoreCourt)\
+                .join(Store, Store.IdStore == StoreCourt.IdStore)\
+                .filter(Match.OpenUsers == True)\
+                .filter((Match.Date > datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeBegin >= int(datetime.now().strftime("%H")))))\
+                .filter(Match.Canceled == False)\
+                .filter(Match.IdSport == userLogin.User.IdSport)\
+                .filter(Store.IdCity == userLogin.User.IdCity).all()
+    
+    openMatchesCounter = 0
 
-        #accessToken = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZFVzZXIiOjUsInRpbWUiOiIyMDIyLTEwLTIwIDA4OjQxOjQ1LjM3MDUzNiJ9.GD7mzvBo4bErvmMK9RCTHTQ6wAKpsIzD4IEKtKc8BaA'
-        # sportId = 1
-        # cityId = 4174
-        # dateStart = "2022-11-30"
-        # dateEnd = "2022-11-30"
-        # timeStart = "08:00"
-        # timeEnd = "12:00"
-
-        # user = UserLogin.query.filter_by(AccessToken = accessToken).first()
-        # if user is None:
-        #         return '1', HttpCode.INVALID_ACCESS_TOKEN
-
-        # stores = db.session.query(Store)\
-        #                 .join(StoreCourt, StoreCourt.IdStore == Store.IdStore)\
-        #                 .join(StoreCourtSport, StoreCourtSport.IdStoreCourt == StoreCourt.IdStoreCourt)\
-        #                 .filter(StoreCourtSport.IdSport == sportId)\
-        #                 .filter(Store.IdCity == cityId).all()
-
-        # storesCourtIds = []
-        # for store in stores:
-        #         for court in store.Courts:
-        #                 storesCourtIds.append(court.IdStoreCourt)
-        # matches = db.session.query(Match)\
-        #         .filter(Match.IdStoreCourt.in_(storesCourtIds))\
-        #         .filter(Match.Date.in_(daterange(datetime.strptime(dateStart, '%Y-%m-%d').date(), datetime.strptime(dateEnd, '%Y-%m-%d').date())))\
-        #         .filter((Match.IdTimeBegin >= getHourIndex(timeStart)) & (Match.IdTimeBegin <= getHourIndex(timeEnd)))\
-        #         .filter(Match.Canceled == False).all()
-
-        # jsonOpenMatches = []
-        
-        # for validDate in daterange(datetime.strptime(dateStart, '%Y-%m-%d').date(), datetime.strptime(dateEnd, '%Y-%m-%d').date()):
-        #         print("SS")
-        #         i = 0
-        #         for store in stores:                        
-        #                 #descobre horario que o estabelecimento abre e fecha
-        #                 firstHour = 24
-        #                 lastHour = 0
-        #                 for storePrice in store.Courts[0].Prices:
-        #                         if(storePrice.Weekday == validDate.weekday()):
-        #                                 if storePrice.IdAvailableHour < firstHour:
-        #                                         firstHour = storePrice.IdAvailableHour
-        #                                 if storePrice.IdAvailableHour > lastHour:
-        #                                         lastHour = storePrice.IdAvailableHour
-        #                 if firstHour < getHourIndex(timeStart):
-        #                         firstHour = getHourIndex(timeStart)
-        #                 if lastHour > getHourIndex(timeEnd):
-        #                         lastHour = getHourIndex(timeEnd)
-                        
-        #                 for hour in range(firstHour, lastHour + 1):
-        #                         for court in store.Courts:
-        #                                 hasConcurrentMatch = False
-        #                                 for match in matches:
-        #                                         if (match.IdStoreCourt == court.IdStoreCourt) and\ 
-        #                                                 (match.Canceled == False) and\
-        #                                                 ((match.IdTimeBegin == storeOperationHour.IdAvailableHour) or ((match.IdTimeBegin < storeOperationHour.IdAvailableHour) and (match.IdTimeEnd > storeOperationHour.IdAvailableHour)))\
-
+    for openMatch in openMatches:
+        userAlreadyInMatch = False
+        matchMemberCounter = 0
+        for member in openMatch.Members:
+            if (member.User.IdUser == userLogin.IdUser)  and (member.Refused == False) and (member.Quit == False):
+                userAlreadyInMatch = True
+                break
+            else:
+                if (member.WaitingApproval == False) and (member.Refused == False) and (member.Quit == False):
+                    matchMemberCounter +=1
+        if (userAlreadyInMatch == False) and (matchMemberCounter < openMatch.MaxUsers):
+            openMatchesCounter +=1
 
     
+    return  jsonify({'OpenMatchesCounter': openMatchesCounter}), 200

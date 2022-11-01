@@ -349,6 +349,18 @@ def LeaveMatch():
         matchMember.Quit=True
         matchMember.WaitingApproval=False
         matchMember.QuitDate=datetime.now()
+
+        for member in match.Members:
+            if member.IsMatchCreator == True:
+                newNotification = Notification(
+                    IdUser = member.IdUser,
+                    IdUserReplaceText = matchMember.IdUser,
+                    IdMatch = idMatch,
+                    IdNotificationCategory = 8,
+                    Seen = False
+                )
+                db.session.add(newNotification)
+                break
         db.session.commit()
         return "OK",200
 
@@ -482,6 +494,10 @@ def CancelMatch():
     elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
          return 'MATCH_ALREADY_FINISHED', HttpCode.MATCH_ALREADY_FINISHED
     else:
+        CanCancelUpTo = datetime.strptime(match.TimeBegin.HourString, '%H:%M').replace(year=match.Date.year,month=match.Date.month,day=match.Date.day) - timedelta(hours=match.StoreCourt.Store.HoursBeforeCancellation)
+        if datetime.now() >  CanCancelUpTo:
+            return 'CANCELLATION_PERIOD_EXPIRED', HttpCode.CANCELLATION_PERIOD_EXPIRED
+        
         match.Canceled = True
 
         matchMembers = MatchMember.query.filter(MatchMember.IdMatch == idMatch).all()
@@ -498,11 +514,11 @@ def CancelMatch():
                     IdUserReplaceText = matchMember.IdUser,
                     IdMatch = idMatch,
                     IdNotificationCategory = idNotificationCategory,
-            Seen = False
+                    Seen = False
                 )
                 db.session.add(newNotification)
-        db.session.commit()
-        return "OK",200
+                db.session.commit()
+        return "ok",200
 
 @bp_match.route("/RemoveMatchMember", methods=["POST"])
 def RemoveMatchMember():

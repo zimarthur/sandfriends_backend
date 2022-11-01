@@ -1,4 +1,5 @@
 from ..extensions import db
+from datetime import datetime, timedelta
 
 class Match(db.Model):
     __tablename__ = 'match'
@@ -27,6 +28,8 @@ class Match(db.Model):
     Members = db.relationship('MatchMember', backref="Match")
 
     def to_json(self):
+        CanCancelUpTo = datetime.strptime(self.TimeBegin.HourString, '%H:%M').replace(year=self.Date.year,month=self.Date.month,day=self.Date.day) - timedelta(hours=self.StoreCourt.Store.HoursBeforeCancellation)
+
         return {
             'IdMatch': self.IdMatch,
             'StoreCourt': self.StoreCourt.to_json(),
@@ -42,6 +45,7 @@ class Match(db.Model):
             'CreationDate': self.CreationDate.strftime("%Y-%m-%d"),
             'MatchUrl': self.MatchUrl,
             'CreatorNotes': self.CreatorNotes,
-            'Members':[member.to_json() for member in self.Members]
+            'Members':[member.to_json() for member in self.Members],
+            'CanCancelUpTo': CanCancelUpTo.strftime("%d/%m/%Y às %H:%M"),
         }
         

@@ -12,6 +12,7 @@ class Store(db.Model):
     PhoneNumber2 = db.Column(db.String(45))
     Description = db.Column(db.String(250))
     Instagram = db.Column(db.String(100))
+    HoursBeforeCancellation = db.Column(db.Integer)
 
     IdCity = db.Column(db.Integer, db.ForeignKey('city.IdCity'))
     City = db.relationship('City', foreign_keys = [IdCity])
@@ -28,6 +29,7 @@ class Store(db.Model):
             'Longitude': self.Longitude,
             'IdCity': self.IdCity,
             'Email': self.Email,
+            'HoursBeforeCancellation': self.HoursBeforeCancellation,
             'PhoneNumber1': self.PhoneNumber1,
             'PhoneNumber2': self.PhoneNumber2,
             'Logo': f"https://www.sandfriends.com.br/img/str/logo/{self.IdStore}.png",
