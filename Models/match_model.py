@@ -12,6 +12,7 @@ class Match(db.Model):
     CreationDate = db.Column(db.DateTime)
     MatchUrl = db.Column(db.String(255))
     CreatorNotes = db.Column(db.String(255))
+    IdRecurrentMatch = db.Column(db.Integer, db.ForeignKey('recurrent_match.IdRecurrentMatch'))
 
     IdStoreCourt = db.Column(db.Integer, db.ForeignKey('store_court.IdStoreCourt'))
     StoreCourt = db.relationship('StoreCourt', foreign_keys = [IdStoreCourt])

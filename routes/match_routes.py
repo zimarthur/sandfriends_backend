@@ -243,6 +243,7 @@ def CourtReservation():
             Canceled = False,
             CreationDate = datetime.now(),
             CreatorNotes = "",
+            IdRecurrentMatch = 0,
         )
         db.session.add(newMatch)
         db.session.commit()

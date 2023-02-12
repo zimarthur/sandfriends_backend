@@ -36,7 +36,7 @@ class User(db.Model):
             birthday = self.Birthday.strftime("%d/%m/%Y")
             age = datetime.today().year - self.Birthday.year - ((datetime.today().month, datetime.today().day) < (self.Birthday.month, self.Birthday.day))
         
-        if self.Photo == None:
+        if self.Photo == None or self.Photo == "":
             photo = None
         else:
             photo = f"https://www.sandfriends.com.br/img/usr/{self.Photo}.png"

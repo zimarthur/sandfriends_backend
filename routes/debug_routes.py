@@ -19,12 +19,13 @@ from ..Models.http_codes import HttpCode
 from datetime import datetime, timedelta, date
 from flask import Blueprint, jsonify, abort, request, json
 from datetime import datetime, timedelta, date
-from sqlalchemy import func 
+from sqlalchemy import func, text
 from ..extensions import db
 import os
 
 from ..Models.http_codes import HttpCode
 from ..Models.match_model import Match
+from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.user_model import User
 from ..Models.user_rank_model import UserRank
 from ..Models.rank_category_model import RankCategory
@@ -56,37 +57,9 @@ def daterange(start_date, end_date):
 def getHourIndex(hourString):
     return datetime.strptime(hourString, '%H:%M').hour
 
+def getLastMonth():
+    return (datetime.today().replace(day=1) - timedelta(days=1)).replace(day=1).date()
+
 @bp_debug.route('/debug', methods=['GET'])
 def debug():
-
-    userLogin = UserLogin.query.filter_by(IdUser = 2).first()
-
-    if userLogin is None:
-        return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
-
-    openMatches = db.session.query(Match)\
-                .join(StoreCourt, StoreCourt.IdStoreCourt == Match.IdStoreCourt)\
-                .join(Store, Store.IdStore == StoreCourt.IdStore)\
-                .filter(Match.OpenUsers == True)\
-                .filter((Match.Date > datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeBegin >= int(datetime.now().strftime("%H")))))\
-                .filter(Match.Canceled == False)\
-                .filter(Match.IdSport == userLogin.User.IdSport)\
-                .filter(Store.IdCity == userLogin.User.IdCity).all()
-    
-    openMatchesCounter = 0
-
-    for openMatch in openMatches:
-        userAlreadyInMatch = False
-        matchMemberCounter = 0
-        for member in openMatch.Members:
-            if (member.User.IdUser == userLogin.IdUser)  and (member.Refused == False) and (member.Quit == False):
-                userAlreadyInMatch = True
-                break
-            else:
-                if (member.WaitingApproval == False) and (member.Refused == False) and (member.Quit == False):
-                    matchMemberCounter +=1
-        if (userAlreadyInMatch == False) and (matchMemberCounter < openMatch.MaxUsers):
-            openMatchesCounter +=1
-
-    
-    return  jsonify({'OpenMatchesCounter': openMatchesCounter}), 200
+    return "teste", 201
