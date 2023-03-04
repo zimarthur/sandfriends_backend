@@ -22,6 +22,7 @@ class Store(db.Model):
     Validated = db.Column(db.Boolean)
     RegistrationDate = db.Column(db.DateTime)
     ConfirmationDate = db.Column(db.DateTime)
+    EmailConfirmationToken = db.Column(db.String(300))
 
     IdCity = db.Column(db.Integer, db.ForeignKey('city.IdCity'))
     City = db.relationship('City', foreign_keys = [IdCity])

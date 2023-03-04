@@ -21,6 +21,7 @@ class HttpCode:
     CITY_NOT_FOUND = 417
     STATE_NOT_FOUND = 418
     CITY_STATE_NOT_MATCH = 419
+    CNPJ_ALREADY_USED = 420
 
 ###RETURNS
 # 0- Success

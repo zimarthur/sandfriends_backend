@@ -23,8 +23,9 @@ with open('/etc/config.json') as config_file:
     config = json.load(config_file)
 def create_app():
     app = Flask(__name__)
-    CORS(app, origins=["http://localhost:54132"])
-
+    CORS(app, resources={r"/*": {"origins": "*", "methods": "*", "headers": "*"}})
+    app.config['CORS_HEADERS'] = 'Content-Type'
+    
     app.config['SECRET_KEY'] = config.get('SECRET_KEY')
     app.config['SQLALCHEMY_DATABASE_URI'] = config.get('SQLALCHEMY_DATABASE_URI')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False

@@ -60,6 +60,15 @@ def getHourIndex(hourString):
 def getLastMonth():
     return (datetime.today().replace(day=1) - timedelta(days=1)).replace(day=1).date()
 
-@bp_debug.route('/debug', methods=['GET'])
+@bp_debug.route('/debug', methods=['POST'])
 def debug():
-    return "teste", 201
+    cityId = request.json.get('cityId')
+
+    stores = db.session.query(Store)\
+                .filter(Store.IdCity == cityId)\
+                .all()
+    storeList =[]
+    for store in stores:
+        storeList.append(store.to_json())
+        print(store.City.City)
+    return jsonify(storeList), 201
