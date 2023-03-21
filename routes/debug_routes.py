@@ -60,15 +60,94 @@ def getHourIndex(hourString):
 def getLastMonth():
     return (datetime.today().replace(day=1) - timedelta(days=1)).replace(day=1).date()
 
-@bp_debug.route('/debug', methods=['POST'])
+@bp_debug.route('/debug', methods=['PUT'])
 def debug():
-    cityId = request.json.get('cityId')
 
-    stores = db.session.query(Store)\
-                .filter(Store.IdCity == cityId)\
-                .all()
-    storeList =[]
-    for store in stores:
-        storeList.append(store.to_json())
-        print(store.City.City)
-    return jsonify(storeList), 201
+    IdUserReq = request.json.get('IdUser')
+    FirstNameReq = request.json.get('FirstName')
+    LastNameReq = request.json.get('LastName')
+    PhoneNumberReq = request.json.get('PhoneNumber')
+    BirthdayReq = request.json.get('Birthday')
+    HeightReq = request.json.get('Height')
+    PhotoReq = request.json.get('Photo')
+    IdGenderCategoryReq = request.json.get('IdGenderCategory')
+    IdSidePreferenceCategoryReq = request.json.get('IdSidePreferenceCategory')
+    IdCityReq = request.json.get('IdCity')
+    IdSportReq = request.json.get('IdSport')
+
+    usuario = db.session.query(User)\
+            .filter(User.IdUser==IdUserReq)\
+            .first()
+
+    usuario.FirstName = FirstNameReq
+    usuario.LastName = LastNameReq
+    usuario.PhoneNumber = PhoneNumberReq
+    usuario.Birthday = BirthdayReq
+    usuario.Height = HeightReq
+    usuario.Photo = PhotoReq
+    usuario.IdGenderCategory = IdGenderCategoryReq
+    usuario.IdSidePreferenceCategory = IdSidePreferenceCategoryReq
+    usuario.IdCity = IdCityReq
+    usuario.IdSport = IdSportReq
+
+    db.session.commit()
+
+    return "Usuario alterado", 201
+
+    # #Todas as cidades
+    # resultado = db.session.query(City)\
+    #         .join(State,City.IdState==State.IdState)\
+    #         .filter(State.UF.in_(UFReq))\
+    #         .all()
+
+    #retorno = []
+
+    # for stateReq in UFReq:
+    #     menorIdCity = 99999
+    #     for resultadoCity in resultado:
+    #         if (resultadoCity.IdCity < menorIdCity) and (resultadoCity.State.UF == stateReq):
+    #             menorCidade = resultadoCity.City
+    #             menorIdCity = resultadoCity.IdCity
+    #     cidadeFiltrada.append(menorCidade)
+
+    # #Caso não achar cidade
+    # if len(cidadeFiltrada) == 0:
+    #     return "Cidade não encontrada", 201
+
+    # for usuario in usuarios:
+    #     retorno.append(usuario.RankCategory.RankName)
+
+    #return jsonify(Nivel = retorno), 201
+
+
+    ### ADICIONAR USUÁRIO
+
+    # FirstNameReq = request.json.get('FirstName')
+    # LastNameReq = request.json.get('LastName')
+    # PhoneNumberReq = request.json.get('PhoneNumber')
+    # BirthdayReq = request.json.get('Birthday')
+    # HeightReq = request.json.get('Height')
+    # PhotoReq = request.json.get('Photo')
+    # IdGenderCategoryReq = request.json.get('IdGenderCategory')
+    # IdSidePreferenceCategoryReq = request.json.get('IdSidePreferenceCategory')
+    # IdCityReq = request.json.get('IdCity')
+    # IdSportReq = request.json.get('IdSport')
+
+    # usuarioNovo = User(
+    #     IdUser = 1,
+    #     FirstName = FirstNameReq,
+    #     LastName = LastNameReq,
+    #     PhoneNumber = PhoneNumberReq,
+    #     Birthday = BirthdayReq,
+    #     Height = HeightReq,
+    #     Photo = PhotoReq,
+    #     IdGenderCategory = IdGenderCategoryReq,
+    #     IdSidePreferenceCategory = IdSidePreferenceCategoryReq,
+    #     IdCity = IdCityReq,
+    #     IdSport = IdSportReq,
+    # )
+
+    # db.session.add(usuarioNovo)
+    # db.session.commit()
+
+    # return "Usuario adicionado", 201

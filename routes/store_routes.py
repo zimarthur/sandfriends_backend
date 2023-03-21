@@ -6,6 +6,9 @@ from ..extensions import db
 from ..Models.http_codes import HttpCode
 from ..Models.city_model import City
 from ..Models.state_model import State
+from ..Models.sport_model import Sport
+from ..Models.available_hour_model import AvailableHour
+from ..Models.store_court_model import StoreCourt
 from ..emails import sendEmail
 
 bp_store = Blueprint('bp_store', __name__)
@@ -13,18 +16,49 @@ bp_store = Blueprint('bp_store', __name__)
 @bp_store.route('/StoreLogin', methods=['POST'])
 @cross_origin()
 def StoreLogin():
-    print("1111111")
     if not request.json:
         abort(400)
-    print("2222222")
-    email = db.session.query(Store).filter(Store.Email == request.json.get('Email')).first()
-    if email is None:
+
+    emailReq = request.json.get('Email')
+    passwordReq = request.json.get('Password')
+
+    store = db.session.query(Store).filter(Store.Email == emailReq).first()
+    if store is None:
         return "Email não cadastrado", HttpCode.EMAIL_NOT_FOUND
-    print("3333333")
-    if email.Password != request.json.get('Password'):
+    if store.Password != passwordReq:
         return "Senha incorreta", HttpCode.INVALID_PASSWORD
-    print("444444")
-    return "ok", HttpCode.SUCCESS
+    #senha correta
+
+    if store.EmailConfirmationDate == None:
+        return "E-mail não validado", HttpCode.WAITING_EMAIL_CONFIRMATION
+    #email validado já
+
+    if store.ApprovalDate == None:
+        return "Estamos verificando as suas informações, entraremos em contato em breve", HttpCode.WAITING_APPROVAL
+    #quadra já aprovada
+
+    #Lista com todos esportes
+    sports = db.session.query(Sport).all()
+    sportsList = []
+
+    for sport in sports:
+        sportsList.append(sport.to_json())
+
+    #Lista com todas horas do dia
+    hours = db.session.query(AvailableHour).all()
+    hoursList = []
+
+    for hour in hours:
+        hoursList.append(hour.to_json())
+
+    #Lista com as quadras do estabelecimento(json da quadra, esportes e preço)
+    courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == store.IdStore).all()
+    courtsList = []
+
+    for court in courts:
+        courtsList.append(court.to_json_full())
+
+    return jsonify({'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList}), HttpCode.SUCCESS
 
 @bp_store.route('/AddStore', methods=['POST'])
 def AddStore():
@@ -67,7 +101,6 @@ def AddStore():
         Neighbourhood = request.json.get('Neighbourhood'),
         OwnerName = request.json.get('OwnerName'),
         CPF = request.json.get('CPF'),
-        Validated = False,
         RegistrationDate = datetime.now()
     )
     db.session.add(store)

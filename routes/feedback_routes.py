@@ -6,6 +6,8 @@ from ..Models.http_codes import HttpCode
 
 bp_feedback = Blueprint('bp_feedback', __name__)
 
+
+#Rota utilizada para envio de avaliação pelos jogadores no app
 @bp_feedback.route('/SendFeedback', methods=['POST'])
 def SendFeedback():
     if not request.json:

@@ -44,6 +44,7 @@ def daterange(start_date, end_date):
         for n in range(int ((end_date - start_date).days)+1):
             yield start_date + timedelta(n)
 
+#rota que retorna todas cidades do banco de dados(utilizada pra o usuário escolher a cidade que mora)
 @bp_match.route("/GetAllCities", methods=["GET"])
 def GetAllCities():
     citiesList=[]
@@ -57,6 +58,7 @@ def GetAllCities():
             citiesList.append(city.to_json())
     return jsonify({'Cities': citiesList, 'States':statesList})
 
+#rota que retorna todas cidades que tem estabelecimento cadastrado
 @bp_match.route("/GetAvailableCities", methods=["GET"])
 def GetAvailableCities():
     cities = db.session.query(City)\
@@ -76,7 +78,7 @@ def GetAvailableCities():
     return jsonify({'Cities': citiesList, 'States':statesList})
 
     
-
+#rota utilizada pra buscar horários e partidas abertas
 @bp_match.route("/SearchCourts", methods=["POST"])
 def SearchCourts():
     if not request.json:
@@ -98,11 +100,13 @@ def SearchCourts():
 
     storePhotos = db.session.query(StorePhoto).filter(StorePhoto.IdStore.in_([store.IdStore for store in stores])).all()
 
+    #query de todas as quadras(não estabelecimento) que aceita o esporte solicitado
     courts = db.session.query(StoreCourt)\
                     .join(StoreCourtSport, StoreCourtSport.IdStoreCourt == StoreCourt.IdStoreCourt)\
                     .filter(StoreCourtSport.IdSport == sportId)\
                     .filter(StoreCourt.IdStore.in_(store.IdStore for store in stores)).all()
 
+    #busca os horarios de todas as quadras e seus respectivos preços
     courtHours = db.session.query(StorePrice)\
                     .filter(StorePrice.IdStoreCourt.in_(court.IdStoreCourt for court in courts)).all()
 

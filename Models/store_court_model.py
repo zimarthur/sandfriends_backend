@@ -17,3 +17,13 @@ class StoreCourt(db.Model):
             'Description':self.Description,
             'IsIndoor': self.IsIndoor,
         }
+
+    def to_json_full(self):
+        return {
+            'IdStoreCourt': self.IdStoreCourt,
+            'Store': self.Store.to_json(),
+            'Description':self.Description,
+            'IsIndoor': self.IsIndoor,
+            'Prices' : [price.to_json() for price in self.Prices],
+            'Sports' : [sport.to_json() for sport in self.Sports],
+        }

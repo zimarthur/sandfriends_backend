@@ -19,10 +19,10 @@ class Store(db.Model):
     OwnerName = db.Column(db.String(225))
     Neighbourhood = db.Column(db.String(225))
     CEP = db.Column(db.String(8))
-    Validated = db.Column(db.Boolean)
     RegistrationDate = db.Column(db.DateTime)
-    ConfirmationDate = db.Column(db.DateTime)
+    EmailConfirmationDate = db.Column(db.DateTime)
     EmailConfirmationToken = db.Column(db.String(300))
+    ApprovalDate = db.Column(db.DateTime)
 
     IdCity = db.Column(db.Integer, db.ForeignKey('city.IdCity'))
     City = db.relationship('City', foreign_keys = [IdCity])

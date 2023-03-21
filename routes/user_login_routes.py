@@ -39,6 +39,7 @@ def IsNewUser(UserLogin):
         return False
 
 
+# Rota para cadastrar jogador
 @bp_user_login.route("/SignIn", methods=["POST"])
 def SignIn():
     if not request.json:
@@ -50,6 +51,7 @@ def SignIn():
 
     user = UserLogin.query.filter_by(Email=email).first()
 
+    #verifica se ja existe algum jogador com o email enviado
     if not user:        
         userLogin = UserLogin(
             Email = email,
@@ -58,17 +60,22 @@ def SignIn():
             RegistrationDate = time,
             ThirdPartyLogin = False,
         )
-        db.session.add(userLogin)
-        db.session.flush()
-        db.session.refresh(userLogin)
 
+        #A etapa abaixo acontece porque o IdUser da tabela User e da tabela UserLogin é o mesmo, mas ele é incrementado automaticamente.
+        #Na hora que o novo usuário é inserido, não se sabe qual o IdUser dele. Por issso tem aquele .flush(), ele faz com que esse IdUser seja "calculado"
+        db.session.add(userLogin)
+        db.session.flush()  
+        db.session.refresh(userLogin)
+        
+        #Com o IdUser já "calculado" já da pra criar o accessToken, que é feito no arquivo access_token.py, 
+        #e criar o token pra confimação do email(que é enviado por email pela função sendEmail())
         userLogin.AccessToken = EncodeToken(userLogin.IdUser)
         userLogin.EmailConfirmationToken = str(datetime.now().timestamp()) + userLogin.AccessToken
         sendEmail("https://www.sandfriends.com.br/redirect/?ct=emcf&bd="+userLogin.EmailConfirmationToken)
         db.session.commit()
         return userLogin.to_json(), HttpCode.SUCCESS
     else:
-        if user.ThirdPartyLogin:
+        if user.ThirdPartyLogin: #Nesse caso, o email que o usuário tentou cadastrar já foi cadastrado com o "Login com o google"
             return "e-mail já cadastrado com Conta Google",HttpCode.EMAIL_ALREADY_USED_THIRDPARTY
         else:
             if password == user.Password:
@@ -79,6 +86,7 @@ def SignIn():
             else:
                 return "e-mail já cadastrado",HttpCode.EMAIL_ALREADY_USED
 
+#Rota utilizada pelo jogador quando ele clica no link pra confirmação do email
 @bp_user_login.route("/ConfirmEmail", methods=["POST"])
 def ConfirmEmail():
     if not request.json:
@@ -97,6 +105,9 @@ def ConfirmEmail():
         return "Wrong Token", HttpCode.INVALID_EMAIL_CONFIRMATION_TOKEN
 
 
+#Essa rota é utilizada pelo jogador quando inicializa o app. Caso tenha armazenado no cel algum AccessToken, ele envia pra essa rota e valida ele.
+#Se estiver válido ele entra no app sem ter q digitar email e senha e atualiza o accessToken.
+# Ele vai ser invalido quando, por exemplo, um jogador fizer login num cel A e depois num cel B. O AccessToken do cel A vai estar desatualizado.
 @bp_user_login.route("/ValidateToken", methods=["POST"])
 def ValidateToken():
     if not request.json:
@@ -116,6 +127,12 @@ def ValidateToken():
         if userLogin.User == None:
             return jsonify({'UserLogin': userLogin.to_json()}), HttpCode.SUCCESS
         
+        #nesse ponto, o AccessToken estava válido. Além de retornar ao jogador o novo accessToken,  ele envia tb as infos do jogador e o numero de jogos do jogador
+        #Como o num de jogos do jogador não está e não pode ser obtida na tabela User ou UserLogin, tive q fazer a query manualmente(abaixo)
+        #Sobre a query:
+        #Aquele join é feito para relacionar a tabela Match com a tabela MatchMember, pq é na MatchMember que da pra verificar quais partidas o usuário jogou
+        #São feitos vários filtros, como de data(só contabiliza jogos que já ocorreram), "WaitingApproval" (para não contabilizar caso o jogador não tenha aceitado a partida)
+        #"Refused" (caso tenha recusado), "Quit" (caso tenha saido da partida) e "Canceled" (caso a partida tenha sido cancelada)
         matchCounterList=[]
         matchCounter = db.session.query(Match)\
             .join(MatchMember, MatchMember.IdMatch == Match.IdMatch)\
@@ -128,6 +145,7 @@ def ValidateToken():
 
         sports = db.session.query(Sport).all()
 
+        #contabiliza o num de partidas do jogador para cada esporte
         for sport in sports:
             matchCounterList.append({
                 'Sport': sport.to_json(),
@@ -136,6 +154,7 @@ def ValidateToken():
             
         return jsonify({'UserLogin': userLogin.to_json(), 'User': userLogin.User.to_json(), 'MatchCounter':matchCounterList}), HttpCode.SUCCESS
 
+#Rota utilizada quando o jogador faz login
 @bp_user_login.route("/LogIn", methods=["POST"])
 def LogIn():
     if not request.json:
@@ -143,12 +162,12 @@ def LogIn():
     
     email = request.json.get('Email')
     password = request.json.get('Password')
-    thirdPartyLogin = request.json.get('ThirdPartyLogin')
+    thirdPartyLogin = request.json.get('ThirdPartyLogin') #quando o jogador clica para fazer login com o google, a propria API do google "valida" o jogador
 
     userLogin = UserLogin.query.filter_by(Email=email).first()
 
     if thirdPartyLogin:
-        if not userLogin: #sign up with new google account
+        if not userLogin: #entrou com o google, mas ainda não estava cadastrado
             userLogin = UserLogin(
             Email = email,
             Password = '',
@@ -172,6 +191,7 @@ def LogIn():
             if userLogin.User == None:
                 return jsonify({'UserLogin': userLogin.to_json()}), HttpCode.SUCCESS
             
+            #mesma query do ValidateToken(interessante no futuro criar uma função pra não repetir codigo)
             matchCounterList=[]
             matchCounter = db.session.query(Match)\
                 .join(MatchMember, MatchMember.IdMatch == Match.IdMatch)\
@@ -209,6 +229,7 @@ def LogIn():
                         if userLogin.User == None:
                             return jsonify({'UserLogin': userLogin.to_json()}), HttpCode.SUCCESS
                         
+                        #mesma query do ValidateToken(interessante no futuro criar uma função pra não repetir codigo)
                         matchCounterList=[]
                         matchCounter = db.session.query(Match)\
                             .join(MatchMember, MatchMember.IdMatch == Match.IdMatch)\
@@ -234,6 +255,7 @@ def LogIn():
                 else:
                     return 'Senha Incorreta', HttpCode.INVALID_PASSWORD
 
+#rota utilizada pelo jogador quando ele solicita para troca a senha. Nesse caso é enviado somente o email. Se o email estiver no banco do dados, é enviado um link para troca
 @bp_user_login.route("/ChangePasswordRequest", methods=["POST"])
 def ChangePasswordRequest():
     if not request.json:
@@ -252,6 +274,7 @@ def ChangePasswordRequest():
         else:
             return "email not confirmed", HttpCode.WAITING_EMAIL_CONFIRMATION
 
+#rota utilizada pela jogador para alterar a senha
 @bp_user_login.route("/ChangePassword", methods=["POST"])
 def ChangePassword():
     if not request.json:
@@ -269,7 +292,7 @@ def ChangePassword():
     else:
         return "invalid ResetPasswordValue", HttpCode.INVALID_RESET_PASSWORD_VALUE
 
-
+#Rota utilizada pelo jogador depois de fazer login e entrar na home do app. Aqui sãao requisitadas todas pertidas, recompensas, mensalistas... do jogador
 @bp_user_login.route("/GetUserInfo", methods=["POST"])
 def GetUserInfo():
     if not request.json:
@@ -282,6 +305,8 @@ def GetUserInfo():
     if userLogin is None:
         return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
 
+    #Sobre a query
+    #Busca todas partidas em aberto para o jogador, com base em sua cidade e esporte favorito cadastrados.
     openMatches = db.session.query(Match)\
                 .join(StoreCourt, StoreCourt.IdStoreCourt == Match.IdStoreCourt)\
                 .join(Store, Store.IdStore == StoreCourt.IdStore)\
@@ -292,7 +317,7 @@ def GetUserInfo():
                 .filter(Store.IdCity == userLogin.User.IdCity).all()
     
     openMatchesCounter = 0
-
+    #esse loop é feitor para contar as partidas da query acima em que o usuario não está dentro
     for openMatch in openMatches:
         userAlreadyInMatch = False
         matchMemberCounter = 0
@@ -307,7 +332,7 @@ def GetUserInfo():
             openMatchesCounter +=1
 
     userMatchesList = []
-
+    #query para as partidas que o jogador jogou e vai jogar
     userMatches =  db.session.query(Match)\
                 .join(MatchMember, Match.IdMatch == MatchMember.IdMatch)\
                 .filter(MatchMember.IdUser == userLogin.IdUser).all()
@@ -329,7 +354,7 @@ def GetUserInfo():
 
 
 
-
+#rota que envia infos basicas do app, tipo os esportes cadastrados, generos, ranks
 @bp_user_login.route("/GetAppCategories", methods=["GET"])
 def GetAppCategories():
     sports = db.session.query(Sport).all()
