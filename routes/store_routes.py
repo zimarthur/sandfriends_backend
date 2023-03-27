@@ -10,11 +10,14 @@ from ..Models.sport_model import Sport
 from ..Models.available_hour_model import AvailableHour
 from ..Models.store_court_model import StoreCourt
 from ..emails import sendEmail
+from ..Models.store_access_token_model import StoreAccessToken
+from ..access_token import EncodeToken, DecodeToken
+
+daysToExpireToken = 7
 
 bp_store = Blueprint('bp_store', __name__)
 
 @bp_store.route('/StoreLogin', methods=['POST'])
-@cross_origin()
 def StoreLogin():
     if not request.json:
         abort(400)
@@ -37,28 +40,45 @@ def StoreLogin():
         return "Estamos verificando as suas informações, entraremos em contato em breve", HttpCode.WAITING_APPROVAL
     #quadra já aprovada
 
-    #Lista com todos esportes
-    sports = db.session.query(Sport).all()
-    sportsList = []
+    #Gera o AccessToken para os próximos logins
+    currentDate = datetime.now()
 
-    for sport in sports:
-        sportsList.append(sport.to_json())
+    newStoreAccessToken = StoreAccessToken(
+        IdStore = store.IdStore,
+        AccessToken = EncodeToken(store.IdStore),
+        CreationDate = currentDate,
+        LastAccessDate = currentDate
+    )
 
-    #Lista com todas horas do dia
-    hours = db.session.query(AvailableHour).all()
-    hoursList = []
+    db.session.add(newStoreAccessToken)
+    db.session.commit()
 
-    for hour in hours:
-        hoursList.append(hour.to_json())
+    #retorna as informações da quadra (esportes, horários, etc)
+    return initStoreLoginData(store), HttpCode.SUCCESS
 
-    #Lista com as quadras do estabelecimento(json da quadra, esportes e preço)
-    courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == store.IdStore).all()
-    courtsList = []
+@bp_store.route('/ValidateStoreAccessToken', methods=['POST'])
+def ValidateStoreAccessToken():
+    if not request.json:
+        abort(400)
+    
+    receivedToken = request.json.get('AccessToken')
 
-    for court in courts:
-        courtsList.append(court.to_json_full())
+    storeAccessToken = db.session.query(StoreAccessToken).filter(StoreAccessToken.AccessToken == receivedToken).first()
 
-    return jsonify({'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList}), HttpCode.SUCCESS
+    #Caso não encontrar Token
+    if storeAccessToken is None:
+        return "Token não encontrado", HttpCode.INVALID_ACCESS_TOKEN
+
+    #Verificar se o Token é válido
+    if (datetime.now() - storeAccessToken.LastAccessDate).days > daysToExpireToken:
+        return "Token expirado", HttpCode.INVALID_ACCESS_TOKEN
+
+    #Token está válido - atualizar o LastAccessDate
+    storeAccessToken.LastAccessDate = datetime.now()
+    db.session.commit()
+
+    #Token válido - retorna as informações da quadra (esportes, horários, etc)
+    return initStoreLoginData(storeAccessToken.Store), HttpCode.SUCCESS
 
 @bp_store.route('/AddStore', methods=['POST'])
 def AddStore():
@@ -146,3 +166,29 @@ def DeleteStore(id):
     db.session.delete(store)
     db.session.commit()
     return jsonify({'result': True})
+
+
+def initStoreLoginData(store):
+
+    #Lista com todos esportes
+    sports = db.session.query(Sport).all()
+    sportsList = []
+
+    for sport in sports:
+        sportsList.append(sport.to_json())
+
+    #Lista com todas horas do dia
+    hours = db.session.query(AvailableHour).all()
+    hoursList = []
+
+    for hour in hours:
+        hoursList.append(hour.to_json())
+
+    #Lista com as quadras do estabelecimento(json da quadra, esportes e preço)
+    courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == store.IdStore).all()
+    courtsList = []
+
+    for court in courts:
+        courtsList.append(court.to_json_full())
+
+    return jsonify({'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList})

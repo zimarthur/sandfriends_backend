@@ -43,6 +43,7 @@ from ..Models.user_login_model import UserLogin
 from ..Models.notification_model import Notification
 from ..Models.notification_category_model import NotificationCategory
 from ..access_token import EncodeToken, DecodeToken
+from ..Models.store_access_token_model import StoreAccessToken
 
 bp_debug = Blueprint('bp_debug', __name__)
 
@@ -60,39 +61,43 @@ def getHourIndex(hourString):
 def getLastMonth():
     return (datetime.today().replace(day=1) - timedelta(days=1)).replace(day=1).date()
 
-@bp_debug.route('/debug', methods=['PUT'])
+@bp_debug.route('/debug', methods=['GET'])
 def debug():
 
-    IdUserReq = request.json.get('IdUser')
-    FirstNameReq = request.json.get('FirstName')
-    LastNameReq = request.json.get('LastName')
-    PhoneNumberReq = request.json.get('PhoneNumber')
-    BirthdayReq = request.json.get('Birthday')
-    HeightReq = request.json.get('Height')
-    PhotoReq = request.json.get('Photo')
-    IdGenderCategoryReq = request.json.get('IdGenderCategory')
-    IdSidePreferenceCategoryReq = request.json.get('IdSidePreferenceCategory')
-    IdCityReq = request.json.get('IdCity')
-    IdSportReq = request.json.get('IdSport')
+    storeAccessToken = db.session.query(StoreAccessToken).first()
 
-    usuario = db.session.query(User)\
-            .filter(User.IdUser==IdUserReq)\
-            .first()
+    return str((datetime.now() - storeAccessToken.LastAccessDate).days)
 
-    usuario.FirstName = FirstNameReq
-    usuario.LastName = LastNameReq
-    usuario.PhoneNumber = PhoneNumberReq
-    usuario.Birthday = BirthdayReq
-    usuario.Height = HeightReq
-    usuario.Photo = PhotoReq
-    usuario.IdGenderCategory = IdGenderCategoryReq
-    usuario.IdSidePreferenceCategory = IdSidePreferenceCategoryReq
-    usuario.IdCity = IdCityReq
-    usuario.IdSport = IdSportReq
+    # IdUserReq = request.json.get('IdUser')
+    # FirstNameReq = request.json.get('FirstName')
+    # LastNameReq = request.json.get('LastName')
+    # PhoneNumberReq = request.json.get('PhoneNumber')
+    # BirthdayReq = request.json.get('Birthday')
+    # HeightReq = request.json.get('Height')
+    # PhotoReq = request.json.get('Photo')
+    # IdGenderCategoryReq = request.json.get('IdGenderCategory')
+    # IdSidePreferenceCategoryReq = request.json.get('IdSidePreferenceCategory')
+    # IdCityReq = request.json.get('IdCity')
+    # IdSportReq = request.json.get('IdSport')
 
-    db.session.commit()
+    # usuario = db.session.query(User)\
+    #         .filter(User.IdUser==IdUserReq)\
+    #         .first()
 
-    return "Usuario alterado", 201
+    # usuario.FirstName = FirstNameReq
+    # usuario.LastName = LastNameReq
+    # usuario.PhoneNumber = PhoneNumberReq
+    # usuario.Birthday = BirthdayReq
+    # usuario.Height = HeightReq
+    # usuario.Photo = PhotoReq
+    # usuario.IdGenderCategory = IdGenderCategoryReq
+    # usuario.IdSidePreferenceCategory = IdSidePreferenceCategoryReq
+    # usuario.IdCity = IdCityReq
+    # usuario.IdSport = IdSportReq
+
+    # db.session.commit()
+
+    # return "Usuario alterado", 201
 
     # #Todas as cidades
     # resultado = db.session.query(City)\

@@ -21,6 +21,7 @@ def SendFeedback():
         return '1', HttpCode.INVALID_ACCESS_TOKEN
 
     newFeedback = Feedback(
+        #Adicionar data do feedback também?
         IdUser = user.IdUser,
         Message = message,
     )
