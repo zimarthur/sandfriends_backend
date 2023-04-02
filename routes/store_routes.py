@@ -132,6 +132,29 @@ def AddStore():
     return "ok", HttpCode.SUCCESS
 
 
+@bp_store.route('/ForgotPasswordStore', methods=['POST'])
+def ForgotPassword():
+    if not request.json:
+        abort(400)
+    
+    emailReq = request.json.get('Email')
+
+    store = db.session.query(Store).filter(Store.Email == emailReq).first()
+
+    #verifica se o email já está cadastrado
+    if store is None:
+        return "Email não cadastrado", HttpCode.EMAIL_NOT_FOUND
+    #verifica se a loja já foi aprovada
+    if store.ApprovalDate is None:
+        return "Aguarde a verificação pela equipe do Sand Friends", HttpCode.WAITING_APPROVAL
+
+    #envia o email automático para redefinir a senha
+    ### ver porque ele faz esse cálculo do datetime + email confirmation token, não poderia ser algo aleatorio?
+    store.ResetPasswordToken = str(datetime.now().timestamp()) + store.EmailConfirmationToken
+    db.session.commit()
+    sendEmail("Troca de senha <br/> https://www.sandfriends.com.br/redirect/?ct=cgpw&bd="+store.ResetPasswordToken)
+    return 'Código enviado para redefinir a senha', HttpCode.SUCCESS
+
 @bp_store.route("/GetStores", methods=["GET"])
 def GetStores():
     stores = Store.query.all()

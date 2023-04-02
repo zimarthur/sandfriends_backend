@@ -23,6 +23,7 @@ class Store(db.Model):
     EmailConfirmationDate = db.Column(db.DateTime)
     EmailConfirmationToken = db.Column(db.String(300))
     ApprovalDate = db.Column(db.DateTime)
+    ResetPasswordToken = db.Column(db.String(300))
 
     IdCity = db.Column(db.Integer, db.ForeignKey('city.IdCity'))
     City = db.relationship('City', foreign_keys = [IdCity])

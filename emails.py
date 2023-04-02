@@ -11,11 +11,11 @@ def sendEmail( message):
         },
         "To": [
             {
-            "Email": "zim.arthur97@gmail.com",
-            "Name": "Arthur"
+            "Email": "pedromilano902@gmail.com",
+            "Name": "Pedro"
             }
         ],
-        "Subject": "Email automatico SandFriends",
+        "Subject": "Email automático SandFriends",
         "TextPart": "Meu Primeiro email",
         "HTMLPart": "<h3>"+message+"</h3><br />Vamo dale",
         #"HTMLPart": "<h3>Dear passenger 1, welcome to <a href='https://www.mailjet.com/'>Mailjet</a>!</h3><br />May the delivery force be with you!",
