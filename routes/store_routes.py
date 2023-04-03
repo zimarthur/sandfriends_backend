@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, abort, request
 from flask_cors import cross_origin
-from datetime import datetime
+from datetime import datetime, timedelta
 from ..Models.store_model import Store
 from ..extensions import db
 from ..Models.http_codes import HttpCode
@@ -133,7 +133,7 @@ def AddStore():
 
 
 @bp_store.route('/ForgotPasswordStore', methods=['POST'])
-def ForgotPassword():
+def ForgotPasswordStore():
     if not request.json:
         abort(400)
     
@@ -154,6 +154,40 @@ def ForgotPassword():
     db.session.commit()
     sendEmail("Troca de senha <br/> https://www.sandfriends.com.br/redirect/?ct=cgpw&bd="+store.ResetPasswordToken)
     return 'Código enviado para redefinir a senha', HttpCode.SUCCESS
+
+@bp_store.route('/ChangePasswordStore', methods=['POST'])
+def ChangePasswordStore():
+    if not request.json:
+        abort(400)
+
+    resetPasswordTokenReq = request.json.get('resetPasswordToken')
+    newPassword = request.json.get('newPassword')
+    newPassword2 = request.json.get('newPassword2')
+
+    store = db.session.query(Store).filter(Store.ResetPasswordToken == resetPasswordTokenReq).first()
+
+    #verifica se o token está certo
+    if store is None:
+        return "Token inválido", HttpCode.INVALID_RESET_PASSWORD_VALUE
+
+    #verifica se as duas senhas são as mesmas
+    if newPassword != newPassword2:
+        return "Senhas não coincidem", HttpCode.INVALID_PASSWORD
+
+    #adiciona a senha no banco de dados
+    store.Password = newPassword
+
+    #anula o resetPasswordToken
+    store.ResetPasswordToken = None
+
+    #anual os tokens de acesso
+    #deixa a data de LastAccess deles como 10 ano atrás
+    tokens = db.session.query(StoreAccessToken).filter(StoreAccessToken.IdStore == store.IdStore).all()
+    for token in tokens:
+        token.LastAccessDate = token.LastAccessDate - timedelta(days=10*365)
+        
+    db.session.commit()
+    return 'Senha alterada com sucesso', HttpCode.SUCCESS
 
 @bp_store.route("/GetStores", methods=["GET"])
 def GetStores():

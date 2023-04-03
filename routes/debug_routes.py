@@ -61,12 +61,20 @@ def getHourIndex(hourString):
 def getLastMonth():
     return (datetime.today().replace(day=1) - timedelta(days=1)).replace(day=1).date()
 
-@bp_debug.route('/debug', methods=['GET'])
+@bp_debug.route('/debug', methods=['POST'])
 def debug():
 
-    storeAccessToken = db.session.query(StoreAccessToken).first()
+    resetPasswordTokenReq = request.json.get('resetPasswordToken')
+    store = db.session.query(Store).filter(Store.ResetPasswordToken == resetPasswordTokenReq).first()
+    tokens = db.session.query(StoreAccessToken).filter(StoreAccessToken.IdStore == store.IdStore).all()
 
-    return str((datetime.now() - storeAccessToken.LastAccessDate).days)
+    retorno = []
+
+    for token in tokens:
+        if (token.LastAccessDate > datetime(2023, 4, 1)):
+            retorno.append(token.AccessToken)
+
+    return jsonify(retorno)
 
     # IdUserReq = request.json.get('IdUser')
     # FirstNameReq = request.json.get('FirstName')
