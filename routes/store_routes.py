@@ -201,12 +201,17 @@ def ConfirmEmailStore():
     if store is None:
         return "Token de confirmação inválido", HttpCode.INVALID_EMAIL_CONFIRMATION_TOKEN
 
-    if store.EmailConfirmationDate is None:
-        store.EmailConfirmationDate = datetime.now()
-        db.session.commit()
-        return "Email confirmado", HttpCode.SUCCESS
-    else:
+    if store.EmailConfirmationDate is not None:
         return "Já confirmado anteriormente", HttpCode.EMAIL_ALREADY_CONFIRMED
+
+    #Tudo ok com o token se chegou até aqui
+    #Enviar e-mail avisando que estaremos verificando os dados da quadra e entraremos em contato em breve
+    sendEmail("O seu email já está confirmado! <br><br>Estamos conferindo os seus dados e estaremos entrando em contato em breve quando estiver tudo ok.<br><br>")
+
+    #Salva a data de confirmação da conta do gestor
+    store.EmailConfirmationDate = datetime.now()
+    db.session.commit()
+    return "Email confirmado com sucesso", HttpCode.SUCCESS
 
 
 @bp_store.route("/GetStores", methods=["GET"])
