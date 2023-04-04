@@ -102,7 +102,7 @@ def AddStore():
         return "Esta cidade não pertence a esse estado", HttpCode.CITY_STATE_NOT_MATCH
 
     if sameCnpj is not None:
-        return "Cnpj já cadastrado", HttpCode.CNPJ_ALREADY_USED
+        return "CNPJ já cadastrado", HttpCode.CNPJ_ALREADY_USED
 
     if sameEmail is not None:
         return "Email já cadastrado", HttpCode.EMAIL_ALREADY_USED
@@ -188,6 +188,26 @@ def ChangePasswordStore():
         
     db.session.commit()
     return 'Senha alterada com sucesso', HttpCode.SUCCESS
+
+#Rota utilizada pelo gestor quando ele clica no link pra confirmação do email, após criar a conta
+@bp_store.route("/ConfirmEmailStore", methods=["POST"])
+def ConfirmEmailStore():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    emailConfirmationTokenReq = request.json.get('emailConfirmationToken')
+    store = db.session.query(Store).filter(Store.EmailConfirmationToken == emailConfirmationTokenReq).first()
+    
+    if store is None:
+        return "Token de confirmação inválido", HttpCode.INVALID_EMAIL_CONFIRMATION_TOKEN
+
+    if store.EmailConfirmationDate is None:
+        store.EmailConfirmationDate = datetime.now()
+        db.session.commit()
+        return "Email confirmado", HttpCode.SUCCESS
+    else:
+        return "Já confirmado anteriormente", HttpCode.EMAIL_ALREADY_CONFIRMED
+
 
 @bp_store.route("/GetStores", methods=["GET"])
 def GetStores():
