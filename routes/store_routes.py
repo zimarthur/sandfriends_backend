@@ -1,12 +1,13 @@
 from flask import Blueprint, jsonify, abort, request
 from flask_cors import cross_origin
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from ..Models.store_model import Store
 from ..extensions import db
 from ..Models.http_codes import HttpCode
 from ..Models.city_model import City
 from ..Models.state_model import State
 from ..Models.sport_model import Sport
+from ..Models.match_model import Match
 from ..Models.available_hour_model import AvailableHour
 from ..Models.store_court_model import StoreCourt
 from ..emails import sendEmail
@@ -162,17 +163,12 @@ def ChangePasswordStore():
 
     resetPasswordTokenReq = request.json.get('resetPasswordToken')
     newPassword = request.json.get('newPassword')
-    newPassword2 = request.json.get('newPassword2')
 
     store = db.session.query(Store).filter(Store.ResetPasswordToken == resetPasswordTokenReq).first()
 
     #verifica se o token está certo
     if store is None:
         return "Token inválido", HttpCode.INVALID_RESET_PASSWORD_VALUE
-
-    #verifica se as duas senhas são as mesmas
-    if newPassword != newPassword2:
-        return "Senhas não coincidem", HttpCode.INVALID_PASSWORD
 
     #adiciona a senha no banco de dados
     store.Password = newPassword
@@ -212,6 +208,28 @@ def ConfirmEmailStore():
     store.EmailConfirmationDate = datetime.now()
     db.session.commit()
     return "Email confirmado com sucesso", HttpCode.SUCCESS
+
+#Rota utilizada por nós para aprovar manualmente os estabelecimentos
+@bp_store.route("/ApproveStore", methods=["POST"])
+def ApproveStore():
+    if not request.json:
+        abort(HttpCode.ABORT)
+        
+    emailReq = request.json.get('email')
+    store = db.session.query(Store).filter(Store.Email == emailReq).first()
+
+    if store is None:
+        return "Loja não existe", HttpCode.EMAIL_NOT_FOUND
+
+    if store.ApprovalDate is not None:
+        return "Loja já aprovada anteriormente", HttpCode.STORE_ALREADY_APPROVED
+        
+    #Salva a data atual como ApprovalDate
+    store.ApprovalDate = datetime.now()
+
+    db.session.commit()
+
+    return "Loja aprovada com sucesso", HttpCode.SUCCESS
 
 
 @bp_store.route("/GetStores", methods=["GET"])
@@ -273,4 +291,10 @@ def initStoreLoginData(store):
     for court in courts:
         courtsList.append(court.to_json_full())
 
-    return jsonify({'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList})
+    matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
+    .filter(Match.Date >= date(2023, 4, 1)).filter(Match.Date <= date(2023, 4, 30)).all()
+    matchList =[]
+    for match in matches:
+        matchList.append(match.to_json())
+
+    return jsonify({'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList})

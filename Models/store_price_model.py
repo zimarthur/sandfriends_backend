@@ -5,6 +5,8 @@ class StorePrice(db.Model):
     IdStorePrice = db.Column(db.Integer, primary_key=True)
     Weekday = db.Column(db.Integer, nullable=False)
     Price = db.Column(db.Numeric, nullable=False)
+    AllowRecurrent = db.Column(db.Boolean, nullable=False)
+    RecurrentPrice = db.Column(db.Integer)
 
     IdAvailableHour = db.Column(db.Integer, db.ForeignKey('available_hour.IdAvailableHour'))
     AvailableHour = db.relationship('AvailableHour', foreign_keys = [IdAvailableHour])
@@ -19,4 +21,6 @@ class StorePrice(db.Model):
             'Day': self.Weekday,
             'IdAvailableHour': self.IdAvailableHour,
             'Price': self.Price,
+            'AllowRecurrent':self.AllowRecurrent,
+            'RecurrentPrice':self.RecurrentPrice,
         }

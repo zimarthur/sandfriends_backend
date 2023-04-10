@@ -5,6 +5,7 @@ class Store(db.Model):
     IdStore = db.Column(db.Integer, primary_key=True)
     Name = db.Column(db.String(45))
     Address = db.Column(db.String(45))
+    AddressNumber = db.Column(db.String(45))
     Latitude = db.Column(db.String(45))
     Longitude = db.Column(db.String(45))
     PhoneNumber1 = db.Column(db.String(45))
@@ -36,9 +37,11 @@ class Store(db.Model):
             'IdStore': self.IdStore,
             'Name': self.Name,
             'Address': self.Address,
+            'AddressNumber': self.AddressNumber,
             'Latitude': self.Latitude,
             'Longitude': self.Longitude,
             'IdCity': self.IdCity,
+            'City': self.City.to_json(),
             'Email': self.Email,
             'HoursBeforeCancellation': self.HoursBeforeCancellation,
             'PhoneNumber1': self.PhoneNumber1,
@@ -46,5 +49,10 @@ class Store(db.Model):
             'Logo': f"https://www.sandfriends.com.br/img/str/logo/{self.IdStore}.png",
             'Description': self.Description,
             'Instagram': self.Instagram,
+            'Cnpj': self.CNPJ,
+            'Cep': self.CEP,
+            'Neighbourhood': self.Neighbourhood,
+            'Cpf': self.CPF,
+            'OwnerName': self.OwnerName,
             'StorePhotos':[photo.to_json() for photo in self.Photos]
         }

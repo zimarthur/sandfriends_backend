@@ -64,17 +64,43 @@ def getLastMonth():
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
 
-    resetPasswordTokenReq = request.json.get('resetPasswordToken')
-    store = db.session.query(Store).filter(Store.ResetPasswordToken == resetPasswordTokenReq).first()
-    tokens = db.session.query(StoreAccessToken).filter(StoreAccessToken.IdStore == store.IdStore).all()
+    courts =[1,2]
+    start_date = date(2023, 3, 9)
+    end_date = date(2023, 5, 9)
+    for court in courts: 
+        for single_date in daterange(start_date, end_date):
+            for time in range(10,20):
+                newMatch = Match(
+                        IdStoreCourt = court,
+                        IdSport = 1,
+                        Date = single_date,
+                        IdTimeBegin = time,
+                        IdTimeEnd = time+1,
+                        Cost = 90,
+                        OpenUsers = False,
+                        MaxUsers = 0,
+                        Canceled = False,
+                        CreationDate = datetime.now(),
+                        CreatorNotes = "",
+                        IdRecurrentMatch = 0,
+                    )
+                db.session.add(newMatch)
+                db.session.commit()
+                newMatch.MatchUrl = f'{newMatch.IdMatch}{int(round(newMatch.CreationDate.timestamp()))}'
+                db.session.commit()
+                matchMember = MatchMember(
+                    IdUser = 2,
+                    IsMatchCreator = True,
+                    WaitingApproval = False,
+                    Refused = False,
+                    IdMatch = newMatch.IdMatch,
+                    Quit = False,
+                    EntryDate = datetime.now(),
+                )
+                db.session.add(matchMember)
+                db.session.commit()
 
-    retorno = []
-
-    for token in tokens:
-        if (token.LastAccessDate > datetime(2023, 4, 1)):
-            retorno.append(token.AccessToken)
-
-    return jsonify(retorno)
+    return "ok", 200
 
     # IdUserReq = request.json.get('IdUser')
     # FirstNameReq = request.json.get('FirstName')
