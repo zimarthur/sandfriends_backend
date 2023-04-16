@@ -13,6 +13,7 @@ from ..Models.store_court_model import StoreCourt
 from ..emails import sendEmail
 from ..Models.store_access_token_model import StoreAccessToken
 from ..access_token import EncodeToken, DecodeToken
+from sqlalchemy import func
 
 daysToExpireToken = 7
 
@@ -85,14 +86,15 @@ def ValidateStoreAccessToken():
 def AddStore():
     if not request.json:
         abort(400)
-    receivedCity = request.json.get('City'),
-    receivedState = request.json.get('State'),
 
-    city = db.session.query(City).filter(City.City == receivedCity).first()
-    state = db.session.query(State).filter(State.UF == receivedState).first()
-    sameCnpj = db.session.query(Store).filter(Store.CNPJ == request.json.get('CNPJ')).first()
-    sameEmail = db.session.query(Store).filter(Store.Email == request.json.get('Email')).first()
+    cityReq = request.json.get('City'),
+    stateReq = request.json.get('State'),
 
+    #primeiro recebe a cidade e o estado pra ver pegar o stateId e o cityId
+    city = db.session.query(City).filter(func.lower(City.City) == func.lower(cityReq)).first()
+    state = db.session.query(State).filter(func.lower(State.UF) == func.lower(stateReq)).first()
+
+    #Verificações de Cidade e Estado
     if city is None:
         return "Cidade não encontrada", HttpCode.CITY_NOT_FOUND
 
@@ -102,35 +104,63 @@ def AddStore():
     if city.IdState != state.IdState:
         return "Esta cidade não pertence a esse estado", HttpCode.CITY_STATE_NOT_MATCH
 
-    if sameCnpj is not None:
-        return "CNPJ já cadastrado", HttpCode.CNPJ_ALREADY_USED
-
-    if sameEmail is not None:
-        return "Email já cadastrado", HttpCode.EMAIL_ALREADY_USED
-
-    store = Store(
+    #Cria o objeto store com os dados enviados pelo gestor da quadra
+    #Já formata corretamente maiúsculas
+    storeReq = Store(
         Name = request.json.get('Name'),
-        Address = request.json.get('Address'),
+        Address = (request.json.get('Address')).title(),
+        AddressNumber = (request.json.get('AddressNumber')).title(),
         IdCity = city.IdCity,
-        Email = request.json.get('Email'),
+        Email = (request.json.get('Email')).lower(),
         PhoneNumber1 = request.json.get('Telephone'),
         PhoneNumber2 = request.json.get('TelephoneOwner'),
-        Description = request.json.get('Description'),
-        Instagram = request.json.get('Instagram'),
+        #Description = request.json.get('Description'),
+        #Instagram = request.json.get('Instagram'),
         CNPJ = request.json.get('CNPJ'),
         CEP = request.json.get('CEP'),
-        Neighbourhood = request.json.get('Neighbourhood'),
-        OwnerName = request.json.get('OwnerName'),
+        Neighbourhood = (request.json.get('Neighbourhood')).title(),
+        OwnerName = (request.json.get('OwnerName')).title(),
         CPF = request.json.get('CPF'),
         RegistrationDate = datetime.now()
     )
-    db.session.add(store)
-    db.session.commit()
-    db.session.refresh(store)
 
-    store.EmailConfirmationToken = str(datetime.now().timestamp()) + str(store.IdStore)
-    sendEmail("https://www.sandfriends.com.br/redirect/?ct=emcf&bd="+store.EmailConfirmationToken)
-    return "ok", HttpCode.SUCCESS
+    #Algum valor nulo que é exigido
+    if storeHasEmptyValues(storeReq):
+        return "Favor preencher todos os campos necessários", HttpCode.INFORMATION_NOT_FOUND
+
+    #Outra quadra com o mesmo nome
+    nameQuery = db.session.query(Store).filter(func.lower(Store.Name) == func.lower(storeReq.Name)).first()
+    if nameQuery is not None:
+        return "Já existe um estabelecimento com este nome", HttpCode.NAME_ALREADY_USED
+
+    #Outra quadra com o mesmo email
+    emailQuery = db.session.query(Store).filter(Store.Email == storeReq.Email).first()
+    if emailQuery is not None:
+        return "Já existe um estabelecimento com este email", HttpCode.EMAIL_ALREADY_USED
+
+    #Outra quadra com o mesmo CNPJ
+    cnpjQuery = db.session.query(Store).filter(Store.CNPJ == storeReq.CNPJ).first()
+    if cnpjQuery is not None:
+        return "Já existe um estabelecimento com este CNPJ", HttpCode.CNPJ_ALREADY_USED
+
+    #Outra quadra no mesmo endereço
+    addressQuery = db.session.query(Store).filter(\
+        func.lower(Store.Address) == func.lower(storeReq.Address),\
+        func.lower(Store.AddressNumber) == func.lower(storeReq.AddressNumber),\
+        Store.CEP == storeReq.CEP\
+        ).first()
+    if addressQuery is not None:    
+        return "Já existe um estabelecimento neste endereço", HttpCode.ADDRESS_ALREADY_USED
+
+    #Adiciona o estabelecimento novo ao banco de dados
+    db.session.add(storeReq)
+    db.session.commit()
+    db.session.refresh(storeReq)
+
+    ###Ajustar esta parte no futuro
+    storeReq.EmailConfirmationToken = str(datetime.now().timestamp()) + str(storeReq.IdStore)
+    sendEmail("https://www.sandfriends.com.br/redirect/?ct=emcf&bd="+storeReq.EmailConfirmationToken)
+    return "Estabelecimento adicionado com sucesso", HttpCode.SUCCESS
 
 
 @bp_store.route('/ForgotPasswordStore', methods=['POST'])
@@ -269,7 +299,7 @@ def DeleteStore(id):
 
 
 def initStoreLoginData(store):
-
+    startTime = datetime.now()
     #Lista com todos esportes
     sports = db.session.query(Sport).all()
     sportsList = []
@@ -292,9 +322,37 @@ def initStoreLoginData(store):
         courtsList.append(court.to_json_full())
 
     matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
-    .filter(Match.Date >= date(2023, 4, 1)).filter(Match.Date <= date(2023, 4, 30)).all()
+    .filter(Match.Date >= date(2023, 4, 1)).filter(Match.Date <= date(2023, 5, 30)).all()
     matchList =[]
     for match in matches:
         matchList.append(match.to_json())
+    endTime =  datetime.now()
+    return jsonify({'aStart':str(startTime),'aEnd': str(endTime), 'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList})
 
-    return jsonify({'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList})
+#Verifica se os dados que o estabelecimento forneceu estão completos (não nulos/vazios)
+def storeHasEmptyValues(storeReq):
+    if \
+        storeReq.Name is None or\
+        storeReq.Address is None or\
+        storeReq.AddressNumber is None or\
+        storeReq.Email is None or\
+        storeReq.PhoneNumber1 is None or\
+        storeReq.CEP is None or\
+        storeReq.Neighbourhood is None or\
+        storeReq.OwnerName is None or\
+        storeReq.CPF is None:
+        return True
+
+    if \
+        storeReq.Name == "" or\
+        storeReq.Address == "" or\
+        storeReq.AddressNumber == "" or\
+        storeReq.Email == "" or\
+        storeReq.PhoneNumber1 == "" or\
+        storeReq.CEP == "" or\
+        storeReq.Neighbourhood == "" or\
+        storeReq.OwnerName == "" or\
+        storeReq.CPF == "":
+        return True
+    return False
+    
