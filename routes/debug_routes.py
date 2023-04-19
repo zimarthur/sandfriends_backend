@@ -64,43 +64,56 @@ def getLastMonth():
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
 
-    courts =[1,2]
-    start_date = date(2023, 3, 9)
-    end_date = date(2023, 5, 9)
-    for court in courts: 
-        for single_date in daterange(start_date, end_date):
-            for time in range(10,20):
-                newMatch = Match(
-                        IdStoreCourt = court,
-                        IdSport = 1,
-                        Date = single_date,
-                        IdTimeBegin = time,
-                        IdTimeEnd = time+1,
-                        Cost = 90,
-                        OpenUsers = False,
-                        MaxUsers = 0,
-                        Canceled = False,
-                        CreationDate = datetime.now(),
-                        CreatorNotes = "",
-                        IdRecurrentMatch = 0,
-                    )
-                db.session.add(newMatch)
-                db.session.commit()
-                newMatch.MatchUrl = f'{newMatch.IdMatch}{int(round(newMatch.CreationDate.timestamp()))}'
-                db.session.commit()
-                matchMember = MatchMember(
-                    IdUser = 2,
-                    IsMatchCreator = True,
-                    WaitingApproval = False,
-                    Refused = False,
-                    IdMatch = newMatch.IdMatch,
-                    Quit = False,
-                    EntryDate = datetime.now(),
-                )
-                db.session.add(matchMember)
-                db.session.commit()
+    logins = db.session.query(Store).all()
+    loginList  =[]
+    for login in logins:
+        loginList.append({
+            "login": login.Email,
+            "pass": login.Password
+        })
+    return jsonify({"test": loginList}), 200 
+    #IdMatchdReq = request.json.get('IdMatch')
 
-    return "ok", 200
+    #partida = db.session.query(Match).filter(Match.IdMatch == IdMatchdReq).first()
+
+    #return partida.to_json_min()
+
+    # courts =[1,2]
+    # start_date = date(2023, 3, 9)
+    # end_date = date(2023, 5, 9)
+    # for court in courts: 
+    #     for single_date in daterange(start_date, end_date):
+    #         for time in range(10,20):
+    #             newMatch = Match(
+    #                     IdStoreCourt = court,
+    #                     IdSport = 1,
+    #                     Date = single_date,
+    #                     IdTimeBegin = time,
+    #                     IdTimeEnd = time+1,
+    #                     Cost = 90,
+    #                     OpenUsers = False,
+    #                     MaxUsers = 0,
+    #                     Canceled = False,
+    #                     CreationDate = datetime.now(),
+    #                     CreatorNotes = "",
+    #                     IdRecurrentMatch = 0,
+    #                 )
+    #             db.session.add(newMatch)
+    #             db.session.commit()
+    #             newMatch.MatchUrl = f'{newMatch.IdMatch}{int(round(newMatch.CreationDate.timestamp()))}'
+    #             db.session.commit()
+    #             matchMember = MatchMember(
+    #                 IdUser = 2,
+    #                 IsMatchCreator = True,
+    #                 WaitingApproval = False,
+    #                 Refused = False,
+    #                 IdMatch = newMatch.IdMatch,
+    #                 Quit = False,
+    #                 EntryDate = datetime.now(),
+    #             )
+    #             db.session.add(matchMember)
+    #             db.session.commit()
+
 
     # IdUserReq = request.json.get('IdUser')
     # FirstNameReq = request.json.get('FirstName')

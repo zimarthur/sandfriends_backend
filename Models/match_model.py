@@ -49,4 +49,27 @@ class Match(db.Model):
             'Members':[member.to_json() for member in self.Members],
             'CanCancelUpTo': CanCancelUpTo.strftime("%d/%m/%Y às %H:%M"),
         }
+
+    def to_json_min(self):
+        #Retorna uma versão mais simplificada
+        #Menos texto para transmitir para o app ao carregar a página
+        #### Coloquei o IdCreator invés do Nome e Sobrenome
+        #### O front
+        IdCreator = "Não encontrado"
+        for member in self.Members:
+            if member.IsMatchCreator == 1:
+                IdCreator = member.IdMatchMember
+
+        return {
+            'IdMatch': self.IdMatch,            
+            'Date': self.Date.strftime("%Y-%m-%d"),
+            'TimeBegin': self.TimeBegin.HourString,
+            'TimeEnd': self.TimeEnd.HourString,
+            'IdStoreCourt': self.StoreCourt.IdStoreCourt,
+            'Cost': int(self.Cost),
+            'IdSport': self.IdSport,
+            'CreatorNotes': self.CreatorNotes,
+            'IdRecurrentMatch': self.IdRecurrentMatch,
+            'IdCreator': IdCreator
+        }
         

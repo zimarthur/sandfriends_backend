@@ -54,5 +54,6 @@ class Store(db.Model):
             'Neighbourhood': self.Neighbourhood,
             'Cpf': self.CPF,
             'OwnerName': self.OwnerName,
+            'ApprovalDate': self.ApprovalDate,
             'StorePhotos':[photo.to_json() for photo in self.Photos]
         }

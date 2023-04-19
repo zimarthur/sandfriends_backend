@@ -56,7 +56,7 @@ def StoreLogin():
     db.session.commit()
 
     #retorna as informações da quadra (esportes, horários, etc)
-    return initStoreLoginData(store), HttpCode.SUCCESS
+    return initStoreLoginData(store, newStoreAccessToken.AccessToken), HttpCode.SUCCESS
 
 @bp_store.route('/ValidateStoreAccessToken', methods=['POST'])
 def ValidateStoreAccessToken():
@@ -80,7 +80,7 @@ def ValidateStoreAccessToken():
     db.session.commit()
 
     #Token válido - retorna as informações da quadra (esportes, horários, etc)
-    return initStoreLoginData(storeAccessToken.Store), HttpCode.SUCCESS
+    return initStoreLoginData(storeAccessToken.Store, storeAccessToken.AccessToken), HttpCode.SUCCESS
 
 @bp_store.route('/AddStore', methods=['POST'])
 def AddStore():
@@ -159,7 +159,7 @@ def AddStore():
 
     ###Ajustar esta parte no futuro
     storeReq.EmailConfirmationToken = str(datetime.now().timestamp()) + str(storeReq.IdStore)
-    sendEmail("https://www.sandfriends.com.br/redirect/?ct=emcf&bd="+storeReq.EmailConfirmationToken)
+    segitndEmail("https://www.sandfriends.com.br/redirect/?ct=emcf&bd="+storeReq.EmailConfirmationToken)
     return "Estabelecimento adicionado com sucesso", HttpCode.SUCCESS
 
 
@@ -298,7 +298,7 @@ def DeleteStore(id):
     return jsonify({'result': True})
 
 
-def initStoreLoginData(store):
+def initStoreLoginData(store, accessToken):
     startTime = datetime.now()
     #Lista com todos esportes
     sports = db.session.query(Sport).all()
@@ -327,7 +327,7 @@ def initStoreLoginData(store):
     for match in matches:
         matchList.append(match.to_json())
     endTime =  datetime.now()
-    return jsonify({'aStart':str(startTime),'aEnd': str(endTime), 'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList})
+    return jsonify({'AccessToken':accessToken, 'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList})
 
 #Verifica se os dados que o estabelecimento forneceu estão completos (não nulos/vazios)
 def storeHasEmptyValues(storeReq):
