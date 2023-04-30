@@ -4,9 +4,8 @@ import random
 from sqlalchemy import null, true, ForeignKey
 from ..routes.reward_routes import RewardStatus
 
-from ..Models.user_login_model import UserLogin
-from ..Models.store_model import Store
 from ..Models.user_model import User
+from ..Models.store_model import Store
 from ..Models.rank_category_model import RankCategory
 from ..Models.gender_category_model import GenderCategory
 from ..Models.side_preference_category_model import SidePreferenceCategory
@@ -15,7 +14,6 @@ from ..Models.store_court_model import StoreCourt
 from ..Models.sport_model import Sport
 from ..Models.city_model import City
 from ..Models.state_model import State
-from ..Models.user_model import User
 from ..Models.user_rank_model import UserRank
 from ..Models.match_model import Match
 from ..Models.match_member_model import MatchMember
@@ -27,21 +25,13 @@ from ..emails import sendEmail
 from ..Models.http_codes import HttpCode
 from ..access_token import EncodeToken, DecodeToken
 
+#### TODO: Atualizar comentários desta rota
 
 bp_user_login = Blueprint('bp_user_login', __name__)
 
-
-
-def IsNewUser(UserLogin):
-    if UserLogin.User == None:
-        return True
-    else:
-        return False
-
-
 # Rota para cadastrar jogador
-@bp_user_login.route("/SignIn", methods=["POST"])
-def SignIn():
+@bp_user_login.route("/AddUser", methods=["POST"])
+def AddUser():
     if not request.json:
         abort(HttpCode.ABORT)
 
@@ -49,11 +39,11 @@ def SignIn():
     password = request.json.get('Password')
     time = datetime.now()
 
-    user = UserLogin.query.filter_by(Email=email).first()
+    user = User.query.filter_by(Email=email).first()
 
     #verifica se ja existe algum jogador com o email enviado
     if not user:        
-        userLogin = UserLogin(
+        userNew = User(
             Email = email,
             Password = password,
             AccessToken = 0, 
@@ -63,20 +53,21 @@ def SignIn():
 
         #A etapa abaixo acontece porque o IdUser da tabela User e da tabela UserLogin é o mesmo, mas ele é incrementado automaticamente.
         #Na hora que o novo usuário é inserido, não se sabe qual o IdUser dele. Por issso tem aquele .flush(), ele faz com que esse IdUser seja "calculado"
-        db.session.add(userLogin)
+        db.session.add(userNew)
         db.session.flush()  
-        db.session.refresh(userLogin)
+        db.session.refresh(userNew)
         
         #Com o IdUser já "calculado" já da pra criar o accessToken, que é feito no arquivo access_token.py, 
         #e criar o token pra confimação do email(que é enviado por email pela função sendEmail())
-        userLogin.AccessToken = EncodeToken(userLogin.IdUser)
-        userLogin.EmailConfirmationToken = str(datetime.now().timestamp()) + userLogin.AccessToken
-        sendEmail("https://www.sandfriends.com.br/redirect/?ct=emcf&bd="+userLogin.EmailConfirmationToken)
+        userNew.AccessToken = EncodeToken(userNew.IdUser)
+        userNew.EmailConfirmationToken = str(datetime.now().timestamp()) + userNew.AccessToken
+        sendEmail("https://www.sandfriends.com.br/redirect/?ct=emcf&bd="+userNew.EmailConfirmationToken)
         db.session.commit()
-        return userLogin.to_json(), HttpCode.SUCCESS
+        return "Usuário criado com sucesso", HttpCode.SUCCESS
+        #return userNew.to_json(), HttpCode.SUCCESS
     else:
         if user.ThirdPartyLogin: #Nesse caso, o email que o usuário tentou cadastrar já foi cadastrado com o "Login com o google"
-            return "e-mail já cadastrado com Conta Google",HttpCode.EMAIL_ALREADY_USED_THIRDPARTY
+            return "E-mail já cadastrado com Conta Google",HttpCode.EMAIL_ALREADY_USED_THIRDPARTY
         else:
             if password == user.Password:
                 if user.EmailConfirmationDate == None:
@@ -93,10 +84,10 @@ def ConfirmEmail():
         abort(HttpCode.ABORT)
 
     emailConfirmationToken = request.json.get('EmailConfirmationToken')
-    userLogin = UserLogin.query.filter_by(EmailConfirmationToken=emailConfirmationToken).first()
-    if userLogin:
-        if userLogin.EmailConfirmationDate == None:
-            userLogin.EmailConfirmationDate = datetime.now()
+    user = User.query.filter_by(EmailConfirmationToken=emailConfirmationToken).first()
+    if user:
+        if user.EmailConfirmationDate == None:
+            user.EmailConfirmationDate = datetime.now()
             db.session.commit()
             return "ok", HttpCode.SUCCESS
         else:
@@ -115,17 +106,17 @@ def ValidateToken():
     token = request.json.get('AccessToken')
 
     payloadUserId = DecodeToken(token)
-    userLogin = UserLogin.query.filter_by(AccessToken = token).first()
+    user = User.query.filter_by(AccessToken = token).first()
 
-    if userLogin is None:
+    if user is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN
     else:
         newToken = EncodeToken(payloadUserId)
-        userLogin.AccessToken = newToken
+        user.AccessToken = newToken
         db.session.commit()
 
-        if userLogin.User == None:
-            return jsonify({'UserLogin': userLogin.to_json()}), HttpCode.SUCCESS
+        if user.User == None:
+            return jsonify({'User': user.to_json()}), HttpCode.SUCCESS
         
         #nesse ponto, o AccessToken estava válido. Além de retornar ao jogador o novo accessToken,  ele envia tb as infos do jogador e o numero de jogos do jogador
         #Como o num de jogos do jogador não está e não pode ser obtida na tabela User ou UserLogin, tive q fazer a query manualmente(abaixo)
@@ -136,7 +127,7 @@ def ValidateToken():
         matchCounterList=[]
         matchCounter = db.session.query(Match)\
             .join(MatchMember, MatchMember.IdMatch == Match.IdMatch)\
-            .filter(MatchMember.IdUser == userLogin.IdUser)\
+            .filter(MatchMember.IdUser == user.IdUser)\
             .filter(MatchMember.WaitingApproval == False)\
             .filter(MatchMember.Refused == False)\
             .filter(MatchMember.Quit == False)\
@@ -152,52 +143,51 @@ def ValidateToken():
                 'MatchCounter': len([match for match in matchCounter if match.IdSport == sport.IdSport])
             })
             
-        return jsonify({'UserLogin': userLogin.to_json(), 'User': userLogin.User.to_json(), 'MatchCounter':matchCounterList}), HttpCode.SUCCESS
+        return jsonify({'User': user.to_json(), 'MatchCounter':matchCounterList}), HttpCode.SUCCESS
 
 #Rota utilizada quando o jogador faz login
 @bp_user_login.route("/LogIn", methods=["POST"])
 def LogIn():
-    print("inisde login")
     if not request.json:
         abort(HttpCode.ABORT)
-    print("inisde login2")
 
     email = request.json.get('Email')
     password = request.json.get('Password')
     thirdPartyLogin = request.json.get('ThirdPartyLogin') #quando o jogador clica para fazer login com o google, a propria API do google "valida" o jogador
 
-    userLogin = UserLogin.query.filter_by(Email=email).first()
+    user = User.query.filter_by(Email=email).first()
 
     if thirdPartyLogin:
-        if not userLogin: #entrou com o google, mas ainda não estava cadastrado
-            userLogin = UserLogin(
+        if not user: #entrou com o google, mas ainda não estava cadastrado
+            user = User(
             Email = email,
             Password = '',
             AccessToken = 0, 
             RegistrationDate = datetime.now(),
             ThirdPartyLogin = True,
             )
-            db.session.add(userLogin)
+            db.session.add(user)
             db.session.flush()
-            db.session.refresh(userLogin)
+            db.session.refresh(user)
 
-            userLogin.AccessToken = EncodeToken(userLogin.IdUser)
+            user.AccessToken = EncodeToken(user.IdUser)
             db.session.commit()
-            return jsonify({'UserLogin': userLogin.to_json()}), HttpCode.SUCCESS
+            return jsonify({'User': user.to_json()}), HttpCode.SUCCESS
         else:
-            newToken = EncodeToken(userLogin.IdUser)
+            newToken = EncodeToken(user.IdUser)
 
-            userLogin.AccessToken = newToken
+            user.AccessToken = newToken
             db.session.commit()
 
-            if userLogin.User == None:
-                return jsonify({'UserLogin': userLogin.to_json()}), HttpCode.SUCCESS
+            #Caso o usuário tenha criado a conta e ainda não feito login pela primeira vez - cadastrado nome
+            if user.Name == None:
+                return jsonify({'User': user.to_json()}), HttpCode.SUCCESS
             
             #mesma query do ValidateToken(interessante no futuro criar uma função pra não repetir codigo)
             matchCounterList=[]
             matchCounter = db.session.query(Match)\
                 .join(MatchMember, MatchMember.IdMatch == Match.IdMatch)\
-                .filter(MatchMember.IdUser == userLogin.IdUser)\
+                .filter(MatchMember.IdUser == user.IdUser)\
                 .filter(MatchMember.WaitingApproval == False)\
                 .filter(MatchMember.Refused == False)\
                 .filter(MatchMember.Quit == False)\
@@ -212,30 +202,31 @@ def LogIn():
                     'MatchCounter': len([match for match in matchCounter if match.IdSport == sport.IdSport])
                 })
                 
-            return jsonify({'UserLogin': userLogin.to_json(), 'User': userLogin.User.to_json(), 'MatchCounter':matchCounterList,}), HttpCode.SUCCESS
+            return jsonify({'User': user.to_json(), 'MatchCounter':matchCounterList,}), HttpCode.SUCCESS
 
     else:
-        if not userLogin:
+        if not user:
             return 'Esse email não está cadastrado', HttpCode.EMAIL_NOT_FOUND
         else:
-            if userLogin.ThirdPartyLogin:
-                return "e-mail já cadastrado com Conta Googleee",HttpCode.EMAIL_ALREADY_USED_THIRDPARTY
+            if user.ThirdPartyLogin:
+                return "E-mail já cadastrado com Conta Google",HttpCode.EMAIL_ALREADY_USED_THIRDPARTY
             else:
-                if userLogin.Password == password:
-                    if userLogin.EmailConfirmationDate != None:
-                        newToken = EncodeToken(userLogin.IdUser)
+                if user.Password == password:
+                    if user.EmailConfirmationDate != None:
+                        newToken = EncodeToken(user.IdUser)
 
-                        userLogin.AccessToken = newToken
+                        user.AccessToken = newToken
                         db.session.commit()
 
-                        if userLogin.User == None:
-                            return jsonify({'UserLogin': userLogin.to_json()}), HttpCode.SUCCESS
+                        #Primeiro acesso do usuário - Redirecionar para tela de boas vindas
+                        if user.Name == None:
+                            return jsonify({'User': user.to_json()}), HttpCode.SUCCESS
                         
                         #mesma query do ValidateToken(interessante no futuro criar uma função pra não repetir codigo)
                         matchCounterList=[]
                         matchCounter = db.session.query(Match)\
                             .join(MatchMember, MatchMember.IdMatch == Match.IdMatch)\
-                            .filter(MatchMember.IdUser == userLogin.IdUser)\
+                            .filter(MatchMember.IdUser == user.IdUser)\
                             .filter(MatchMember.WaitingApproval == False)\
                             .filter(MatchMember.Refused == False)\
                             .filter(MatchMember.Quit == False)\
@@ -250,7 +241,7 @@ def LogIn():
                                 'MatchCounter': len([match for match in matchCounter if match.IdSport == sport.IdSport])
                             })
                             
-                        return jsonify({'UserLogin': userLogin.to_json(), 'User': userLogin.User.to_json(), 'MatchCounter':matchCounterList,}), HttpCode.SUCCESS
+                        return jsonify({'User': user.to_json(), 'MatchCounter':matchCounterList,}), HttpCode.SUCCESS
 
                     else:
                         return "valide email", HttpCode.WAITING_EMAIL_CONFIRMATION
@@ -264,14 +255,14 @@ def ChangePasswordRequest():
         abort(HttpCode.ABORT)
     email = request.json.get('Email')
 
-    userLogin = UserLogin.query.filter_by(Email=email).first()
-    if not userLogin:
+    user = User.query.filter_by(Email=email).first()
+    if not user:
         return 'Esse email não está cadastrado', HttpCode.EMAIL_NOT_FOUND
     else:
-        if userLogin.EmailConfirmationDate != None:
-            userLogin.ResetPasswordValue = str(datetime.now().timestamp()) + userLogin.AccessToken
+        if user.EmailConfirmationDate != None:
+            user.ResetPasswordValue = str(datetime.now().timestamp()) + user.AccessToken
             db.session.commit()
-            sendEmail("troca de senha <br/> https://www.sandfriends.com.br/redirect/?ct=cgpw&bd="+userLogin.ResetPasswordValue)
+            sendEmail("troca de senha <br/> https://www.sandfriends.com.br/redirect/?ct=cgpw&bd="+user.ResetPasswordValue)
             return 'Code Sent', HttpCode.SUCCESS
         else:
             return "email not confirmed", HttpCode.WAITING_EMAIL_CONFIRMATION
@@ -285,10 +276,10 @@ def ChangePassword():
     resetPasswordValue = request.json.get('ResetPasswordValue')
     newPassword = request.json.get('NewPassword')
 
-    userLogin = UserLogin.query.filter_by(ResetPasswordValue=resetPasswordValue).first()
-    if userLogin:
-        userLogin.Password = newPassword
-        userLogin.ResetPasswordValue = None
+    user = User.query.filter_by(ResetPasswordValue=resetPasswordValue).first()
+    if user:
+        user.Password = newPassword
+        user.ResetPasswordValue = None
         db.session.commit()
         return "password changed", HttpCode.SUCCESS
     else:
@@ -302,9 +293,9 @@ def GetUserInfo():
 
     accessToken = request.json.get('AccessToken')
 
-    userLogin = UserLogin.query.filter_by(AccessToken = accessToken).first()
+    user = User.query.filter_by(AccessToken = accessToken).first()
 
-    if userLogin is None:
+    if user is None:
         return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
 
     #Sobre a query
@@ -315,8 +306,8 @@ def GetUserInfo():
                 .filter(Match.OpenUsers == True)\
                 .filter((Match.Date > datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeBegin >= int(datetime.now().strftime("%H")))))\
                 .filter(Match.Canceled == False)\
-                .filter(Match.IdSport == userLogin.User.IdSport)\
-                .filter(Store.IdCity == userLogin.User.IdCity).all()
+                .filter(Match.IdSport == user.IdSport)\
+                .filter(Store.IdCity == user.IdCity).all()
     
     openMatchesCounter = 0
     #esse loop é feitor para contar as partidas da query acima em que o usuario não está dentro
@@ -324,7 +315,7 @@ def GetUserInfo():
         userAlreadyInMatch = False
         matchMemberCounter = 0
         for member in openMatch.Members:
-            if (member.User.IdUser == userLogin.IdUser)  and (member.Refused == False) and (member.Quit == False):
+            if (member.User.IdUser == user.IdUser)  and (member.Refused == False) and (member.Quit == False):
                 userAlreadyInMatch = True
                 break
             else:
@@ -337,7 +328,7 @@ def GetUserInfo():
     #query para as partidas que o jogador jogou e vai jogar
     userMatches =  db.session.query(Match)\
                 .join(MatchMember, Match.IdMatch == MatchMember.IdMatch)\
-                .filter(MatchMember.IdUser == userLogin.IdUser).all()
+                .filter(MatchMember.IdUser == user.IdUser).all()
 
     for userMatch in userMatches:
         userMatchesList.append(userMatch.to_json())
@@ -345,14 +336,14 @@ def GetUserInfo():
 
 
     notificationList = []
-    notifications = db.session.query(Notification).filter(Notification.IdUser == userLogin.IdUser).all()
+    notifications = db.session.query(Notification).filter(Notification.IdUser == user.IdUser).all()
     
     for notification in notifications:
         notificationList.append(notification.to_json())
         notification.Seen = True
         db.session.commit()
 
-    return  jsonify({'UserMatches': userMatchesList, 'OpenMatchesCounter': openMatchesCounter, 'Notifications': notificationList, 'UserRewards': RewardStatus(userLogin.IdUser)}), 200
+    return  jsonify({'UserMatches': userMatchesList, 'OpenMatchesCounter': openMatchesCounter, 'Notifications': notificationList, 'UserRewards': RewardStatus(user.IdUser)}), 200
 
 
 

@@ -18,7 +18,7 @@ from ..Models.store_photo_model import StorePhoto
 from ..Models.store_court_model import StoreCourt
 from ..Models.store_court_sport_model import StoreCourtSport
 from ..Models.sport_model import Sport
-from ..Models.user_login_model import UserLogin
+from ..Models.user_model import User
 
 
 
@@ -62,7 +62,7 @@ def UserRecurrentMatches():
     
     accessToken = request.json.get('AccessToken')
 
-    user = UserLogin.query.filter_by(AccessToken = accessToken).first()
+    user = User.query.filter_by(AccessToken = accessToken).first()
 
     if user is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN
@@ -97,7 +97,7 @@ def SearchCourts():
     timeStart = request.json.get('timeStart')
     timeEnd = request.json.get('timeEnd')
 
-    user = UserLogin.query.filter_by(AccessToken = accessToken).first()
+    user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN
 
@@ -195,7 +195,7 @@ def CourtReservation():
     timeEnd = getHourIndex(request.json.get('timeEnd'))
     cost = request.json.get('cost')
 
-    user = UserLogin.query.filter_by(AccessToken = accessToken).first()
+    user = User.query.filter_by(AccessToken = accessToken).first()
 
     if user is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN

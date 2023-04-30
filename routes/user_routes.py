@@ -2,7 +2,6 @@ from flask import Blueprint, jsonify, abort, request
 import base64
 
 from ..Models.user_model import User
-from ..Models.user_login_model import UserLogin
 from ..Models.user_rank_model import UserRank
 from ..Models.sport_model import Sport
 from ..Models.rank_category_model import RankCategory
@@ -15,8 +14,8 @@ import os
 
 bp_user = Blueprint('bp_user', __name__)
 
-@bp_user.route('/AddUser', methods=['POST'])
-def AddUser():
+@bp_user.route('/AddUserInformation', methods=['POST'])
+def AddUserInformation():
     if not request.json:
         abort(400)
 
@@ -54,9 +53,9 @@ def UpdateUser():
     if not request.json:
         abort(HttpCode.ABORT)
     
-    userLogin = UserLogin.query.filter_by(AccessToken = request.json.get('AccessToken')).first()
+    user = User.query.filter_by(AccessToken = request.json.get('AccessToken')).first()
 
-    if userLogin is None:
+    if user is None:
         return 'NOK', HttpCode.INVALID_ACCESS_TOKEN
     else:
         availableRanks = db.session.query(RankCategory).all()
@@ -69,18 +68,18 @@ def UpdateUser():
             for newRank in newRanks:
                 if newRank['idSport'] == sport.IdSport:
                     oldUserRanks = db.session.query(UserRank)\
-                                .filter(UserRank.IdUser == userLogin.IdUser)\
+                                .filter(UserRank.IdUser == user.IdUser)\
                                 .filter(UserRank.IdRankCategory.in_([sportRank.IdRankCategory for sportRank in sportRanks])).first()
                     if oldUserRanks is None:
                         rank = UserRank(
-                            IdUser = userLogin.IdUser,
+                            IdUser = user.IdUser,
                             IdRankCategory = newRank['idRankCategory'],
                         )
                         db.session.add(rank)
                     else:
                         oldUserRanks.IdRankCategory = newRank['idRankCategory']
 
-        user = User.query.get(userLogin.IdUser)
+        user = User.query.get(user.IdUser)
         user.FirstName = request.json.get('FirstName')
         user.LastName = request.json.get('LastName')
         user.PhoneNumber = request.json.get('PhoneNumber')
@@ -109,7 +108,7 @@ def UpdateUser():
         if request.json.get('Photo') == "":
             user.Photo = None
         else:
-            user.Photo = str(userLogin.RegistrationDate.timestamp()).replace(".","") + str(userLogin.IdUser)
+            user.Photo = str(user.RegistrationDate.timestamp()).replace(".","") + str(user.IdUser)
             print(user.Photo)
             decoded_data=base64.b64decode(request.json.get('Photo')+ '==')
             img_file = open(f'/var/www/html/img/usr/{user.Photo}.png', 'wb')
@@ -118,4 +117,3 @@ def UpdateUser():
 
         db.session.commit()
         return jsonify(user.to_json()), HttpCode.SUCCESS
-

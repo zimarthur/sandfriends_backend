@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, abort, request
 from ..Models.feedback_model import Feedback
-from ..Models.user_login_model import UserLogin
+from ..Models.user_model import User
 from ..extensions import db
 from ..Models.http_codes import HttpCode
 
@@ -16,7 +16,7 @@ def SendFeedback():
     accessToken = request.json.get('accessToken')
     message = request.json.get('message')
 
-    user = UserLogin.query.filter_by(AccessToken = accessToken).first()
+    user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN
 

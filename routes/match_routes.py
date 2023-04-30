@@ -19,7 +19,7 @@ from ..Models.store_photo_model import StorePhoto
 from ..Models.store_court_model import StoreCourt
 from ..Models.store_court_sport_model import StoreCourtSport
 from ..Models.sport_model import Sport
-from ..Models.user_login_model import UserLogin
+from ..Models.user_model import User
 from ..Models.notification_model import Notification
 from ..Models.notification_category_model import NotificationCategory
 from ..access_token import EncodeToken, DecodeToken
@@ -92,7 +92,7 @@ def SearchCourts():
     timeStart = request.json.get('timeStart')
     timeEnd = request.json.get('timeEnd')
 
-    user = UserLogin.query.filter_by(AccessToken = accessToken).first()
+    user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN
 
@@ -231,7 +231,7 @@ def CourtReservation():
     if not(matches is None):
         return "TIME_NO_LONGER_AVAILABLE", HttpCode.TIME_NO_LONGER_AVAILABLE
     else:
-        user = UserLogin.query.filter_by(AccessToken = accessToken).first()
+        user = User.query.filter_by(AccessToken = accessToken).first()
 
         if user is None:
             return '1', HttpCode.INVALID_ACCESS_TOKEN
@@ -301,7 +301,7 @@ def InvitationResponse():
     idUser = request.json.get('idUser')
     accepted = request.json.get('accepted')
 
-    user = UserLogin.query.filter_by(AccessToken = accessToken).first()
+    user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
         return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
 
@@ -340,7 +340,7 @@ def LeaveMatch():
     accessToken = request.json.get('accessToken')
     idMatch = request.json.get('idMatch')
 
-    user = UserLogin.query.filter_by(AccessToken = accessToken).first()
+    user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
         return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
 
@@ -378,7 +378,7 @@ def SaveCreatorNotes():
     idMatch = request.json.get('idMatch')
     newCreatorNotes = request.json.get('newCreatorNotes')
 
-    user = UserLogin.query.filter_by(AccessToken = accessToken).first()
+    user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
         return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
 
@@ -402,7 +402,7 @@ def SaveOpenMatch():
     isOpenMatch = request.json.get('isOpenMatch')
     maxUsers = request.json.get('maxUsers')
 
-    user = UserLogin.query.filter_by(AccessToken = accessToken).first()
+    user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
         return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
 
@@ -429,7 +429,7 @@ def JoinMatch():
     accessToken = request.json.get('accessToken')
     idMatch = request.json.get('idMatch')
 
-    user = UserLogin.query.filter_by(AccessToken = accessToken).first()
+    user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
         return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
 
@@ -489,7 +489,7 @@ def CancelMatch():
     accessToken = request.json.get('accessToken')
     idMatch = request.json.get('idMatch')
 
-    user = UserLogin.query.filter_by(AccessToken = accessToken).first()
+    user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
         return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
 
@@ -534,7 +534,7 @@ def RemoveMatchMember():
     idMatch = request.json.get('idMatch')
     idUserDelete = request.json.get('idUserDelete')
 
-    user = UserLogin.query.filter_by(AccessToken = accessToken).first()
+    user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
         return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
 
@@ -591,9 +591,9 @@ def GetOpenMatches():
     
     accessToken = request.json.get('accessToken')
 
-    userLogin = UserLogin.query.filter_by(AccessToken = accessToken).first()
+    user = User.query.filter_by(AccessToken = accessToken).first()
 
-    if userLogin is None:
+    if user is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN
 
     openMatches = db.session.query(Match)\
@@ -602,8 +602,8 @@ def GetOpenMatches():
                 .filter(Match.OpenUsers == True)\
                 .filter((Match.Date > datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeBegin >= int(datetime.now().strftime("%H")))))\
                 .filter(Match.Canceled == False)\
-                .filter(Match.IdSport == userLogin.User.IdSport)\
-                .filter(Store.IdCity == userLogin.User.IdCity).all()
+                .filter(Match.IdSport == user.IdSport)\
+                .filter(Store.IdCity == user.IdCity).all()
     
     jsonOpenMatches = []
     for openMatch in openMatches:

@@ -4,12 +4,11 @@ from datetime import datetime
 
 class User(db.Model):
     __tablename__ = 'user'
-    IdUser = db.Column(db.Integer, db.ForeignKey('user_login.IdUser'), primary_key=True)
-    UserLogin = db.relationship('UserLogin', foreign_keys = [IdUser])
+    IdUser = db.Column(db.Integer, primary_key=True)
 
-    FirstName = db.Column(db.String(25))
-    LastName = db.Column(db.String(25))
-    PhoneNumber = db.Column(db.String(11))
+    FirstName = db.Column(db.String(50))
+    LastName = db.Column(db.String(50))
+    PhoneNumber = db.Column(db.String(12))
     Birthday = db.Column(db.DateTime)
     Height = db.Column(db.Float)
     Photo = db.Column(db.String(100))
@@ -27,6 +26,15 @@ class User(db.Model):
     Sport = db.relationship('Sport', foreign_keys = [IdSport])
 
     Ranks = db.relationship("UserRank", backref="User")
+
+    Email = db.Column(db.String(255))
+    Password = db.Column(db.String(255))
+    AccessToken = db.Column(db.String(255))
+    RegistrationDate = db.Column(db.DateTime)
+    EmailConfirmationDate = db.Column(db.DateTime)
+    EmailConfirmationToken = db.Column(db.String(300))
+    ResetPasswordValue = db.Column(db.Integer)
+    ThirdPartyLogin = db.Column(db.Boolean)
 
     def to_json(self):
         if self.Birthday == None:
@@ -68,8 +76,14 @@ class User(db.Model):
             'Age':age,
             'Sport':self.Sport.to_json(),
             'Ranks':rankList,
-            'Email': self.UserLogin.Email,
             'City': self.City.to_json(),
+            'Email': self.Email,
+            'AccessToken': self.AccessToken,
+            'RegistrationDate': self.RegistrationDate.strftime("%d/%m/%Y"),
+            'EmailConfirmationDate': self.EmailConfirmationDate.strftime("%d/%m/%Y"),
+            'EmailConfirmationToken': self.EmailConfirmationToken,
+            'ThirdPartyLogin': self.ThirdPartyLogin,
+            'ResetPasswordValue':self.ResetPasswordValue,
         }
 
     def identification_to_json(self):
