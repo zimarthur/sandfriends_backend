@@ -157,9 +157,11 @@ def ValidateToken():
 #Rota utilizada quando o jogador faz login
 @bp_user_login.route("/LogIn", methods=["POST"])
 def LogIn():
+    print("inisde login")
     if not request.json:
         abort(HttpCode.ABORT)
-    
+    print("inisde login2")
+
     email = request.json.get('Email')
     password = request.json.get('Password')
     thirdPartyLogin = request.json.get('ThirdPartyLogin') #quando o jogador clica para fazer login com o google, a propria API do google "valida" o jogador
@@ -217,7 +219,7 @@ def LogIn():
             return 'Esse email não está cadastrado', HttpCode.EMAIL_NOT_FOUND
         else:
             if userLogin.ThirdPartyLogin:
-                return "e-mail já cadastrado com Conta Google",HttpCode.EMAIL_ALREADY_USED_THIRDPARTY
+                return "e-mail já cadastrado com Conta Googleee",HttpCode.EMAIL_ALREADY_USED_THIRDPARTY
             else:
                 if userLogin.Password == password:
                     if userLogin.EmailConfirmationDate != None:

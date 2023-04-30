@@ -191,8 +191,8 @@ def ChangePasswordStore():
     if not request.json:
         abort(400)
 
-    resetPasswordTokenReq = request.json.get('resetPasswordToken')
-    newPassword = request.json.get('newPassword')
+    resetPasswordTokenReq = request.json.get('ResetPasswordToken')
+    newPassword = request.json.get('NewPassword')
 
     store = db.session.query(Store).filter(Store.ResetPasswordToken == resetPasswordTokenReq).first()
 
@@ -221,7 +221,7 @@ def ConfirmEmailStore():
     if not request.json:
         abort(HttpCode.ABORT)
 
-    emailConfirmationTokenReq = request.json.get('emailConfirmationToken')
+    emailConfirmationTokenReq = request.json.get('EmailConfirmationToken')
     store = db.session.query(Store).filter(Store.EmailConfirmationToken == emailConfirmationTokenReq).first()
     
     if store is None:
@@ -245,7 +245,7 @@ def ApproveStore():
     if not request.json:
         abort(HttpCode.ABORT)
         
-    emailReq = request.json.get('email')
+    emailReq = request.json.get('Email')
     store = db.session.query(Store).filter(Store.Email == emailReq).first()
 
     if store is None:

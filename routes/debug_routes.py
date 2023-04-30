@@ -64,13 +64,10 @@ def getLastMonth():
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
 
-    logins = db.session.query(Store).all()
+    logins = db.session.query(StoreAccessToken).all()
     loginList  =[]
     for login in logins:
-        loginList.append({
-            "login": login.Email,
-            "pass": login.Password
-        })
+        loginList.append(login.to_json())
     return jsonify({"test": loginList}), 200 
     #IdMatchdReq = request.json.get('IdMatch')
 
