@@ -33,7 +33,7 @@ class User(db.Model):
     RegistrationDate = db.Column(db.DateTime)
     EmailConfirmationDate = db.Column(db.DateTime)
     EmailConfirmationToken = db.Column(db.String(300))
-    ResetPasswordValue = db.Column(db.Integer)
+    ResetPasswordToken = db.Column(db.Integer)
     ThirdPartyLogin = db.Column(db.Boolean)
 
     def to_json(self):
@@ -56,12 +56,22 @@ class User(db.Model):
         if self.GenderCategory == None:
             gender = None
         else:
-            gender = self.GenderCategory.to_json(),
+            gender = self.GenderCategory.to_json()
 
         if self.SidePreferenceCategory == None:
             sidePreferenceCategory = None
         else:
-            sidePreferenceCategory = self.SidePreferenceCategory.to_json(),
+            sidePreferenceCategory = self.SidePreferenceCategory.to_json()
+
+        if self.IdSport == None:
+            sport = None
+        else:
+            sport = self.Sport.to_json()
+
+        if self.IdCity == None:
+            city = None
+        else:
+            city = self.City.to_json()
 
         return {
             'IdUser': self.IdUser,
@@ -73,17 +83,17 @@ class User(db.Model):
             'Height': self.Height,
             'SidePreferenceCategory': sidePreferenceCategory,
             'Photo': photo,
-            'Age':age,
-            'Sport':self.Sport.to_json(),
-            'Ranks':rankList,
-            'City': self.City.to_json(),
+            'Age': age,
+            'Sport': sport,
+            'Ranks': rankList,
+            'City': city,
             'Email': self.Email,
             'AccessToken': self.AccessToken,
             'RegistrationDate': self.RegistrationDate.strftime("%d/%m/%Y"),
             'EmailConfirmationDate': self.EmailConfirmationDate.strftime("%d/%m/%Y"),
             'EmailConfirmationToken': self.EmailConfirmationToken,
             'ThirdPartyLogin': self.ThirdPartyLogin,
-            'ResetPasswordValue':self.ResetPasswordValue,
+            'ResetPasswordToken':self.ResetPasswordToken,
         }
 
     def identification_to_json(self):

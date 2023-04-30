@@ -11,7 +11,7 @@ class UserLogin(db.Model):
     RegistrationDate = db.Column(db.DateTime, nullable=False)
     EmailConfirmationDate = db.Column(db.DateTime)
     EmailConfirmationToken = db.Column(db.String(100))
-    ResetPasswordValue = db.Column(db.Integer)
+    ResetPasswordToken = db.Column(db.Integer)
     ThirdPartyLogin = db.Column(db.Boolean)
    
 
@@ -29,6 +29,6 @@ class UserLogin(db.Model):
             'EmailConfirmationDate': self.EmailConfirmationDate,
             'EmailConfirmationToken': self.EmailConfirmationToken,
             'ThirdPartyLogin': self.ThirdPartyLogin,
-            'ResetPasswordValue':self.ResetPasswordValue,
+            'ResetPasswordToken':self.ResetPasswordToken,
             'IsNewUser': isNewUser
         }

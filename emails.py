@@ -13,6 +13,10 @@ def sendEmail( message):
             {
             "Email": "pedromilano902@gmail.com",
             "Name": "Pedro"
+            },
+            {
+            "Email": "zim.arthur97@gmail.com",
+            "Name": "Arthur"
             }
         ],
         "Subject": "Email automático SandFriends",

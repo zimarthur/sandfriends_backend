@@ -1,6 +1,12 @@
 class HttpCode:
     SUCCESS = 200
     ABORT = 400
+    #Warning gera uma carinha triste no site
+    WARNING = 230
+    #Alert gera uma carinha feliz no site
+    ALERT = 231
+
+    #Antigos
     INVALID_ACCESS_TOKEN = 401
     INVALID_USER_ID = 402  #user id não encontrado
     EMAIL_ALREADY_USED = 403 #tentou criar uma conta com um email ja cadastrado e a senha não condiz com o email
