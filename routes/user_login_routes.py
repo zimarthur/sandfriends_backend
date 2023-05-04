@@ -84,7 +84,17 @@ def AddUserInfo():
     idCityReq = request.json.get('IdCity')
     idSportReq = request.json.get('IdSport')
 
-    user = User.query.filter_by(AccessToken=tokenReq).first()
+    #Verifica se a cidade existe
+    cidade = db.session.query(City).filter(City.IdCity == idCityReq).first()
+    if cidade is None:
+        return "Cidade inválida", HttpCode.WARNING
+
+    #Verifica se o esporte existe
+    esporte = db.session.query(Sport).filter(Sport.IdSport == idSportReq).first()
+    if esporte is None:
+        return "Esporte inválido", HttpCode.WARNING
+    
+    user = db.session.query(User).filter(User.AccessToken == tokenReq).first()
 
     #Verifica se o token é 0 ou null
     tokenNullOrZero(tokenReq)
@@ -92,8 +102,8 @@ def AddUserInfo():
     if not user:
         return "Token expirado", HttpCode.EXPIRED_TOKEN
 
-    user.FirstName = firstNameReq
-    user.LastName = lastNameReq
+    user.FirstName = firstNameReq.title()
+    user.LastName = lastNameReq.title()
     user.PhoneNumber = phoneNumberReq
     user.IdCity = idCityReq
     user.IdSport = idSportReq
@@ -292,9 +302,9 @@ def GetUserInfo():
     if not request.json:
         abort(HttpCode.ABORT)
 
-    accessTokenReq = request.json.get('AccessToken')
+    tokenReq = request.json.get('AccessToken')
 
-    user = User.query.filter_by(AccessToken = accessTokenReq).first()
+    user = User.query.filter_by(AccessToken = tokenReq).first()
 
     #Verifica se o token é 0 ou null
     tokenNullOrZero(tokenReq)
