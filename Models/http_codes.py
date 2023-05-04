@@ -5,6 +5,8 @@ class HttpCode:
     WARNING = 230
     #Alert gera uma carinha feliz no site
     ALERT = 231
+    #Resposta para quando o access token enviado na solicitação não é válido
+    EXPIRED_TOKEN = 232
 
     #Antigos
     INVALID_ACCESS_TOKEN = 401

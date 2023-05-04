@@ -6,11 +6,18 @@ class State(db.Model):
     State = db.Column(db.String(255))
     UF = db.Column(db.String(5))
 
-    cities = db.relationship("City", backref="State")
+    Cities = db.relationship("City", backref="State")
     
     def to_json(self):
         return {
             'IdState': self.IdState,
             'State': self.State,
             'UF': self.UF,
+        }
+    def to_jsonWithCities(self):
+        return {
+            'IdState': self.IdState,
+            'State': self.State,
+            'UF': self.UF,
+            'Cities': [city.to_jsonShort() for city in self.Cities],
         }

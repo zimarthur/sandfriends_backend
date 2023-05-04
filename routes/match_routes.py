@@ -53,10 +53,8 @@ def GetAllCities():
     states = db.session.query(State).all()
 
     for state in states:
-        statesList.append(state.to_json())
-        for city in state.cities:
-            citiesList.append(city.to_json())
-    return jsonify({'Cities': citiesList, 'States':statesList})
+        statesList.append(state.to_jsonWithCities())
+    return jsonify({'States':statesList})
 
 #rota que retorna todas cidades que tem estabelecimento cadastrado
 @bp_match.route("/GetAvailableCities", methods=["GET"])

@@ -8,6 +8,12 @@ class City(db.Model):
     IdState = db.Column(db.Integer, db.ForeignKey('state.IdState'))
 
     
+    def to_jsonShort(self):
+        return {
+            'IdCity': self.IdCity,
+            'City': self.City,
+        }
+
     def to_json(self):
         return {
             'IdCity': self.IdCity,
