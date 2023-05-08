@@ -48,7 +48,7 @@ def AddUserInformation():
     db.session.commit()
     return jsonify(user.to_json()), 201
 
-@bp_user.route("/UpdateUser", methods=["PUT"])
+@bp_user.route("/UpdateUser", methods=["POST"])
 def UpdateUser():
     if not request.json:
         abort(HttpCode.ABORT)
@@ -105,15 +105,15 @@ def UpdateUser():
         else:
             user.IdSidePreferenceCategory = request.json.get('SidePreference')
 
-        if request.json.get('Photo') == "":
-            user.Photo = None
-        else:
-            user.Photo = str(user.RegistrationDate.timestamp()).replace(".","") + str(user.IdUser)
-            print(user.Photo)
-            decoded_data=base64.b64decode(request.json.get('Photo')+ '==')
-            img_file = open(f'/var/www/html/img/usr/{user.Photo}.png', 'wb')
-            img_file.write(decoded_data)
-            img_file.close()
+        # if request.json.get('Photo') == "":
+        #     user.Photo = None
+        # else:
+        #     user.Photo = str(user.RegistrationDate.timestamp()).replace(".","") + str(user.IdUser)
+        #     print(user.Photo)
+        #     decoded_data=base64.b64decode(request.json.get('Photo')+ '==')
+        #     img_file = open(f'/var/www/html/img/usr/{user.Photo}.png', 'wb')
+        #     img_file.write(decoded_data)
+        #     img_file.close()
 
         db.session.commit()
-        return jsonify(user.to_json()), HttpCode.SUCCESS
+        return "Suas informações foram alteradas!", HttpCode.ALERT

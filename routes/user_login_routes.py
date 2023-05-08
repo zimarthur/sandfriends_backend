@@ -69,7 +69,7 @@ def AddUser():
     #tk = token
     sendEmail("https://www.sandfriends.com.br/emcf?str=0&tk="+userNew.EmailConfirmationToken)
     db.session.commit()
-    return "Sua conta foi criada! Valide ela com o email que enviamos.", HttpCode.SUCCESS
+    return "Sua conta foi criada! Valide ela com o e-mail que enviamos.", HttpCode.SUCCESS
 
 # Rota utilizada no primeiro acesso do jogador(quando ele informa nome, sobrenome, celular...)
 @bp_user_login.route("/AddUserInfo", methods=["POST"])
@@ -158,7 +158,7 @@ def LoginUser():
         return 'Senha Incorreta', HttpCode.WARNING
 
     if user.EmailConfirmationDate == None:
-        return "O seu e-mail ainda não foi validado - Siga as instruções no seu e-mail", HttpCode.WARNING
+        return "A sua conta ainda não foi validada - Siga as instruções no seu e-mail", HttpCode.WARNING
 
     #Senha correta e e-mail validado
     newToken = EncodeToken(user.IdUser)
@@ -259,11 +259,11 @@ def ValidateChangePasswordTokenUser():
     if not request.json:
         abort(HttpCode.ABORT)
 
-    resetPasswordTokenReq = request.json.get('ChangePasswordToken')
+    changePasswordTokenReq = request.json.get('ChangePasswordToken')
 
-    user = User.query.filter_by(ResetPasswordToken=ResetPasswordTokenReq).first()
+    user = User.query.filter_by(ResetPasswordToken=changePasswordTokenReq).first()
     
-    if resetPasswordTokenReq == 0 or resetPasswordTokenReq is None:
+    if changePasswordTokenReq == 0 or changePasswordTokenReq is None:
         return "Não foi possível realizar a sua solicitação.", HttpCode.EXPIRED_TOKEN
     
     #Token não localizado
@@ -279,12 +279,12 @@ def ChangePasswordUser():
     if not request.json:
         abort(HttpCode.ABORT)
 
-    resetPasswordTokenReq = request.json.get('ResetPasswordToken')
+    changePasswordTokenReq = request.json.get('ChangePasswordToken')
     newPasswordReq = request.json.get('NewPassword')
 
-    user = User.query.filter_by(ResetPasswordToken=resetPasswordTokenReq).first()
+    user = User.query.filter_by(ResetPasswordToken=changePasswordTokenReq).first()
 
-    if resetPasswordTokenReq == 0 or resetPasswordTokenReq is None:
+    if changePasswordTokenReq == 0 or changePasswordTokenReq is None:
         return "Não foi possível realizar a sua solicitação.", HttpCode.EXPIRED_TOKEN
 
     if not user:
@@ -344,7 +344,8 @@ def GetUserInfo():
     #query para as partidas que o jogador jogou e vai jogar
     userMatches =  db.session.query(Match)\
                 .join(MatchMember, Match.IdMatch == MatchMember.IdMatch)\
-                .filter(MatchMember.IdUser == user.IdUser).all()
+                .filter(MatchMember.IdUser == user.IdUser)\
+                .filter((Match.Date > datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeBegin >= int(datetime.now().strftime("%H"))))).all()
 
     for userMatch in userMatches:
         userMatchesList.append(userMatch.to_json())

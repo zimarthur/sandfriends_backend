@@ -47,7 +47,6 @@ def daterange(start_date, end_date):
 #rota que retorna todas cidades do banco de dados(utilizada pra o usuário escolher a cidade que mora)
 @bp_match.route("/GetAllCities", methods=["GET"])
 def GetAllCities():
-    citiesList=[]
     statesList=[]
 
     states = db.session.query(State).all()
@@ -64,16 +63,13 @@ def GetAvailableCities():
 
     states = db.session.query(State)\
             .filter(State.IdState.in_([city.IdState for city in cities])).distinct()
-    citiesList=[]
+    
     statesList=[]
 
-    for city in cities:
-        citiesList.append(city.to_json())
-
     for state in states:
-        statesList.append(state.to_json())
+        statesList.append(state.to_jsonWithFilteredCities([city.IdCity for city in cities]))
 
-    return jsonify({'Cities': citiesList, 'States':statesList})
+    return jsonify({'States':statesList})
 
     
 #rota utilizada pra buscar horários e partidas abertas
@@ -207,6 +203,30 @@ def SearchCourts():
     else:
         return "No Result", HttpCode.NO_SEARCH_RESULTS
      
+
+@bp_match.route("/GetUserMatches", methods=["POST"])
+def GetUserMatches():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    tokenReq = request.json.get('AccessToken')
+
+    user = db.session.query(User).filter(User.AccessToken == tokenReq).first()
+
+    if user is None:
+        return "Expired Token", HttpCode.EXPIRED_TOKEN
+
+    userMatchesList = []
+    #query para as partidas que o jogador jogou e vai jogar
+    userMatches =  db.session.query(Match)\
+                .join(MatchMember, Match.IdMatch == MatchMember.IdMatch)\
+                .filter(MatchMember.IdUser == user.IdUser).all()
+
+    for userMatch in userMatches:
+        userMatchesList.append(userMatch.to_json())
+
+    return jsonify({'UserMatches': userMatchesList}), HttpCode.SUCCESS
+
 
 @bp_match.route("/CourtReservation", methods=["POST"])
 def CourtReservation():

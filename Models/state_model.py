@@ -21,3 +21,11 @@ class State(db.Model):
             'UF': self.UF,
             'Cities': [city.to_jsonShort() for city in self.Cities],
         }
+
+    def to_jsonWithFilteredCities(self, cityIds):
+        return {
+            'IdState': self.IdState,
+            'State': self.State,
+            'UF': self.UF,
+            'Cities': [city.to_jsonShort() for city in self.Cities if city.IdCity in cityIds],
+        }

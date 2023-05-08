@@ -39,10 +39,8 @@ class User(db.Model):
     def to_json(self):
         if self.Birthday == None:
             birthday = None
-            age = None
         else:
             birthday = self.Birthday.strftime("%d/%m/%Y")
-            age = datetime.today().year - self.Birthday.year - ((datetime.today().month, datetime.today().day) < (self.Birthday.month, self.Birthday.day))
         
         if self.Photo == None or self.Photo == "":
             photo = None
@@ -83,7 +81,6 @@ class User(db.Model):
             'Height': self.Height,
             'SidePreferenceCategory': sidePreferenceCategory,
             'Photo': photo,
-            'Age': age,
             'Sport': sport,
             'Ranks': rankList,
             'City': city,
