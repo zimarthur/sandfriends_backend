@@ -43,7 +43,7 @@ from ..Models.user_login_model import UserLogin
 from ..Models.notification_model import Notification
 from ..Models.notification_category_model import NotificationCategory
 from ..access_token import EncodeToken, DecodeToken
-from ..Models.store_access_token_model import StoreAccessToken
+from ..Models.store_access_token_model import EmployeeAccessToken
 
 bp_debug = Blueprint('bp_debug', __name__)
 
@@ -63,12 +63,12 @@ def getLastMonth():
 
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
-
-    logins = db.session.query(StoreAccessToken).all()
-    loginList  =[]
-    for login in logins:
-        loginList.append(login.to_json())
-    return jsonify({"test": loginList}), 200 
+    return {'title': "titulo", 'description': "description"}, 200
+    # logins = db.session.query(EmployeeAccessToken).all()
+    # loginList  =[]
+    # for login in logins:
+    #     loginList.append(login.to_json())
+    # return jsonify({"test": loginList}), 200 
     #IdMatchdReq = request.json.get('IdMatch')
 
     #partida = db.session.query(Match).filter(Match.IdMatch == IdMatchdReq).first()

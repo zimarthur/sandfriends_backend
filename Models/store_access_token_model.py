@@ -1,11 +1,11 @@
 from ..extensions import db
 
-class StoreAccessToken(db.Model):
-    __tablename__ = 'store_access_token'
-    IdStoreAccessToken = db.Column(db.Integer, primary_key=True, autoincrement=True, nullable=False)
+class EmployeeAccessToken(db.Model):
+    __tablename__ = 'employee_access_token'
+    IdEmployeeAccessToken = db.Column(db.Integer, primary_key=True, autoincrement=True, nullable=False)
 
-    IdStore = db.Column(db.Integer, db.ForeignKey('store.IdStore'))
-    Store = db.relationship('Store', foreign_keys = [IdStore])
+    IdEmployee = db.Column(db.Integer, db.ForeignKey('employee.IdEmployee'))
+    Employee = db.relationship('Employee', foreign_keys = [IdEmployee])
 
     AccessToken = db.Column(db.String(225), nullable=False)
     CreationDate = db.Column(db.DateTime, nullable=False)
@@ -13,8 +13,8 @@ class StoreAccessToken(db.Model):
    
     def to_json(self):
         return {
-            'IdStoreAccessToken': self.IdStoreAccessToken,
-            'IdStore': self.IdStore,
+            'IdEmployeeAccessToken': self.IdEmployeeAccessToken,
+            'IdEmployee': self.IdEmployee,
             'AccessToken': self.AccessToken,
             'CreationDate': self.CreationDate,
             'LastAccessDate': self.LastAccessDate,

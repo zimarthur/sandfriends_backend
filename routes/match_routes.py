@@ -78,13 +78,13 @@ def SearchCourts():
     if not request.json:
         abort(HttpCode.ABORT)
     
-    accessToken = request.json.get('accessToken')
-    sportId = int(request.json.get('sportId'))
-    cityId = request.json.get('cityId')
-    dateStart = request.json.get('dateStart')
-    dateEnd = request.json.get('dateEnd')
-    timeStart = request.json.get('timeStart')
-    timeEnd = request.json.get('timeEnd')
+    accessToken = request.json.get('AccessToken')
+    sportId = int(request.json.get('IdSport'))
+    cityId = request.json.get('IdCity')
+    dateStart = request.json.get('DateStart')
+    dateEnd = request.json.get('DateEnd')
+    timeStart = request.json.get('TimeStart')
+    timeEnd = request.json.get('TimeEnd')
 
     user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:

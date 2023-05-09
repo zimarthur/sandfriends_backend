@@ -13,18 +13,12 @@ class Store(db.Model):
     Description = db.Column(db.String(350))
     Instagram = db.Column(db.String(100))
     HoursBeforeCancellation = db.Column(db.Integer)
-    Email = db.Column(db.String(255))
-    Password = db.Column(db.String(255))
     CNPJ = db.Column(db.String(14))
     CPF = db.Column(db.String(11))
-    OwnerName = db.Column(db.String(50))
     Neighbourhood = db.Column(db.String(50))
     CEP = db.Column(db.String(8))
     RegistrationDate = db.Column(db.DateTime)
-    EmailConfirmationDate = db.Column(db.DateTime)
-    EmailConfirmationToken = db.Column(db.String(300))
     ApprovalDate = db.Column(db.DateTime)
-    ResetPasswordToken = db.Column(db.String(300))
 
     IdCity = db.Column(db.Integer, db.ForeignKey('city.IdCity'))
     City = db.relationship('City', foreign_keys = [IdCity])
@@ -32,6 +26,9 @@ class Store(db.Model):
     Courts = db.relationship('StoreCourt', backref="Store")
     Photos = db.relationship('StorePhoto', backref="Store")
     
+    #def is_null(self):
+    #    return self.Name is None or self.Email is None or self.Address is None or self
+        
     def to_json(self):
         return {
             'IdStore': self.IdStore,
@@ -42,7 +39,6 @@ class Store(db.Model):
             'Longitude': self.Longitude,
             'IdCity': self.IdCity,
             'City': self.City.to_json(),
-            'Email': self.Email,
             'HoursBeforeCancellation': self.HoursBeforeCancellation,
             'PhoneNumber1': self.PhoneNumber1,
             'PhoneNumber2': self.PhoneNumber2,
@@ -53,7 +49,33 @@ class Store(db.Model):
             'Cep': self.CEP,
             'Neighbourhood': self.Neighbourhood,
             'Cpf': self.CPF,
-            'OwnerName': self.OwnerName,
             'ApprovalDate': self.ApprovalDate.strftime("%d/%m/%Y"),
             'StorePhotos':[photo.to_json() for photo in self.Photos]
         }
+
+    #Para a criação de uma quadra nova
+    #Verifica se os dados que o estabelecimento forneceu estão completos (não nulos/vazios)
+    def hasEmptyRequiredValues(self):
+        requiredFields = ["Name", "Address", "AddressNumber", "PhoneNumber1", "CEP", "Neighbourhood", "CPF"]
+        
+        for field in requiredFields:
+            if getattr(self, field) is None or getattr(self, field) == "":
+                return True
+
+        return False
+
+
+
+    # def hasEmptyRequiredValues(storeReq,employeeReq):
+    #     requiredFieldsStore = ["Name", "Address", "AddressNumber", "PhoneNumber1", "CEP", "Neighbourhood", "CPF"]
+    #     requiredFieldsEmployee = ["Email", "FirstName", "LastName"]
+        
+    #     for field in requiredFieldsStore:
+    #         if getattr(storeReq, field) is None or getattr(storeReq, field) == "":
+    #             return True
+
+    #     for field in requiredFieldsEmployee:
+    #         if getattr(employeeReq, field) is None or getattr(employeeReq, field) == "":
+    #             return True
+
+    #     return False
