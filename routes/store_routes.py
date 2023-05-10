@@ -110,32 +110,10 @@ def AddStore():
 
     ###Ajustar esta parte no futuro
     employeeReq.EmailConfirmationToken = str(datetime.now().timestamp()) + str(employeeReq.IdEmployee)
-    sendEmail("https://www.sandfriends.com.br/redirect/?ct=emcf&bd="+employeeReq.EmailConfirmationToken)
+    db.session.commit()
+    sendEmail("https://www.sandfriends.com.br/emcf?str=1&tk="+employeeReq.EmailConfirmationToken)
     return webResponse("Parabéns, a sua quadra foi adicionada com sucesso no SandFriends", "Siga os passos no seu e-mail para validar a sua conta"), HttpCode.ALERT
 
-#Rota utilizada pelo gestor quando ele clica no link pra confirmação do email, após criar a conta
-@bp_store.route("/ConfirmEmailStore", methods=["POST"])
-def ConfirmEmailStore():
-    if not request.json:
-        abort(HttpCode.ABORT)
-
-    emailConfirmationTokenReq = request.json.get('EmailConfirmationToken')
-    store = db.session.query(Store).filter(Store.EmailConfirmationToken == emailConfirmationTokenReq).first()
-    
-    if store is None:
-        return "Token de confirmação inválido", HttpCode.INVALID_EMAIL_CONFIRMATION_TOKEN
-
-    if store.EmailConfirmationDate is not None:
-        return "Já confirmado anteriormente", HttpCode.EMAIL_ALREADY_CONFIRMED
-
-    #Tudo ok com o token se chegou até aqui
-    #Enviar e-mail avisando que estaremos verificando os dados da quadra e entraremos em contato em breve
-    sendEmail("O seu email já está confirmado! <br><br>Estamos conferindo os seus dados e estaremos entrando em contato em breve quando estiver tudo ok.<br><br>")
-
-    #Salva a data de confirmação da conta do gestor
-    store.EmailConfirmationDate = datetime.now()
-    db.session.commit()
-    return "Email confirmado com sucesso", HttpCode.SUCCESS
 
 #Rota utilizada por nós para aprovar manualmente os estabelecimentos
 @bp_store.route("/ApproveStore", methods=["POST"])
@@ -143,8 +121,8 @@ def ApproveStore():
     if not request.json:
         abort(HttpCode.ABORT)
         
-    emailReq = request.json.get('Email')
-    store = db.session.query(Store).filter(Store.Email == emailReq).first()
+    idStoreReq = request.json.get('IdStore')
+    store = db.session.query(Store).filter(Store.IdStore == idStoreReq).first()
 
     if store is None:
         return "Loja não existe", HttpCode.EMAIL_NOT_FOUND
@@ -154,6 +132,13 @@ def ApproveStore():
         
     #Salva a data atual como ApprovalDate
     store.ApprovalDate = datetime.now()
+
+    #busca o dono da qudra para enviar o email avisando q a quadra está ok
+    employee = db.session.query(Employee).filter(Employee.StoreOwner == True)\
+                                         .filter(Employee.IdStore == idStoreReq).first()
+
+    #TODO: adicionar destinatário
+    sendEmail("Sua quadra está ok")
 
     db.session.commit()
 

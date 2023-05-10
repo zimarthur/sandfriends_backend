@@ -88,48 +88,87 @@ def ValidateEmployeeAccessToken():
     #Token válido - retorna as informações da quadra (esportes, horários, etc)
     return initStoreLoginData(employeeAccessToken.Store, employeeAccessToken.AccessToken), HttpCode.SUCCESS
 
-@bp_employee.route('/ForgotPasswordStore', methods=['POST'])
-def ForgotPasswordStore():
+#Rota utilizada por um funcionário quando ele clica no link pra confirmação do email, após criar a conta
+@bp_employee.route("/EmailConfirmationEmployee", methods=["POST"])
+def EmailConfirmationEmployee():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    emailConfirmationTokenReq = request.json.get('EmailConfirmationToken')
+    employee = db.session.query(Employee).filter(Employee.EmailConfirmationToken == emailConfirmationTokenReq).first()
+    
+    if employee is None:
+        return webResponse("Esse link não é válido", "Verifique se você acessou o mesmo link que enviamos ao seu e-mail. Caso contrário, fale com o nosso suporte."), HttpCode.WARNING
+
+    if employee.EmailConfirmationDate is not None:
+        return webResponse("Sua conta já foi validada!", "Faça login normalmente"), HttpCode.ALERT
+
+    #Tudo ok com o token se chegou até aqui
+    #Enviar e-mail avisando que estaremos verificando os dados da quadra e entraremos em contato em breve
+    if employee.StoreOwner:
+        sendEmail("O seu email já está confirmado! <br><br>Estamos conferindo os seus dados e estaremos entrando em contato em breve quando estiver tudo ok.<br><br>")
+
+    #Salva a data de confirmação da conta do gestor
+    employee.EmailConfirmationDate = datetime.now()
+    db.session.commit()
+    return "Email confirmado com sucesso", HttpCode.SUCCESS
+
+#rota utilizada quando um funcionário clica em "esqueci minha senha"
+@bp_employee.route('/ChangePasswordRequestEmployee', methods=['POST'])
+def ChangePasswordRequestEmployee():
     if not request.json:
         abort(400)
     
     emailReq = request.json.get('Email')
 
-    store = db.session.query(Store).filter(Store.Email == emailReq).first()
+    employee = db.session.query(Employee).filter(Employee.Email == emailReq).first()
 
     #verifica se o email já está cadastrado
-    if store is None:
-        return "Email não cadastrado", HttpCode.EMAIL_NOT_FOUND
-    #verifica se a loja já foi aprovada
-    if store.ApprovalDate is None:
-        return "Aguarde a verificação pela equipe do Sand Friends", HttpCode.WAITING_APPROVAL
+    if employee is None:
+        return webResponse("E-mail não cadastrado", None), HttpCode.WARNING
 
     #envia o email automático para redefinir a senha
     ### ver porque ele faz esse cálculo do datetime + email confirmation token, não poderia ser algo aleatorio?
-    store.ResetPasswordToken = str(datetime.now().timestamp()) + store.EmailConfirmationToken
+    employee.ResetPasswordToken = str(datetime.now().timestamp()) + employee.EmailConfirmationToken
     db.session.commit()
-    sendEmail("Troca de senha <br/> https://www.sandfriends.com.br/redirect/?ct=cgpw&bd="+store.ResetPasswordToken)
-    return 'Código enviado para redefinir a senha', HttpCode.SUCCESS
+    sendEmail("Troca de senha <br/> https://www.sandfriends.com.br/cgpw?str=1&tk="+employee.ResetPasswordToken)
+    return webResponse("Link para troca de senha enviado", "Verifique sua caixa de e-mail e siga as instruções para trocar sua senha"), HttpCode.ALERT
 
-@bp_employee.route('/ChangePasswordStore', methods=['POST'])
-def ChangePasswordStore():
+#rota acessada quando o funcionario clica no link pra trocar a senha (para validar o token antes do funcionario digitar a nova senha)
+@bp_employee.route('/ValidateChangePasswordTokenEmployee', methods=['POST'])
+def ValidateChangePasswordTokenEmployee():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    changePasswordTokenReq = request.json.get('ChangePasswordToken')
+
+    employee = Employee.query.filter_by(ResetPasswordToken=changePasswordTokenReq).first()
+    
+    if changePasswordTokenReq == 0 or changePasswordTokenReq is None or not employee:
+        return webResponse("Esse link não é válido", "Verifique se você acessou o mesmo link que enviamos ao seu e-mail. Caso contrário, fale com o nosso suporte."), HttpCode.WARNING
+    
+    return "Token válido.", HttpCode.SUCCESS
+
+#rota acessada para trocar a senha do funcionário
+@bp_employee.route('/ChangePasswordEmployee', methods=['POST'])
+def ChangePasswordEmployee():
     if not request.json:
         abort(400)
 
     resetPasswordTokenReq = request.json.get('ResetPasswordToken')
     newPassword = request.json.get('NewPassword')
 
-    store = db.session.query(Store).filter(Store.ResetPasswordToken == resetPasswordTokenReq).first()
+    employee = db.session.query(Employee).filter(Employee.ResetPasswordToken == resetPasswordTokenReq).first()
 
     #verifica se o token está certo
-    if store is None:
-        return "Token inválido", HttpCode.INVALID_RESET_PASSWORD_VALUE
+    if employee is None:
+        return webResponse("Esse link não é válido", "Verifique se você acessou o mesmo link que enviamos ao seu e-mail. Caso contrário, fale com o nosso suporte."), HttpCode.WARNING
 
     #adiciona a senha no banco de dados
-    store.Password = newPassword
+    employee.Password = newPassword
 
     #anula o resetPasswordToken
-    store.ResetPasswordToken = None
+    employee.ResetPasswordToken = None
 
     #anual os tokens de acesso
     #deixa a data de LastAccess deles como 10 ano atrás

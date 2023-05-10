@@ -25,9 +25,6 @@ class Store(db.Model):
 
     Courts = db.relationship('StoreCourt', backref="Store")
     Photos = db.relationship('StorePhoto', backref="Store")
-    
-    #def is_null(self):
-    #    return self.Name is None or self.Email is None or self.Address is None or self
         
     def to_json(self):
         return {

@@ -16,6 +16,7 @@ from .routes.sport_routes import bp_sport
 from .routes.feedback_routes import bp_feedback
 from .routes.debug_routes import bp_debug
 from .routes.reward_routes import bp_reward
+from .routes.employee_routes import bp_employee
 
 import json
 
@@ -41,6 +42,7 @@ def create_app():
     app.register_blueprint(bp_feedback)
     app.register_blueprint(bp_debug)
     app.register_blueprint(bp_reward)
+    app.register_blueprint(bp_employee)
 
     db.init_app(app)
     return app

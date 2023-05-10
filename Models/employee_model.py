@@ -13,6 +13,7 @@ class Employee(db.Model):
     RegistrationDate = db.Column(db.DateTime)
     EmailConfirmationDate = db.Column(db.DateTime)
     EmailConfirmationToken = db.Column(db.String(300))
+    ResetPasswordToken = db.Column(db.String(300))
     DateDisabled = db.Column(db.DateTime)
 
     Store = db.relationship('Store', foreign_keys = [IdStore])
