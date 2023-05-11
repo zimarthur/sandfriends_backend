@@ -1,4 +1,5 @@
 from ..extensions import db
+from datetime import datetime, timedelta, date
 
 class EmployeeAccessToken(db.Model):
     __tablename__ = 'employee_access_token'
@@ -19,3 +20,10 @@ class EmployeeAccessToken(db.Model):
             'CreationDate': self.CreationDate,
             'LastAccessDate': self.LastAccessDate,
         }
+    
+    def isExpired(self, daysToExpireToken):
+        #Token expirado    
+        if (datetime.now() - self.LastAccessDate).days > daysToExpireToken:
+            return False
+        #Token ok
+        return True

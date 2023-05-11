@@ -13,7 +13,7 @@ from ..Models.employee_model import Employee
 from ..Models.available_hour_model import AvailableHour
 from ..Models.store_court_model import StoreCourt
 from ..emails import sendEmail
-from ..Models.store_access_token_model import EmployeeAccessToken
+from ..Models.employee_access_token_model import EmployeeAccessToken
 from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import func
 
@@ -21,10 +21,11 @@ daysToExpireToken = 7
 
 bp_employee = Blueprint('bp_employee', __name__)
 
+#Rota utilizada para fazer login de qualquer employee no site
 @bp_employee.route('/EmployeeLogin', methods=['POST'])
 def StoreLogin():
     if not request.json:
-        abort(400)
+        abort(HttpCode.ABORT)
 
     emailReq = request.json.get('Email')
     passwordReq = request.json.get('Password')
@@ -32,26 +33,26 @@ def StoreLogin():
     employee = db.session.query(Employee).filter(Employee.Email == emailReq).first()
 
     if employee is None:
-        return "Email não cadastrado", HttpCode.WARNING
+        return webResponse("Email não cadastrado", None), HttpCode.WARNING
 
     if employee.Password != passwordReq:
-        return "Senha incorreta", HttpCode.WARNING
+        return webResponse("Senha incorreta", None), HttpCode.WARNING
 
     #senha correta
 
     if employee.EmailConfirmationDate == None:
-        return "A sua conta ainda não foi validada - Siga as instruções no seu e-mail", HttpCode.WARNING
+        return webResponse("Sua conta ainda não foi validada - Siga as instruções no seu e-mail", None), HttpCode.WARNING
     #email validado já
 
     if employee.Store.ApprovalDate == None:
-        return "Estamos verificando as suas informações, entraremos em contato em breve", HttpCode.WAITING_APPROVAL
+        return webResponse("Estamos validando sua quadra, entraremos em contato em breve", None), HttpCode.ALERT
     #quadra já aprovada
 
     #Gera o AccessToken para os próximos logins
     currentDate = datetime.now()
 
     newEmployeeAccessToken = EmployeeAccessToken(
-        IdEmployee = store.IdEmployee,
+        IdEmployee = employee.IdEmployee,
         AccessToken = EncodeToken(employee.IdEmployee),
         CreationDate = currentDate,
         LastAccessDate = currentDate
@@ -61,32 +62,121 @@ def StoreLogin():
     db.session.commit()
 
     #retorna as informações da quadra (esportes, horários, etc)
-    return initStoreLoginData(store, newEmployeeAccessToken.AccessToken), HttpCode.SUCCESS
+    return initStoreLoginData(employee.Store, newEmployeeAccessToken.AccessToken), HttpCode.SUCCESS
 
-
+#Rota utilizada para validar o AccessToken que fica no computador do usuário - para evitar fazer login com senha
 @bp_employee.route('/ValidateEmployeeAccessToken', methods=['POST'])
 def ValidateEmployeeAccessToken():
     if not request.json:
-        abort(400)
+        abort(HttpCode.ABORT)
     
-    receivedToken = request.json.get('AccessToken')
+    accessTokenReq = request.json.get('AccessToken')
 
-    employeeAccessToken = db.session.query(EmployeeAccessToken).filter(EmployeeAccessToken.AccessToken == receivedToken).first()
+    employeeAccessToken = db.session.query(EmployeeAccessToken).filter(EmployeeAccessToken.AccessToken == accessTokenReq).first()
 
     #Caso não encontrar Token
     if employeeAccessToken is None:
-        return "Token não encontrado", HttpCode.INVALID_ACCESS_TOKEN
+        return webResponse("Token não encontrado", None), HttpCode.WARNING
 
     #Verificar se o Token é válido
     if (datetime.now() - employeeAccessToken.LastAccessDate).days > daysToExpireToken:
-        return "Token expirado", HttpCode.INVALID_ACCESS_TOKEN
+        return webResponse("Token expirado", None), HttpCode.WARNING
 
     #Token está válido - atualizar o LastAccessDate
     employeeAccessToken.LastAccessDate = datetime.now()
     db.session.commit()
 
     #Token válido - retorna as informações da quadra (esportes, horários, etc)
-    return initStoreLoginData(employeeAccessToken.Store, employeeAccessToken.AccessToken), HttpCode.SUCCESS
+    return initStoreLoginData(employeeAccessToken.Employee.Store, employeeAccessToken.AccessToken), HttpCode.SUCCESS
+
+#Rota utilizada por um admin para adicionar um novo funcionário
+@bp_employee.route("/AddEmployee", methods=["POST"])
+def AddEmployee():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    accessTokenReq = request.json.get('AccessToken')
+    emailReq = (request.json.get('Email')).lower()
+    
+    employeeAccessToken = db.session.query(EmployeeAccessToken).filter(EmployeeAccessToken.AccessToken == accessTokenReq).first()
+    
+    #Verifica se o accessToken existe
+    #Verifica se o accessToken do criador do usuário está expirado
+    if (employeeAccessToken is None) or (not employeeAccessToken.isExpired(daysToExpireToken)):
+        return webResponse("Ocorreu um erro", "Tente novamente, caso o problema persista, entre em contato com o nosso suporte"), HttpCode.WARNING
+
+    #Verifica se quem está tentando criar um usuário é um Admin
+    if not employeeAccessToken.Employee.Admin:
+        return webResponse("Ops", "Você não tem permissões para criar usuários.\n\nApenas usuários administradores podem fazer isto."), HttpCode.WARNING
+
+    #Usuário que será adicionado
+    newEmployee = Employee(
+        IdStore = employeeAccessToken.Employee.IdStore,
+        Email = emailReq,
+        Admin = False,
+        StoreOwner = False,
+        RegistrationDate = datetime.now()
+    )
+
+    #Verifica se este e-mail já pertence a um usuário
+    alreadyUsed = db.session.query(Employee).filter(Employee.Email == newEmployee.Email).first()
+    if alreadyUsed is not None:
+        return webResponse("Ops", "Já existe um usuário com este e-mail"), HttpCode.WARNING
+
+    db.session.add(newEmployee)
+    db.session.commit()
+
+    #enviar email para funcionário
+    newEmployee.EmailConfirmationToken = str(datetime.now().timestamp()) + str(newEmployee.IdEmployee)
+    db.session.commit()
+    sendEmail("https://www.sandfriends.com.br/adem?tk="+newEmployee.EmailConfirmationToken)
+
+    return webResponse("Tudo certo!", "Usuário adicionado com sucesso\n\nValide o novo usuário com o e-mail que acabamos de enviar"), HttpCode.SUCCESS
+
+#Rota utilizada pelo novo funcionário para validar o link que ele clicou
+@bp_employee.route("/ValidateNewEmployeeEmail", methods=["POST"])
+def ValidateNewEmployeeEmail():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    emailConfirmationTokenReq = request.json.get('EmailConfirmationToken')
+
+    newEmployee = db.session.query(Employee).filter(Employee.EmailConfirmationToken == emailConfirmationTokenReq).first()
+    
+    if newEmployee is None:
+        return webResponse("Ocorreu um erro", "Tente novamente, caso o problema persista, entre em contato com o nosso suporte"), HttpCode.WARNING
+
+    #Retornar o email e nome loja
+    return {'Email': newEmployee.Email, 'StoreName': newEmployee.Store.Name}, HttpCode.SUCCESS
+
+#Rota utilizada pelo novo funcionário, quando ele informa suas propriedades, tipo nome, sobrenome, senha
+@bp_employee.route("/AddEmployeeInformation", methods=["POST"])
+def AddEmployeeInformation():
+    if not request.json:
+        abort(HttpCode.ABORT)
+    
+    emailConfirmationTokenReq = request.json.get('EmailConfirmationToken')
+    firstNameReq = (request.json.get('FirstName')).title()
+    lastNameReq = (request.json.get('LastName')).title()
+    passwordReq = request.json.get('Password')
+    
+    #Verifica o emailConfirmationToken
+    newEmployee = db.session.query(Employee).filter(Employee.EmailConfirmationToken == emailConfirmationTokenReq).first()
+
+    if newEmployee is None:
+        return webResponse("Ocorreu um erro", "Tente novamente, caso o problema persista, entre em contato com o nosso suporte"), HttpCode.WARNING
+
+    newEmployee.FirstName = firstNameReq
+    newEmployee.LastName = lastNameReq
+    newEmployee.Password = passwordReq
+
+    #Confirma o e-mail do usuário
+    #Zera o EmailConfirmationToken após a confirmação
+    newEmployee.EmailConfirmationDate = datetime.now()
+    newEmployee.EmailConfirmationToken = None
+    db.session.commit()
+
+    return webResponse("Tudo certo!", "Sua conta foi validada com sucesso"), HttpCode.ALERT
 
 #Rota utilizada por um funcionário quando ele clica no link pra confirmação do email, após criar a conta
 @bp_employee.route("/EmailConfirmationEmployee", methods=["POST"])
@@ -100,24 +190,19 @@ def EmailConfirmationEmployee():
     if employee is None:
         return webResponse("Esse link não é válido", "Verifique se você acessou o mesmo link que enviamos ao seu e-mail. Caso contrário, fale com o nosso suporte."), HttpCode.WARNING
 
-    if employee.EmailConfirmationDate is not None:
+    if employee.EmailConfirmationDate is not None and employee.Store.ApprovalDate is not None:
         return webResponse("Sua conta já foi validada!", "Faça login normalmente"), HttpCode.ALERT
-
-    #Tudo ok com o token se chegou até aqui
-    #Enviar e-mail avisando que estaremos verificando os dados da quadra e entraremos em contato em breve
-    if employee.StoreOwner:
-        sendEmail("O seu email já está confirmado! <br><br>Estamos conferindo os seus dados e estaremos entrando em contato em breve quando estiver tudo ok.<br><br>")
 
     #Salva a data de confirmação da conta do gestor
     employee.EmailConfirmationDate = datetime.now()
     db.session.commit()
     return "Email confirmado com sucesso", HttpCode.SUCCESS
 
-#rota utilizada quando um funcionário clica em "esqueci minha senha"
+#Rota utilizada quando um funcionário clica em "esqueci minha senha"
 @bp_employee.route('/ChangePasswordRequestEmployee', methods=['POST'])
 def ChangePasswordRequestEmployee():
     if not request.json:
-        abort(400)
+        abort(HttpCode.ABORT)
     
     emailReq = request.json.get('Email')
 
@@ -128,56 +213,55 @@ def ChangePasswordRequestEmployee():
         return webResponse("E-mail não cadastrado", None), HttpCode.WARNING
 
     #envia o email automático para redefinir a senha
-    ### ver porque ele faz esse cálculo do datetime + email confirmation token, não poderia ser algo aleatorio?
-    employee.ResetPasswordToken = str(datetime.now().timestamp()) + employee.EmailConfirmationToken
+    employee.ResetPasswordToken = str(datetime.now().timestamp()) + str(employee.IdEmployee)
     db.session.commit()
     sendEmail("Troca de senha <br/> https://www.sandfriends.com.br/cgpw?str=1&tk="+employee.ResetPasswordToken)
-    return webResponse("Link para troca de senha enviado", "Verifique sua caixa de e-mail e siga as instruções para trocar sua senha"), HttpCode.ALERT
+    return webResponse("Link para troca de senha enviado!", "Verifique sua caixa de e-mail e siga as instruções para trocar sua senha"), HttpCode.ALERT
 
-#rota acessada quando o funcionario clica no link pra trocar a senha (para validar o token antes do funcionario digitar a nova senha)
+#Rota acessada quando o funcionario clica no link pra trocar a senha (para validar o token antes do funcionario digitar a nova senha)
 @bp_employee.route('/ValidateChangePasswordTokenEmployee', methods=['POST'])
 def ValidateChangePasswordTokenEmployee():
     if not request.json:
         abort(HttpCode.ABORT)
 
-    changePasswordTokenReq = request.json.get('ChangePasswordToken')
+    resetPasswordTokenReq = request.json.get('ResetPasswordToken')
 
-    employee = Employee.query.filter_by(ResetPasswordToken=changePasswordTokenReq).first()
+    employee = db.session.query(Employee).filter(Employee.ResetPasswordToken == resetPasswordTokenReq).first()
     
-    if changePasswordTokenReq == 0 or changePasswordTokenReq is None or not employee:
+    if (resetPasswordTokenReq == 0) or (resetPasswordTokenReq is None) or (not employee):
         return webResponse("Esse link não é válido", "Verifique se você acessou o mesmo link que enviamos ao seu e-mail. Caso contrário, fale com o nosso suporte."), HttpCode.WARNING
     
-    return "Token válido.", HttpCode.SUCCESS
+    return "Token válido", HttpCode.SUCCESS
 
-#rota acessada para trocar a senha do funcionário
+#Rota acessada para trocar a senha do funcionário
 @bp_employee.route('/ChangePasswordEmployee', methods=['POST'])
 def ChangePasswordEmployee():
     if not request.json:
-        abort(400)
+        abort(HttpCode.ABORT)
 
     resetPasswordTokenReq = request.json.get('ResetPasswordToken')
-    newPassword = request.json.get('NewPassword')
+    newPasswordReq = request.json.get('NewPassword')
 
-    employee = db.session.query(Employee).filter(Employee.ResetPasswordToken == resetPasswordTokenReq).first()
+    employeeReq = db.session.query(Employee).filter(Employee.ResetPasswordToken == resetPasswordTokenReq).first()
 
-    #verifica se o token está certo
-    if employee is None:
+    #Verifica se o token está certo
+    if (resetPasswordTokenReq == 0) or (resetPasswordTokenReq is None) or (not employeeReq):
         return webResponse("Esse link não é válido", "Verifique se você acessou o mesmo link que enviamos ao seu e-mail. Caso contrário, fale com o nosso suporte."), HttpCode.WARNING
 
-    #adiciona a senha no banco de dados
-    employee.Password = newPassword
+    #Ddiciona a senha no banco de dados
+    employeeReq.Password = newPasswordReq
 
-    #anula o resetPasswordToken
-    employee.ResetPasswordToken = None
+    #Anula o changePasswordToken
+    employeeReq.ResetPasswordToken = None
 
-    #anual os tokens de acesso
-    #deixa a data de LastAccess deles como 10 ano atrás
-    tokens = db.session.query(EmployeeAccessToken).filter(EmployeeAccessToken.IdStore == store.IdStore).all()
+    #Anula os tokens de acesso
+    #Deixa a data de LastAccess deles como 10 ano atrás
+    tokens = db.session.query(EmployeeAccessToken).filter(EmployeeAccessToken.IdEmployee == employeeReq.IdEmployee).all()
     for token in tokens:
         token.LastAccessDate = token.LastAccessDate - timedelta(days=10*365)
         
     db.session.commit()
-    return 'Senha alterada com sucesso', HttpCode.SUCCESS
+    return webResponse("Sua senha foi alterada!", None), HttpCode.ALERT
 
 def initStoreLoginData(store, accessToken):
     startTime = datetime.now()
@@ -209,31 +293,3 @@ def initStoreLoginData(store, accessToken):
         matchList.append(match.to_json())
     endTime =  datetime.now()
     return jsonify({'AccessToken':accessToken, 'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList})
-
-#Verifica se os dados que o estabelecimento forneceu estão completos (não nulos/vazios)
-def storeHasEmptyValues(storeReq):
-    if \
-        storeReq.Name is None or\
-        storeReq.Address is None or\
-        storeReq.AddressNumber is None or\
-        storeReq.Email is None or\
-        storeReq.PhoneNumber1 is None or\
-        storeReq.CEP is None or\
-        storeReq.Neighbourhood is None or\
-        storeReq.OwnerName is None or\
-        storeReq.CPF is None:
-        return True
-
-    if \
-        storeReq.Name == "" or\
-        storeReq.Address == "" or\
-        storeReq.AddressNumber == "" or\
-        storeReq.Email == "" or\
-        storeReq.PhoneNumber1 == "" or\
-        storeReq.CEP == "" or\
-        storeReq.Neighbourhood == "" or\
-        storeReq.OwnerName == "" or\
-        storeReq.CPF == "":
-        return True
-    return False
-    

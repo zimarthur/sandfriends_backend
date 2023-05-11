@@ -13,7 +13,7 @@ from ..Models.employee_model import Employee
 from ..Models.available_hour_model import AvailableHour
 from ..Models.store_court_model import StoreCourt
 from ..emails import sendEmail
-from ..Models.store_access_token_model import EmployeeAccessToken
+from ..Models.employee_access_token_model import EmployeeAccessToken
 from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import func
 
@@ -62,6 +62,7 @@ def AddStore():
         Email = (request.json.get('Email')).lower(),
         FirstName = (request.json.get('FirstName')).title(),
         LastName = (request.json.get('LastName')).title(),
+        Password = request.json.get('Password'),
         Admin = True,
         StoreOwner = True,
         RegistrationDate = datetime.now()
@@ -112,7 +113,9 @@ def AddStore():
     employeeReq.EmailConfirmationToken = str(datetime.now().timestamp()) + str(employeeReq.IdEmployee)
     db.session.commit()
     sendEmail("https://www.sandfriends.com.br/emcf?str=1&tk="+employeeReq.EmailConfirmationToken)
-    return webResponse("Parabéns, a sua quadra foi adicionada com sucesso no SandFriends", "Siga os passos no seu e-mail para validar a sua conta"), HttpCode.ALERT
+    return webResponse("Você está quase lá!", \
+    "Para concluir seu cadastro, é necessário que você valide seu e-mail.\nAcesse o link que enviamos e sua conta será criada.\n\nSe tiver qualquer dúvida, é só nos chamar, ok?"), HttpCode.ALERT
+
 
 
 #Rota utilizada por nós para aprovar manualmente os estabelecimentos
