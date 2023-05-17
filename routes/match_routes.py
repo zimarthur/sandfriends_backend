@@ -110,30 +110,26 @@ def SearchCourts():
                     .filter((Match.IdTimeBegin >= getHourIndex(timeStart)) & (Match.IdTimeBegin <= getHourIndex(timeEnd)))\
                     .filter(Match.Canceled == False).all()
     
-    openMatchMembers = db.session.query(MatchMember)\
-                    .join(Match, Match.IdMatch == MatchMember.IdMatch)\
-                    .filter(MatchMember.IdMatch.in_([match.IdMatch for match in matches]))\
-                    .filter(MatchMember.WaitingApproval == False)\
-                    .filter(MatchMember.Refused == False)\
-                    .filter(MatchMember.Quit == False)\
-                    .filter(Match.Canceled == False).all()
 
     jsonOpenMatches = []
     for match in matches:
         if (match.OpenUsers == True) and (match.Canceled == False) and (match.IdSport == sportId):
-            matchMembers = [member for member in openMatchMembers if member.IdMatch == match.IdMatch]
-            if (len(matchMembers) < match.MaxUsers) and (any(member.IdUser == user.IdUser for member in matchMembers) == False): 
-                idMatchCreator = [matchMember.IdUser for matchMember in matchMembers if matchMember.IsMatchCreator == True][0]
-                matchCreatorRank = db.session.query(UserRank)\
-                            .join(RankCategory, RankCategory.IdRankCategory == UserRank.IdRankCategory)\
-                            .filter(RankCategory.IdSport == match.IdSport)\
-                            .filter(UserRank.IdUser == idMatchCreator).first()
-                jsonOpenMatches.append({
-                    'MatchDetails':match.to_json(),
-                    'MatchCreator': matchCreatorRank.User.identification_to_json(),
-                    'SlotsRemaining': match.MaxUsers - len(matchMembers),
-                    'MatchCreatorRank':matchCreatorRank.to_json(),
-                    })
+            jsonOpenMatches.append(
+                match.to_json_open_match(),
+            )
+            # matchMembers = [member for member in openMatchMembers if member.IdMatch == match.IdMatch]
+            # if (len(matchMembers) < match.MaxUsers) and (any(member.IdUser == user.IdUser for member in matchMembers) == False): 
+            #     idMatchCreator = [matchMember.IdUser for matchMember in matchMembers if matchMember.IsMatchCreator == True][0]
+            #     matchCreatorRank = db.session.query(UserRank)\
+            #                 .join(RankCategory, RankCategory.IdRankCategory == UserRank.IdRankCategory)\
+            #                 .filter(RankCategory.IdSport == match.IdSport)\
+            #                 .filter(UserRank.IdUser == idMatchCreator).first()
+            #     jsonOpenMatches.append({
+            #         'MatchDetails':match.to_json(),
+            #         'MatchCreator': matchCreatorRank.User.identification_to_json(),
+            #         'SlotsRemaining': match.MaxUsers - len(matchMembers),
+            #         'MatchCreatorRank':matchCreatorRank.to_json(),
+            #         })
 
     jsonDates =[]
     IdStoresList = []
@@ -180,7 +176,7 @@ def SearchCourts():
             if jsonStoreOperationHours:
                 jsonStores.append({
                     'IdStore':store.IdStore, 
-                    'Available':jsonStoreOperationHours
+                    'Hours':jsonStoreOperationHours
                 })
                 if store.IdStore not in IdStoresList:
                     IdStoresList.append(store.IdStore)
@@ -188,18 +184,12 @@ def SearchCourts():
         if jsonStores:
             jsonDates.append({
                 'Date':validDate.strftime('%d/%m/%Y'), 
-                'Places':jsonStores
+                'Stores':jsonStores
                 })
     
-    jsonStoreList = []
-    for store in stores:
-        jsonStoreList.append({
-            'Store':store.to_json(),
-            'StorePhoto':[storePhoto.to_json() for storePhoto in storePhotos if storePhoto.IdStore==store.IdStore]
-        })
 
     if jsonDates or jsonOpenMatches:
-        return jsonify({'Dates':jsonDates, 'OpenMatches': jsonOpenMatches, 'Stores':jsonStoreList, 'Courts':[court.to_json() for court in courts if court.IdStoreCourt in IdStoreCourtList]})
+        return jsonify({'Dates':jsonDates, 'OpenMatches': jsonOpenMatches, 'Stores':[store.to_json() for store in stores], 'Courts':[court.to_json() for court in courts if court.IdStoreCourt in IdStoreCourtList]})
     else:
         return "No Result", HttpCode.NO_SEARCH_RESULTS
      
@@ -233,21 +223,21 @@ def CourtReservation():
     if not request.json:
         abort(HttpCode.ABORT)
 
-    accessToken = request.json.get('accessToken')
-    idStoreCourt = request.json.get('idStoreCourt')
-    sportId = request.json.get('sportId')
-    date = request.json.get('date')
-    timeBegin = getHourIndex(request.json.get('timeBegin'))
-    timeEnd = getHourIndex(request.json.get('timeEnd'))
-    cost = request.json.get('cost')
+    accessToken = request.json.get('AccessToken')
+    idStoreCourt = request.json.get('IdStoreCourt')
+    sportId = request.json.get('SportId')
+    date = request.json.get('Date')
+    timeBegin = int(request.json.get('TimeBegin'))
+    timeEnd = int(request.json.get('TimeEnd'))
+    cost = request.json.get('Cost')
 
     matches = Match.query.filter((Match.IdStoreCourt == int(idStoreCourt)) & (Match.Date == date) & (\
                 ((Match.IdTimeBegin >= timeBegin) & (Match.IdTimeBegin < timeEnd))  | \
                 ((Match.IdTimeEnd > timeBegin) & (Match.IdTimeEnd <= timeEnd))      | \
                 ((Match.IdTimeBegin < timeBegin) & (Match.IdTimeEnd > timeBegin))   \
                 )).first()
-    if not(matches is None):
-        return "TIME_NO_LONGER_AVAILABLE", HttpCode.TIME_NO_LONGER_AVAILABLE
+    if matches is not None:
+        return "Ops, esse horário não está mais disponível", HttpCode.WARNING
     else:
         user = User.query.filter_by(AccessToken = accessToken).first()
 
@@ -282,13 +272,16 @@ def CourtReservation():
         )
         db.session.add(matchMember)
         db.session.commit()
-        return str(newMatch.IdMatch), 200
+        return "Sua partida foi agendada!", HttpCode.ALERT
 
-@bp_match.route("/GetMatchInfo/<matchUrl>", methods=["GET"])
-def GetMatchInfo(matchUrl): 
+@bp_match.route("/GetMatchInfo", methods=["POST"])
+def GetMatchInfo(): 
+
+    matchUrl = request.json.get('MatchUrl')
+
     match = db.session.query(Match).filter(Match.MatchUrl == matchUrl).first()
     if match is None:
-        abort(HttpCode.ABORT)
+        return "Partida não encontrada", HttpCode.WARNING
 
     matchCounterList=[]
     for member in match.Members:
@@ -314,20 +307,20 @@ def InvitationResponse():
     if not request.json:
         abort(HttpCode.ABORT)
 
-    accessToken = request.json.get('accessToken')
-    idMatch = request.json.get('idMatch')
-    idUser = request.json.get('idUser')
-    accepted = request.json.get('accepted')
+    accessToken = request.json.get('AccessToken')
+    idMatch = request.json.get('IdMatch')
+    idUser = request.json.get('IdUser')
+    accepted = request.json.get('Accepted')
 
     user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
-        return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
+        return 'INVALID_ACCESS_TOKEN', HttpCode.WARNING
 
     match = Match.query.get(idMatch)
     if match is None:
-        return 'MATCH_NOT_FOUND', HttpCode.MATCH_NOT_FOUND
+        return "Partida não encontrada", HttpCode.WARNING
     elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
-         return 'MATCH_ALREADY_FINISHED', HttpCode.MATCH_ALREADY_FINISHED
+         return 'A partida já foi finalizada', HttpCode.WARNING
     else:
         matchMember = MatchMember.query.filter((MatchMember.IdMatch == idMatch) & (MatchMember.IdUser == idUser)).first()
 
@@ -348,25 +341,26 @@ def InvitationResponse():
         )
         db.session.add(newNotification)
         db.session.commit()
-        return "OK",200
+        
+        return "Ok",HttpCode.SUCCESS
 
 @bp_match.route("/LeaveMatch", methods=["POST"])
 def LeaveMatch():
     if not request.json:
         abort(HttpCode.ABORT)
 
-    accessToken = request.json.get('accessToken')
-    idMatch = request.json.get('idMatch')
+    accessToken = request.json.get('AccessToken')
+    idMatch = request.json.get('IdMatch')
 
     user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
-        return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
+        return 'INVALID_ACCESS_TOKEN', HttpCode.WARNING
 
     match = Match.query.get(idMatch)
     if match is None:
-        return 'MATCH_NOT_FOUND', HttpCode.MATCH_NOT_FOUND
+        return "Partida não encontrada", HttpCode.WARNING
     elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
-         return 'MATCH_ALREADY_FINISHED', HttpCode.MATCH_ALREADY_FINISHED
+         return 'A partida já foi finalizada', HttpCode.WARNING
     else:
         matchMember = MatchMember.query.filter((MatchMember.IdMatch == idMatch) & (MatchMember.IdUser == user.IdUser)).first()
         matchMember.Quit=True
@@ -385,50 +379,51 @@ def LeaveMatch():
                 db.session.add(newNotification)
                 break
         db.session.commit()
-        return "OK",200
+        return "Você saiu da partida",HttpCode.ALERT
 
 @bp_match.route("/SaveCreatorNotes", methods=["POST"])
 def SaveCreatorNotes():
     if not request.json:
         abort(HttpCode.ABORT)
 
-    accessToken = request.json.get('accessToken')
-    idMatch = request.json.get('idMatch')
-    newCreatorNotes = request.json.get('newCreatorNotes')
+    accessToken = request.json.get('AccessToken')
+    idMatch = request.json.get('IdMatch')
+    newCreatorNotes = request.json.get('NewCreatorNotes')
 
     user = User.query.filter_by(AccessToken = accessToken).first()
+
     if user is None:
-        return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
+        return 'Sessão inválida', HttpCode.WARNING
 
     match = db.session.query(Match).get(idMatch)
     if match is None:
-        return 'MATCH_NOT_FOUND', HttpCode.MATCH_NOT_FOUND
+        return 'Partida não encontrada', HttpCode.WARNING
     elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
-         return 'MATCH_ALREADY_FINISHED', HttpCode.MATCH_ALREADY_FINISHED
+         return 'Partida já foi finalizada', HttpCode.WARNING
     else:
         match.CreatorNotes = newCreatorNotes
         db.session.commit()
-        return "OK",200
+        return "Seu recado foi atualizado",HttpCode.ALERT
 
 @bp_match.route("/SaveOpenMatch", methods=["POST"])
 def SaveOpenMatch():
     if not request.json:
         abort(HttpCode.ABORT)
 
-    accessToken = request.json.get('accessToken')
-    idMatch = request.json.get('idMatch')
-    isOpenMatch = request.json.get('isOpenMatch')
-    maxUsers = request.json.get('maxUsers')
+    accessToken = request.json.get('AccessToken')
+    idMatch = request.json.get('IdMatch')
+    isOpenMatch = request.json.get('IsOpenMatch')
+    maxUsers = request.json.get('MaxUsers')
 
     user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
-        return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
+        return 'Sessão inválida', HttpCode.WARNING
 
     match = db.session.query(Match).get(idMatch)
     if match is None:
-        return 'MATCH_NOT_FOUND', HttpCode.MATCH_NOT_FOUND
+        return 'Partida não encontrada', HttpCode.WARNING
     elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
-         return 'MATCH_ALREADY_FINISHED', HttpCode.MATCH_ALREADY_FINISHED
+         return 'Partida já foi finalizada', HttpCode.WARNING
     else:
         match.OpenUsers = isOpenMatch
         if isOpenMatch == False:
@@ -436,7 +431,7 @@ def SaveOpenMatch():
         else:
             match.MaxUsers = maxUsers
         db.session.commit()
-        return "OK",200
+        return "Sua partida foi alterada!",HttpCode.ALERT
 
 
 @bp_match.route("/JoinMatch", methods=["POST"])
@@ -444,18 +439,18 @@ def JoinMatch():
     if not request.json:
         abort(HttpCode.ABORT)
 
-    accessToken = request.json.get('accessToken')
-    idMatch = request.json.get('idMatch')
+    accessToken = request.json.get('AccessToken')
+    idMatch = request.json.get('IdMatch')
 
     user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
-        return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
+        return 'Token inválido', HttpCode.WARNING
 
     match = db.session.query(Match).get(idMatch)
     if match is None:
-        return 'MATCH_NOT_FOUND', HttpCode.MATCH_NOT_FOUND
+        return 'Partida não encontrada', HttpCode.WARNING
     elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
-         return 'MATCH_ALREADY_FINISHED', HttpCode.MATCH_ALREADY_FINISHED
+         return 'A partida já foi finalizada', HttpCode.WARNING
     else:
         matchMember = db.session.query(MatchMember).filter((MatchMember.IdMatch == idMatch) & (MatchMember.IdUser == user.IdUser)).first()
         if matchMember is None:
@@ -497,29 +492,29 @@ def JoinMatch():
         )
         db.session.add(newNotification)
         db.session.commit()
-        return "OK",200
+        return "Solicitação enviada",HttpCode.ALERT
 
 @bp_match.route("/CancelMatch", methods=["POST"])
 def CancelMatch():
     if not request.json:
         abort(HttpCode.ABORT)
 
-    accessToken = request.json.get('accessToken')
-    idMatch = request.json.get('idMatch')
+    accessToken = request.json.get('AccessToken')
+    idMatch = request.json.get('IdMatch')
 
     user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
-        return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
+        return 'Token inválido', HttpCode.WARNING
 
     match = Match.query.get(idMatch)
     if match is None:
-        return 'MATCH_NOT_FOUND', HttpCode.MATCH_NOT_FOUND
+        return 'Partida não encontrada', HttpCode.WARNING
     elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
-         return 'MATCH_ALREADY_FINISHED', HttpCode.MATCH_ALREADY_FINISHED
+         return 'A partida já foi finalizada', HttpCode.WARNING
     else:
         CanCancelUpTo = datetime.strptime(match.TimeBegin.HourString, '%H:%M').replace(year=match.Date.year,month=match.Date.month,day=match.Date.day) - timedelta(hours=match.StoreCourt.Store.HoursBeforeCancellation)
         if datetime.now() >  CanCancelUpTo:
-            return 'CANCELLATION_PERIOD_EXPIRED', HttpCode.CANCELLATION_PERIOD_EXPIRED
+            return 'Não é mais possível cancelar a partida', HttpCode.WARNING
         
         match.Canceled = True
 
@@ -541,28 +536,27 @@ def CancelMatch():
                 )
                 db.session.add(newNotification)
                 db.session.commit()
-        return "ok",200
+        return "Partida cancelada",HttpCode.ALERT
 
 @bp_match.route("/RemoveMatchMember", methods=["POST"])
 def RemoveMatchMember():
     if not request.json:
         abort(HttpCode.ABORT)
 
-    accessToken = request.json.get('accessToken')
-    idMatch = request.json.get('idMatch')
-    idUserDelete = request.json.get('idUserDelete')
+    accessToken = request.json.get('AccessToken')
+    idMatch = request.json.get('IdMatch')
+    idUserDelete = request.json.get('IdUser')
 
     user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
-        return 'INVALID_ACCESS_TOKEN', HttpCode.INVALID_ACCESS_TOKEN
+        return 'Token inválido', HttpCode.WARNING
 
     match = Match.query.get(idMatch)
     if match is None:
-        return 'MATCH_NOT_FOUND', HttpCode.MATCH_NOT_FOUND
+        return 'Partida não encontrada', HttpCode.WARNING
     elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
-         return 'MATCH_ALREADY_FINISHED', HttpCode.MATCH_ALREADY_FINISHED
+         return 'A partida já foi finalizada', HttpCode.WARNING
     else:
-        match.Canceled = True
 
         matchMember = MatchMember.query.filter((MatchMember.IdMatch == idMatch) & (MatchMember.IdUser == idUserDelete)).first()
         matchCreator = MatchMember.query.filter((MatchMember.IdMatch == idMatch) & (MatchMember.IsMatchCreator == True)).first()
@@ -581,7 +575,7 @@ def RemoveMatchMember():
         db.session.add(newNotification)
 
         db.session.commit()
-        return "OK",200
+        return "Jogador removido",HttpCode.ALERT
 
 @bp_match.route("/AddMatch", methods=["POST"])
 def AddMatch():

@@ -7,15 +7,16 @@ from ..responses import webResponse
 from ..Models.http_codes import HttpCode
 from ..Models.city_model import City
 from ..Models.state_model import State
+from ..Models.store_photo_model import StorePhoto
 from ..Models.sport_model import Sport
 from ..Models.match_model import Match
 from ..Models.employee_model import Employee
 from ..Models.available_hour_model import AvailableHour
 from ..Models.store_court_model import StoreCourt
 from ..emails import sendEmail
-from ..Models.employee_access_token_model import EmployeeAccessToken
 from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import func
+import base64
 
 bp_store = Blueprint('bp_store', __name__)
 
@@ -157,23 +158,91 @@ def GetStore(id):
     store = Store.query.get(id)
     return jsonify(store.to_json())
 
-@bp_store.route("/UpdateStore/<id>", methods=["PUT"])
-def UpdateStore(id):
+@bp_store.route("/UpdateStoreInfo", methods=["POST"])
+def UpdateStoreInfo():
     if not request.json:
         abort(400)
-    store = Store.query.get(id)
+
+    storeIdReq = request.json.get('IdStore')
+    
+    store = Store.query.get(storeIdReq)
     if store is None:
-        abort(404)
+        return webResponse("Ops", "Tivemos um problema. Tente fazer login novamente."), HttpCode.WARNING
+
+    cityReq = request.json.get('City')
+    stateReq = request.json.get('State')
+
+    #primeiro recebe a cidade e o estado pra ver pegar o stateId e o cityId
+    city = db.session.query(City).filter(func.lower(City.City) == func.lower(cityReq)).first()
+    state = db.session.query(State).filter(func.lower(State.UF) == func.lower(stateReq)).first()
+
+    #Verificações de Cidade e Estado
+    if city is None:
+        return webResponse("Cidade não encontrada", None), HttpCode.WARNING
+
+    if state is None:
+        return webResponse("Estado não encontrado", None), HttpCode.WARNING
+
+    if city.IdState != state.IdState:
+        return webResponse("Esta cidade não pertence a esse estado", None), HttpCode.WARNING
+
+    #TODO: bater com o milano se na edição de uma quadra vamos ter mais validações
+
     store.Name = request.json.get('Name')
     store.Address = request.json.get('Address')
-    store.IdCity = request.json.get('City')
-    store.Email = request.json.get('Email')
+    store.AddressNumber = request.json.get('AddressNumber')
+    store.IdCity = city.IdCity
     store.PhoneNumber1 = request.json.get('PhoneNumber1')
     store.PhoneNumber2 = request.json.get('PhoneNumber2')
     store.Description = request.json.get('Description')
     store.Instagram = request.json.get('Instagram')
+    store.CNPJ = request.json.get('Cnpj')
+    store.CEP = request.json.get('Cep')
+    store.BankAccount = request.json.get('BankAccount')
+    store.Neighbourhood = request.json.get('Neighbourhood')
+
+    logoReq = request.json.get('Logo')
+    if logoReq != store.Logo:
+        photoName = str(store.IdStore) + str(datetime.now().strftime('%Y%m%d%H%M%S'))
+        store.Logo = photoName
+        imageBytes = base64.b64decode(logoReq + '==')
+        imageFile = open(f'/var/www/html/img/str/logo/{store.Logo}.png', 'wb')
+        imageFile.write(imageBytes)
+        imageFile.close()
+
+    photosReq = request.json.get('Photos')
+    receivedIdStorePhotos = []
+    newPhotos = []
+
+    for photo in photosReq:
+        if photo["IdStorePhoto"] is None or photo["IdStorePhoto"] == "":
+            newPhotos.append(str(photo["Photo"]))
+        else:
+            receivedIdStorePhotos.append(int(photo["IdStorePhoto"]))
+
+    storePhotos = db.session.query(StorePhoto).filter(StorePhoto.IdStore == store.IdStore)\
+                                .filter(StorePhoto.Deleted == False).all()
+    for storePhoto in storePhotos:
+        if storePhoto.IdStorePhoto not in receivedIdStorePhotos:
+            storePhoto.Deleted = True
+
+    for newPhoto in newPhotos:
+        
+        newStorePhoto = StorePhoto(
+            Deleted = False,
+            IdStore = store.IdStore,
+        )
+        db.session.add(newStorePhoto)
+        db.session.commit()
+        db.session.refresh(newStorePhoto)
+        imageBytes = base64.b64decode(newPhoto + '==')
+        imageFile = open(f'/var/www/html/img/str/{newStorePhoto.IdStorePhoto}.png', 'wb')
+        imageFile.write(imageBytes)
+        imageFile.close()
+
     db.session.commit()
-    return jsonify(store.to_json())
+
+    return {"Store": store.to_json()}, HttpCode.SUCCESS
 
 @bp_store.route("/DeleteStore/<id>", methods=["DELETE"])
 def DeleteStore(id):

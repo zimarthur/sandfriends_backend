@@ -54,9 +54,9 @@ def UpdateUser():
         abort(HttpCode.ABORT)
     
     user = User.query.filter_by(AccessToken = request.json.get('AccessToken')).first()
-
+    
     if user is None:
-        return 'NOK', HttpCode.INVALID_ACCESS_TOKEN
+        return 'Token invalido', HttpCode.WARNING
     else:
         availableRanks = db.session.query(RankCategory).all()
         availableSports = db.session.query(Sport).all()
@@ -78,7 +78,7 @@ def UpdateUser():
                         db.session.add(rank)
                     else:
                         oldUserRanks.IdRankCategory = newRank['idRankCategory']
-
+        
         user = User.query.get(user.IdUser)
         user.FirstName = request.json.get('FirstName')
         user.LastName = request.json.get('LastName')
@@ -105,8 +105,20 @@ def UpdateUser():
         else:
             user.IdSidePreferenceCategory = request.json.get('SidePreference')
 
-        # if request.json.get('Photo') == "":
-        #     user.Photo = None
+        photoReq = request.json.get('Photo')
+        if photoReq != user.Photo:
+            if photoReq is None or photoReq == "":
+                user.Photo = None
+            else: 
+                photoName = str(user.IdUser) + str(datetime.now().strftime('%Y%m%d%H%M%S'))
+                user.Photo = photoName
+                imageBytes = base64.b64decode(photoReq + '==')
+                imageFile = open(f'/var/www/html/img/usr/{user.Photo}.png', 'wb')
+                imageFile.write(imageBytes)
+                imageFile.close()
+  
+
+
         # else:
         #     user.Photo = str(user.RegistrationDate.timestamp()).replace(".","") + str(user.IdUser)
         #     print(user.Photo)
@@ -116,4 +128,4 @@ def UpdateUser():
         #     img_file.close()
 
         db.session.commit()
-        return "Suas informações foram alteradas!", HttpCode.ALERT
+        return user.to_json(), HttpCode.SUCCESS

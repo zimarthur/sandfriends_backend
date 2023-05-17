@@ -6,6 +6,7 @@ from ..routes.reward_routes import RewardStatus
 
 from ..Models.user_model import User
 from ..Models.store_model import Store
+from ..Models.available_hour_model import AvailableHour
 from ..Models.rank_category_model import RankCategory
 from ..Models.gender_category_model import GenderCategory
 from ..Models.side_preference_category_model import SidePreferenceCategory
@@ -381,7 +382,12 @@ def initUserLoginData(user):
     for rank in ranks:
         ranksList.append(rank.to_json())
 
-    return jsonify({'Sports':sportsList, 'Genders': gendersList, 'SidePreferences': sidePreferencesList, 'Ranks': ranksList, 'User': user.to_json()})
+    hours = db.session.query(AvailableHour).all()
+    hoursList = []
+    for hour in hours:
+        hoursList.append(hour.to_json())
+
+    return jsonify({'Sports':sportsList, 'Genders': gendersList, 'SidePreferences': sidePreferencesList, 'Ranks': ranksList, 'Hours': hoursList, 'User': user.to_json()})
 
 def getMatchCounterList(user):
     #Como o num de jogos do jogador não está e não pode ser obtida na tabela User ou UserLogin, tive q fazer a query manualmente(abaixo)

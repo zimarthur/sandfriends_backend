@@ -44,7 +44,6 @@ from ..Models.user_login_model import UserLogin
 from ..Models.notification_model import Notification
 from ..Models.notification_category_model import NotificationCategory
 from ..access_token import EncodeToken, DecodeToken
-from ..Models.employee_access_token_model import EmployeeAccessToken
 
 bp_debug = Blueprint('bp_debug', __name__)
 

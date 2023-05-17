@@ -19,14 +19,49 @@ class Store(db.Model):
     CEP = db.Column(db.String(8))
     RegistrationDate = db.Column(db.DateTime)
     ApprovalDate = db.Column(db.DateTime)
+    BankAccount = db.Column(db.String(45))
+    Logo = db.Column(db.String(100))
 
     IdCity = db.Column(db.Integer, db.ForeignKey('city.IdCity'))
     City = db.relationship('City', foreign_keys = [IdCity])
 
     Courts = db.relationship('StoreCourt', backref="Store")
     Photos = db.relationship('StorePhoto', backref="Store")
+    Employees = db.relationship('Employee', backref="Store")
         
     def to_json(self):
+        if self.Logo == None or self.Logo == "":
+            logo = None
+        else:
+            logo = f"https://www.sandfriends.com.br/img/str/logo/{self.Logo}.png"
+        
+        return {
+            'IdStore': self.IdStore,
+            'Name': self.Name,
+            'Address': self.Address,
+            'AddressNumber': self.AddressNumber,
+            'Latitude': self.Latitude,
+            'Longitude': self.Longitude,
+            'IdCity': self.IdCity,
+            'City': self.City.to_json(),
+            'HoursBeforeCancellation': self.HoursBeforeCancellation,
+            'PhoneNumber1': self.PhoneNumber1,
+            'PhoneNumber2': self.PhoneNumber2,
+            'Logo': logo,
+            'Description': self.Description,
+            'Instagram': self.Instagram,
+            'Cnpj': self.CNPJ,
+            'Cep': self.CEP,
+            'Neighbourhood': self.Neighbourhood,
+            'Cpf': self.CPF,
+            'ApprovalDate': self.ApprovalDate.strftime("%d/%m/%Y"),
+            'StorePhotos':[photo.to_json() for photo in self.Photos if not(photo.Deleted)],
+            'Courts':[court.to_json() for court in self.Courts],
+            'Employees': [employee.to_json() for employee in self.Employees],
+            'BankAccount': self.BankAccount
+        }
+    
+    def to_json_match(self):
         return {
             'IdStore': self.IdStore,
             'Name': self.Name,
@@ -47,7 +82,7 @@ class Store(db.Model):
             'Neighbourhood': self.Neighbourhood,
             'Cpf': self.CPF,
             'ApprovalDate': self.ApprovalDate.strftime("%d/%m/%Y"),
-            'StorePhotos':[photo.to_json() for photo in self.Photos]
+            'StorePhotos':[photo.to_json() for photo in self.Photos if not(photo.Deleted)],
         }
 
     #Para a criação de uma quadra nova

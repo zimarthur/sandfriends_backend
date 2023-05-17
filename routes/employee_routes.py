@@ -13,7 +13,6 @@ from ..Models.employee_model import Employee
 from ..Models.available_hour_model import AvailableHour
 from ..Models.store_court_model import StoreCourt
 from ..emails import sendEmail
-from ..Models.employee_access_token_model import EmployeeAccessToken
 from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import func
 
@@ -48,21 +47,13 @@ def StoreLogin():
         return webResponse("Estamos validando sua quadra, entraremos em contato em breve", None), HttpCode.ALERT
     #quadra já aprovada
 
-    #Gera o AccessToken para os próximos logins
-    currentDate = datetime.now()
+    employee.AccessToken = EncodeToken(employee.IdEmployee)
+    employee.LastAccessDate = datetime.now()
 
-    newEmployeeAccessToken = EmployeeAccessToken(
-        IdEmployee = employee.IdEmployee,
-        AccessToken = EncodeToken(employee.IdEmployee),
-        CreationDate = currentDate,
-        LastAccessDate = currentDate
-    )
-
-    db.session.add(newEmployeeAccessToken)
     db.session.commit()
 
     #retorna as informações da quadra (esportes, horários, etc)
-    return initStoreLoginData(employee.Store, newEmployeeAccessToken.AccessToken), HttpCode.SUCCESS
+    return initStoreLoginData(employee), HttpCode.SUCCESS
 
 #Rota utilizada para validar o AccessToken que fica no computador do usuário - para evitar fazer login com senha
 @bp_employee.route('/ValidateEmployeeAccessToken', methods=['POST'])
@@ -72,22 +63,22 @@ def ValidateEmployeeAccessToken():
     
     accessTokenReq = request.json.get('AccessToken')
 
-    employeeAccessToken = db.session.query(EmployeeAccessToken).filter(EmployeeAccessToken.AccessToken == accessTokenReq).first()
+    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
 
     #Caso não encontrar Token
-    if employeeAccessToken is None:
+    if employee is None:
         return webResponse("Token não encontrado", None), HttpCode.WARNING
 
     #Verificar se o Token é válido
-    if (datetime.now() - employeeAccessToken.LastAccessDate).days > daysToExpireToken:
+    if (datetime.now() - employee.LastAccessDate).days > daysToExpireToken:
         return webResponse("Token expirado", None), HttpCode.WARNING
 
     #Token está válido - atualizar o LastAccessDate
-    employeeAccessToken.LastAccessDate = datetime.now()
+    employee.LastAccessDate = datetime.now()
     db.session.commit()
 
     #Token válido - retorna as informações da quadra (esportes, horários, etc)
-    return initStoreLoginData(employeeAccessToken.Employee.Store, employeeAccessToken.AccessToken), HttpCode.SUCCESS
+    return initStoreLoginData(employee), HttpCode.SUCCESS
 
 #Rota utilizada por um admin para adicionar um novo funcionário
 @bp_employee.route("/AddEmployee", methods=["POST"])
@@ -98,20 +89,20 @@ def AddEmployee():
     accessTokenReq = request.json.get('AccessToken')
     emailReq = (request.json.get('Email')).lower()
     
-    employeeAccessToken = db.session.query(EmployeeAccessToken).filter(EmployeeAccessToken.AccessToken == accessTokenReq).first()
+    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
     
     #Verifica se o accessToken existe
     #Verifica se o accessToken do criador do usuário está expirado
-    if (employeeAccessToken is None) or (not employeeAccessToken.isExpired(daysToExpireToken)):
+    if (employee is None) or (not employee.isExpired(daysToExpireToken)):
         return webResponse("Ocorreu um erro", "Tente novamente, caso o problema persista, entre em contato com o nosso suporte"), HttpCode.WARNING
 
     #Verifica se quem está tentando criar um usuário é um Admin
-    if not employeeAccessToken.Employee.Admin:
+    if not employee.Admin:
         return webResponse("Ops", "Você não tem permissões para criar usuários.\n\nApenas usuários administradores podem fazer isto."), HttpCode.WARNING
 
     #Usuário que será adicionado
     newEmployee = Employee(
-        IdStore = employeeAccessToken.Employee.IdStore,
+        IdStore = employee.IdStore,
         Email = emailReq,
         Admin = False,
         StoreOwner = False,
@@ -256,14 +247,16 @@ def ChangePasswordEmployee():
 
     #Anula os tokens de acesso
     #Deixa a data de LastAccess deles como 10 ano atrás
-    tokens = db.session.query(EmployeeAccessToken).filter(EmployeeAccessToken.IdEmployee == employeeReq.IdEmployee).all()
+    tokens = db.session.query(Employee).filter(Employee.IdEmployee == employeeReq.IdEmployee).all()
     for token in tokens:
         token.LastAccessDate = token.LastAccessDate - timedelta(days=10*365)
         
     db.session.commit()
     return webResponse("Sua senha foi alterada!", None), HttpCode.ALERT
 
-def initStoreLoginData(store, accessToken):
+def initStoreLoginData(employee):
+
+    store = employee.Store
     startTime = datetime.now()
     #Lista com todos esportes
     sports = db.session.query(Sport).all()
@@ -292,4 +285,4 @@ def initStoreLoginData(store, accessToken):
     for match in matches:
         matchList.append(match.to_json())
     endTime =  datetime.now()
-    return jsonify({'AccessToken':accessToken, 'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList})
+    return jsonify({'AccessToken':employee.AccessToken, 'LoggedEmail': employee.Email,'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList})

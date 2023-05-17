@@ -13,12 +13,21 @@ class StoreCourt(db.Model):
     def to_json(self):
         return {
             'IdStoreCourt': self.IdStoreCourt,
-            'Store': self.Store.to_json(),
             'Description':self.Description,
             'IsIndoor': self.IsIndoor,
         }
 
-    def to_json_full(self):
+    #ainda definir, mas a principio mas existem duas necessidades difrerentes: pegar um store json e a suas quadras ou 
+    #pegar uma quadra especifica e nela passar o store json, por isso to_jsons diferentes 
+    def to_json_match(self): 
+        return {
+            'IdStoreCourt': self.IdStoreCourt,
+            'Description':self.Description,
+            'IsIndoor': self.IsIndoor,
+            'Store': self.Store.to_json_match(),
+        }
+
+    def to_json_full(self): #usado para site (gestor)
         return {
             'IdStoreCourt': self.IdStoreCourt,
             'Store': self.Store.to_json(),

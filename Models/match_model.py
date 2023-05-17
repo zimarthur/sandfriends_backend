@@ -33,7 +33,7 @@ class Match(db.Model):
 
         return {
             'IdMatch': self.IdMatch,
-            'StoreCourt': self.StoreCourt.to_json(),
+            'StoreCourt': self.StoreCourt.to_json_match(),
             'Sport': self.Sport.to_json(),
             'Date': self.Date.strftime("%Y-%m-%d"),
             'TimeBegin': self.TimeBegin.HourString,
@@ -47,6 +47,29 @@ class Match(db.Model):
             'MatchUrl': self.MatchUrl,
             'CreatorNotes': self.CreatorNotes,
             'Members':[member.to_json() for member in self.Members],
+            'CanCancelUpTo': CanCancelUpTo.strftime("%d/%m/%Y às %H:%M"),
+        }
+
+    def to_json_open_match(self):
+        members = [member.to_json() for member in self.Members if not(member.WaitingApproval) and not(member.Refused) and not(member.Quit) ]
+        CanCancelUpTo = datetime.strptime(self.TimeBegin.HourString, '%H:%M').replace(year=self.Date.year,month=self.Date.month,day=self.Date.day) - timedelta(hours=self.StoreCourt.Store.HoursBeforeCancellation)
+
+        return {
+            'IdMatch': self.IdMatch,
+            'StoreCourt': self.StoreCourt.to_json_match(),
+            'Sport': self.Sport.to_json(),
+            'Date': self.Date.strftime("%Y-%m-%d"),
+            'TimeBegin': self.TimeBegin.HourString,
+            'TimeEnd': self.TimeEnd.HourString,
+            'TimeInteger': self.IdTimeBegin,
+            'Cost': int(self.Cost),
+            'OpenUsers': self.OpenUsers,
+            'MaxUsers': self.MaxUsers,
+            'Canceled': self.Canceled,
+            'CreationDate': self.CreationDate.strftime("%Y-%m-%d"),
+            'MatchUrl': self.MatchUrl,
+            'CreatorNotes': self.CreatorNotes,
+            'Members':members,
             'CanCancelUpTo': CanCancelUpTo.strftime("%d/%m/%Y às %H:%M"),
         }
 
