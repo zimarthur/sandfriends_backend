@@ -57,7 +57,7 @@ class Store(db.Model):
             'ApprovalDate': self.ApprovalDate.strftime("%d/%m/%Y"),
             'StorePhotos':[photo.to_json() for photo in self.Photos if not(photo.Deleted)],
             'Courts':[court.to_json() for court in self.Courts],
-            'Employees': [employee.to_json() for employee in self.Employees],
+            'Employees': [employee.to_json() for employee in self.Employees if employee.DateDisabled is None],
             'BankAccount': self.BankAccount
         }
     

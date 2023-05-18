@@ -16,7 +16,7 @@ from ..emails import sendEmail
 from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import func
 
-daysToExpireToken = 7
+
 
 bp_employee = Blueprint('bp_employee', __name__)
 
@@ -70,7 +70,7 @@ def ValidateEmployeeAccessToken():
         return webResponse("Token não encontrado", None), HttpCode.WARNING
 
     #Verificar se o Token é válido
-    if (datetime.now() - employee.LastAccessDate).days > daysToExpireToken:
+    if employee.isAccessTokenExpired():
         return webResponse("Token expirado", None), HttpCode.WARNING
 
     #Token está válido - atualizar o LastAccessDate
@@ -93,12 +93,17 @@ def AddEmployee():
     
     #Verifica se o accessToken existe
     #Verifica se o accessToken do criador do usuário está expirado
-    if (employee is None) or (not employee.isExpired(daysToExpireToken)):
+    if (employee is None) or (not employee.isAccessTokenExpired()):
         return webResponse("Ocorreu um erro", "Tente novamente, caso o problema persista, entre em contato com o nosso suporte"), HttpCode.WARNING
 
     #Verifica se quem está tentando criar um usuário é um Admin
     if not employee.Admin:
         return webResponse("Ops", "Você não tem permissões para criar usuários.\n\nApenas usuários administradores podem fazer isto."), HttpCode.WARNING
+
+    #Verifica se este e-mail já pertence a um usuário
+    alreadyUsed = db.session.query(Employee).filter(Employee.Email == emailReq).first()
+    if alreadyUsed is not None:
+        return webResponse("Ops", "Já existe um usuário com este e-mail"), HttpCode.WARNING
 
     #Usuário que será adicionado
     newEmployee = Employee(
@@ -109,11 +114,6 @@ def AddEmployee():
         RegistrationDate = datetime.now()
     )
 
-    #Verifica se este e-mail já pertence a um usuário
-    alreadyUsed = db.session.query(Employee).filter(Employee.Email == newEmployee.Email).first()
-    if alreadyUsed is not None:
-        return webResponse("Ops", "Já existe um usuário com este e-mail"), HttpCode.WARNING
-
     db.session.add(newEmployee)
     db.session.commit()
 
@@ -122,7 +122,7 @@ def AddEmployee():
     db.session.commit()
     sendEmail("https://www.sandfriends.com.br/adem?tk="+newEmployee.EmailConfirmationToken)
 
-    return webResponse("Tudo certo!", "Usuário adicionado com sucesso\n\nValide o novo usuário com o e-mail que acabamos de enviar"), HttpCode.SUCCESS
+    return returnStoreEmployees(employee.IdStore), HttpCode.SUCCESS
 
 #Rota utilizada pelo novo funcionário para validar o link que ele clicou
 @bp_employee.route("/ValidateNewEmployeeEmail", methods=["POST"])
@@ -188,6 +188,83 @@ def EmailConfirmationEmployee():
     employee.EmailConfirmationDate = datetime.now()
     db.session.commit()
     return "Email confirmado com sucesso", HttpCode.SUCCESS
+
+@bp_employee.route("/SetEmployeeAdmin", methods=["POST"])
+def SetEmployeeAdmin():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    accessTokenReq = request.json.get('AccessToken')
+    idEmployeeReq = request.json.get('IdEmployee')
+    isAdminReq = request.json.get('IsAdmin')
+    
+    employeeRequest = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employeeChange = db.session.query(Employee).filter(Employee.IdEmployee == idEmployeeReq).first()
+
+    #Verifica se o accessToken existe
+    #Verifica se o accessToken do criador do usuário está expirado
+    if (employeeRequest is None) or (not employeeRequest.isAccessTokenExpired()):
+        return webResponse("Ocorreu um erro", "Tente novamente, caso o problema persista, entre em contato com o nosso suporte"), HttpCode.WARNING
+
+    #Verifica se quem está tentando criar um usuário é um Admin
+    if not employeeRequest.Admin or employeeChange.StoreOwner:
+        return webResponse("Ops", "Você não tem permissões para criar usuários.\n\nApenas usuários administradores podem fazer isto."), HttpCode.WARNING
+
+    employeeChange.Admin = isAdminReq
+
+    db.session.commit()
+
+    return returnStoreEmployees(employeeRequest.IdStore), HttpCode.SUCCESS
+
+@bp_employee.route("/RenameEmployee", methods=["POST"])
+def RenameEmployee():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    accessTokenReq = request.json.get('AccessToken')
+    firstNameReq = request.json.get('FirstName')
+    lastNameReq = request.json.get('LastName')
+    
+    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+
+    #Verifica se o accessToken existe
+    #Verifica se o accessToken do criador do usuário está expirado
+    if (employee is None) or (not employee.isAccessTokenExpired()):
+        return webResponse("Ocorreu um erro", "Tente novamente, caso o problema persista, entre em contato com o nosso suporte"), HttpCode.WARNING
+
+    employee.FirstName = firstNameReq
+    employee.LastName = lastNameReq
+
+    db.session.commit()
+
+    return returnStoreEmployees(employee.IdStore), HttpCode.SUCCESS
+
+@bp_employee.route("/RemoveEmployee", methods=["POST"])
+def RemoveEmployee():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    accessTokenReq = request.json.get('AccessToken')
+    idEmployeeReq = request.json.get('IdEmployee')
+    isAdminReq = request.json.get('IsAdmin')
+    
+    employeeRequest = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employeeChange = db.session.query(Employee).filter(Employee.IdEmployee == idEmployeeReq).first()
+
+    #Verifica se o accessToken existe
+    #Verifica se o accessToken do criador do usuário está expirado
+    if (employeeRequest is None) or (not employeeRequest.isAccessTokenExpired()):
+        return webResponse("Ocorreu um erro", "Tente novamente, caso o problema persista, entre em contato com o nosso suporte"), HttpCode.WARNING
+
+    #Verifica se quem está tentando criar um usuário é um Admin
+    if not employeeRequest.Admin or employeeChange.StoreOwner:
+        return webResponse("Ops", "Você não tem permissões para criar usuários.\n\nApenas usuários administradores podem fazer isto."), HttpCode.WARNING
+
+    employeeChange.DateDisabled = datetime.now()
+
+    db.session.commit()
+
+    return returnStoreEmployees(employeeRequest.IdStore), HttpCode.SUCCESS
 
 #Rota utilizada quando um funcionário clica em "esqueci minha senha"
 @bp_employee.route('/ChangePasswordRequestEmployee', methods=['POST'])
@@ -286,3 +363,7 @@ def initStoreLoginData(employee):
         matchList.append(match.to_json())
     endTime =  datetime.now()
     return jsonify({'AccessToken':employee.AccessToken, 'LoggedEmail': employee.Email,'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList})
+
+def returnStoreEmployees(storeId):
+    store = db.session.query(Store).filter(Store.IdStore == storeId).first()
+    return jsonify({"Employees": [employee.to_json() for employee in store.Employees if employee.DateDisabled == None]})
