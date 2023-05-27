@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, abort, request
 from ..extensions import db
+from ..utils import getLastDayOfMonth
 from datetime import datetime, timedelta, date
 
 from ..Models.recurrent_match_model import RecurrentMatch
@@ -42,11 +43,6 @@ def getHourString(hourIndex):
 
 def getLastMonth():
     return (datetime.today().replace(day=1) - timedelta(days=1)).replace(day=1).date()
-
-def getLastDayOfMonth():
-    next_month = datetime.today().replace(day=28) + timedelta(days=4)
-    res = next_month - timedelta(days=next_month.day)
-    return res.date()
 
 @bp_recurrent_match.route('/AvailableRecurrentMatches', methods=['POST'])
 def AvailableRecurrentMatches():

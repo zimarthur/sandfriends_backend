@@ -8,10 +8,9 @@ from .extensions import db
 from .routes.user_login_routes import bp_user_login
 from .routes.user_routes import bp_user
 from .routes.store_routes import bp_store
+from .routes.court_routes import bp_court
 from .routes.match_routes import bp_match
 from .routes.recurrent_match_routes import bp_recurrent_match
-from .routes.store_photo_routes import bp_store_photo
-from .routes.store_price_routes import bp_store_price
 from .routes.sport_routes import bp_sport
 from .routes.feedback_routes import bp_feedback
 from .routes.debug_routes import bp_debug
@@ -34,10 +33,9 @@ def create_app():
     app.register_blueprint(bp_user_login)
     app.register_blueprint(bp_user)
     app.register_blueprint(bp_store)
+    app.register_blueprint(bp_court)
     app.register_blueprint(bp_match)
     app.register_blueprint(bp_recurrent_match)
-    app.register_blueprint(bp_store_photo)
-    app.register_blueprint(bp_store_price)
     app.register_blueprint(bp_sport)
     app.register_blueprint(bp_feedback)
     app.register_blueprint(bp_debug)

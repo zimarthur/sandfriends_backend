@@ -1,7 +1,7 @@
 from ..extensions import db
 from datetime import datetime, timedelta, date
 
-daysToExpireToken = 7
+
 
 class Employee(db.Model):
     __tablename__ = 'employee'
@@ -17,8 +17,8 @@ class Employee(db.Model):
     EmailConfirmationToken = db.Column(db.String(300))
     ResetPasswordToken = db.Column(db.String(300))
     DateDisabled = db.Column(db.DateTime)
-    AccessToken = db.Column(db.String(225), nullable=False)
-    LastAccessDate = db.Column(db.DateTime, nullable=False)
+    AccessToken = db.Column(db.String(225),)
+    LastAccessDate = db.Column(db.DateTime,)
 
     IdStore = db.Column(db.Integer, db.ForeignKey('store.IdStore'))
     #Store = db.relationship('Store', foreign_keys = [IdStore])
@@ -57,8 +57,9 @@ class Employee(db.Model):
         return False
 
     def isAccessTokenExpired(self):
+        daysToExpireToken = 7
         #Token expirado    
         if (datetime.now() - self.LastAccessDate).days > daysToExpireToken:
-            return False
+            return True
         #Token ok
-        return True
+        return False

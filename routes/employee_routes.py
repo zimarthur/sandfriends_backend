@@ -3,6 +3,7 @@ from flask_cors import cross_origin
 from datetime import datetime, timedelta, date
 from ..Models.store_model import Store
 from ..extensions import db
+from ..utils import firstSundayOnNextMonth
 from ..responses import webResponse
 from ..Models.http_codes import HttpCode
 from ..Models.city_model import City
@@ -93,7 +94,7 @@ def AddEmployee():
     
     #Verifica se o accessToken existe
     #Verifica se o accessToken do criador do usuário está expirado
-    if (employee is None) or (not employee.isAccessTokenExpired()):
+    if (employee is None) or employee.isAccessTokenExpired():
         return webResponse("Ocorreu um erro", "Tente novamente, caso o problema persista, entre em contato com o nosso suporte"), HttpCode.WARNING
 
     #Verifica se quem está tentando criar um usuário é um Admin
@@ -203,7 +204,7 @@ def SetEmployeeAdmin():
 
     #Verifica se o accessToken existe
     #Verifica se o accessToken do criador do usuário está expirado
-    if (employeeRequest is None) or (not employeeRequest.isAccessTokenExpired()):
+    if (employeeRequest is None) or employeeRequest.isAccessTokenExpired():
         return webResponse("Ocorreu um erro", "Tente novamente, caso o problema persista, entre em contato com o nosso suporte"), HttpCode.WARNING
 
     #Verifica se quem está tentando criar um usuário é um Admin
@@ -229,7 +230,7 @@ def RenameEmployee():
 
     #Verifica se o accessToken existe
     #Verifica se o accessToken do criador do usuário está expirado
-    if (employee is None) or (not employee.isAccessTokenExpired()):
+    if (employee is None) or employee.isAccessTokenExpired():
         return webResponse("Ocorreu um erro", "Tente novamente, caso o problema persista, entre em contato com o nosso suporte"), HttpCode.WARNING
 
     employee.FirstName = firstNameReq
@@ -253,7 +254,7 @@ def RemoveEmployee():
 
     #Verifica se o accessToken existe
     #Verifica se o accessToken do criador do usuário está expirado
-    if (employeeRequest is None) or (not employeeRequest.isAccessTokenExpired()):
+    if (employeeRequest is None) or employeeRequest.isAccessTokenExpired():
         return webResponse("Ocorreu um erro", "Tente novamente, caso o problema persista, entre em contato com o nosso suporte"), HttpCode.WARNING
 
     #Verifica se quem está tentando criar um usuário é um Admin
@@ -356,11 +357,18 @@ def initStoreLoginData(employee):
     for court in courts:
         courtsList.append(court.to_json_full())
 
+    #query das partidas da loja. Pegar todas as partidas do mês atual contando a semana atual.
+    #ex: se em um mês dia 31 fosse quarta, eu ainda preciso do resto da semana (quinta, sex, sab e dom), mesmo q sejam de outro mes
+    startDate = datetime.now().replace(day=1)
+    endDate = firstSundayOnNextMonth()
+
     matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
-    .filter(Match.Date >= date(2023, 4, 1)).filter(Match.Date <= date(2023, 5, 30)).all()
+    .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
+    .filter(Match.Canceled == False).all()
+    
     matchList =[]
     for match in matches:
-        matchList.append(match.to_json())
+        matchList.append(match.to_json_min())
     endTime =  datetime.now()
     return jsonify({'AccessToken':employee.AccessToken, 'LoggedEmail': employee.Email,'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList})
 

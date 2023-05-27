@@ -76,23 +76,31 @@ class Match(db.Model):
     def to_json_min(self):
         #Retorna uma versão mais simplificada
         #Menos texto para transmitir para o app ao carregar a página
-        #### Coloquei o IdCreator invés do Nome e Sobrenome
-        #### O front
-        IdCreator = "Não encontrado"
+        MatchCreatorFirstName = "Não encontrado"
+        MatchCreatorLastName = ""
+        MatchCreatorPhoto = None
         for member in self.Members:
             if member.IsMatchCreator == 1:
-                IdCreator = member.IdMatchMember
+                MatchCreatorFirstName = member.User.FirstName
+                MatchCreatorLastName = member.User.LastName
+                if member.User.Photo is None:
+                    MatchCreatorPhoto = None
+                else:
+                    MatchCreatorPhoto = f"https://www.sandfriends.com.br/img/usr/{member.User.Photo}.png"
 
         return {
             'IdMatch': self.IdMatch,            
-            'Date': self.Date.strftime("%Y-%m-%d"),
-            'TimeBegin': self.TimeBegin.HourString,
-            'TimeEnd': self.TimeEnd.HourString,
+            'CreationDate': self.CreationDate.strftime("%d/%m/%Y"),
+            'Date': self.Date.strftime("%d/%m/%Y"),
+            'TimeBegin': self.TimeBegin.IdAvailableHour,
+            'TimeEnd': self.TimeEnd.IdAvailableHour,
             'IdStoreCourt': self.StoreCourt.IdStoreCourt,
             'Cost': int(self.Cost),
             'IdSport': self.IdSport,
             'CreatorNotes': self.CreatorNotes,
             'IdRecurrentMatch': self.IdRecurrentMatch,
-            'IdCreator': IdCreator
+            'MatchCreatorFirstName': MatchCreatorFirstName,
+            'MatchCreatorLastName': MatchCreatorLastName,
+            'MatchCreatorPhoto': MatchCreatorPhoto,
         }
         
