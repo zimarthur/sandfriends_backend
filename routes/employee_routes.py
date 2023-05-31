@@ -3,7 +3,7 @@ from flask_cors import cross_origin
 from datetime import datetime, timedelta, date
 from ..Models.store_model import Store
 from ..extensions import db
-from ..utils import firstSundayOnNextMonth
+from ..utils import firstSundayOnNextMonth, lastSundayOnLastMonth
 from ..responses import webResponse
 from ..Models.http_codes import HttpCode
 from ..Models.city_model import City
@@ -293,7 +293,7 @@ def ValidateChangePasswordTokenEmployee():
     if not request.json:
         abort(HttpCode.ABORT)
 
-    resetPasswordTokenReq = request.json.get('ResetPasswordToken')
+    resetPasswordTokenReq = request.json.get('ChangePasswordToken')
 
     employee = db.session.query(Employee).filter(Employee.ResetPasswordToken == resetPasswordTokenReq).first()
     
@@ -332,10 +332,44 @@ def ChangePasswordEmployee():
     db.session.commit()
     return webResponse("Sua senha foi alterada!", None), HttpCode.ALERT
 
+#Rota acessada para trocar a senha do funcionário
+@bp_employee.route('/UpdateMatchesList', methods=['POST'])
+def UpdateMatchesList():
+    if not request.json:
+        abort(HttpCode.ABORT)
+    
+    accessTokenReq = request.json.get('AccessToken')
+
+    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+
+    #Caso não encontrar Token
+    if employee is None:
+        return webResponse("Token não encontrado", None), HttpCode.WARNING
+
+    #Verificar se o Token é válido
+    if employee.isAccessTokenExpired():
+        return webResponse("Token expirado", None), HttpCode.WARNING
+
+    newDateReq = datetime.strptime(request.json.get('NewSelectedDate'), '%d/%m/%Y')
+
+    startDate = lastSundayOnLastMonth(newDateReq)
+    endDate = firstSundayOnNextMonth(newDateReq)
+
+    courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == employee.Store.IdStore).all()
+
+    matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
+    .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
+    .filter(Match.Canceled == False).all()
+    
+    matchList =[]
+    for match in matches:
+        matchList.append(match.to_json_min())
+
+    return jsonify({'Matches':matchList, 'MatchesStartDate': startDate.strftime("%d/%m/%Y"), 'MatchesEndDate': endDate.strftime("%d/%m/%Y")}), HttpCode.SUCCESS
+
 def initStoreLoginData(employee):
 
     store = employee.Store
-    startTime = datetime.now()
     #Lista com todos esportes
     sports = db.session.query(Sport).all()
     sportsList = []
@@ -359,8 +393,8 @@ def initStoreLoginData(employee):
 
     #query das partidas da loja. Pegar todas as partidas do mês atual contando a semana atual.
     #ex: se em um mês dia 31 fosse quarta, eu ainda preciso do resto da semana (quinta, sex, sab e dom), mesmo q sejam de outro mes
-    startDate = datetime.now().replace(day=1)
-    endDate = firstSundayOnNextMonth()
+    startDate = lastSundayOnLastMonth(datetime.today())
+    endDate = firstSundayOnNextMonth(datetime.today())
 
     matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
     .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
@@ -369,8 +403,8 @@ def initStoreLoginData(employee):
     matchList =[]
     for match in matches:
         matchList.append(match.to_json_min())
-    endTime =  datetime.now()
-    return jsonify({'AccessToken':employee.AccessToken, 'LoggedEmail': employee.Email,'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList})
+
+    return jsonify({'AccessToken':employee.AccessToken, 'LoggedEmail': employee.Email,'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList, 'MatchesStartDate': startDate.strftime("%d/%m/%Y"), 'MatchesEndDate': endDate.strftime("%d/%m/%Y")})
 
 def returnStoreEmployees(storeId):
     store = db.session.query(Store).filter(Store.IdStore == storeId).first()

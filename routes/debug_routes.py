@@ -63,7 +63,8 @@ def getLastMonth():
 
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
-    return str(datetime.today().date().weekday()),200
+    firstDayOfMonth = datetime.today().replace(day = 1, month = 6)
+    return str(firstDayOfMonth - timedelta(days=(firstDayOfMonth.weekday()))), 200
     return webResponse("Você está quase lá!", \
     "Para concluir seu cadastro, é necessário que você valide seu e-mail.\nAcesse o link que enviamos e sua conta será criada.\n\n\Se tiver qualquer dúvida, é só nos chamar, ok?"), HttpCode.ALERT
     # logins = db.session.query(EmployeeAccessToken).all()

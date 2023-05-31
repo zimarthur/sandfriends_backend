@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, abort, request
 from datetime import datetime, timedelta, date
 from ..Models.store_model import Store
+from ..utils import firstSundayOnNextMonth, lastSundayOnLastMonth
 from ..extensions import db
 from ..responses import webResponse
 from ..Models.http_codes import HttpCode
@@ -240,3 +241,78 @@ def SaveCourtChanges():
         courtsList.append(court.to_json_full())
 
     return jsonify({'Courts':courtsList}), HttpCode.SUCCESS
+
+@bp_court.route('/BlockUnblockHour', methods=['POST'])
+def BlockUnblockHour():
+    if not request.json:
+        abort(400)
+
+    accessTokenReq = request.json.get('AccessToken')
+    idStoreCourtReq = request.json.get('IdStoreCourt')
+
+    #busca a loja a partir do token do employee
+    storeCourt = db.session.query(StoreCourt).\
+            join(Employee, Employee.IdStore == StoreCourt.IdStore)\
+            .filter(Employee.AccessToken == accessTokenReq)\
+            .filter(StoreCourt.IdStoreCourt == idStoreCourtReq).first()
+    
+    #Caso não encontrar Token
+    if storeCourt is None:
+        return webResponse("Token não encontrado", None), HttpCode.WARNING
+
+    idHourReq = request.json.get('IdHour')
+    dateReq = datetime.strptime(request.json.get('Date'), '%d/%m/%Y')
+
+    match = db.session.query(Match)\
+                .filter(Match.Date == dateReq)\
+                .filter((Match.IdTimeBegin == idHourReq) | ((Match.IdTimeBegin < idHourReq) & (Match.IdTimeEnd > idHourReq)))\
+                .filter(Match.IdStoreCourt == idStoreCourtReq).first()
+
+
+    blockedReq = request.json.get('Blocked')
+    blockedReasonReq = request.json.get('BlockedReason')
+
+    if match is None:
+        newMatch = Match(
+            IdStoreCourt = idStoreCourtReq,
+            IdSport = None,
+            Date = dateReq,
+            IdTimeBegin = idHourReq,
+            IdTimeEnd = idHourReq+1,
+            Cost = 0,
+            OpenUsers = False,
+            MaxUsers = 0,
+            Canceled = False,
+            CreationDate = datetime.now(),
+            CreatorNotes = "",
+            IdRecurrentMatch = None,
+            Blocked = blockedReq,
+            BlockedReason = blockedReasonReq,
+        )
+        db.session.add(newMatch)
+
+    else:
+        #se tinha alguma partida com custo != 0 quer dizer q alguem agendou uma partida nesse meio tempo, ai não pode mais bloear o horario
+        if match.Cost != 0:
+            return webResponse("Ops", "Não foi possível bloquear o horário. Uma partida já foi marcada"), HttpCode.WARNING
+        
+        #em teoria se chegou aqui é para desbloquear um horário, coloquei esse if só pra ter certeza
+        if blockedReq == False:
+            db.session.delete(match)
+    
+    db.session.commit()
+
+    startDate = lastSundayOnLastMonth(dateReq)
+    endDate = firstSundayOnNextMonth(dateReq)
+
+    courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == storeCourt.IdStore).all()
+
+    matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
+    .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
+    .filter(Match.Canceled == False).all()
+    
+    matchList =[]
+    for match in matches:
+        matchList.append(match.to_json_min())
+
+    return jsonify({"Matches": matchList}), HttpCode.SUCCESS

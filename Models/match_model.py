@@ -14,6 +14,9 @@ class Match(db.Model):
     CreatorNotes = db.Column(db.String(255))
     IdRecurrentMatch = db.Column(db.Integer, db.ForeignKey('recurrent_match.IdRecurrentMatch'))
 
+    Blocked = db.Column(db.Boolean)
+    BlockedReason = db.Column(db.String(255))
+
     IdStoreCourt = db.Column(db.Integer, db.ForeignKey('store_court.IdStoreCourt'))
     StoreCourt = db.relationship('StoreCourt', foreign_keys = [IdStoreCourt])
 
@@ -102,5 +105,7 @@ class Match(db.Model):
             'MatchCreatorFirstName': MatchCreatorFirstName,
             'MatchCreatorLastName': MatchCreatorLastName,
             'MatchCreatorPhoto': MatchCreatorPhoto,
+            'Blocked':self.Blocked,
+            'BlockedReason':self.BlockedReason,
         }
         

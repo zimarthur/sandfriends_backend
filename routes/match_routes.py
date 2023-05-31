@@ -4,6 +4,7 @@ from sqlalchemy import func
 from ..extensions import db
 import os
 
+from ..utils import firstSundayOnNextMonth, lastSundayOnLastMonth
 from ..Models.http_codes import HttpCode
 from ..Models.match_model import Match
 from ..Models.user_model import User
@@ -17,6 +18,7 @@ from ..Models.store_model import Store
 from ..Models.store_price_model import StorePrice
 from ..Models.store_photo_model import StorePhoto
 from ..Models.store_court_model import StoreCourt
+from ..Models.employee_model import Employee
 from ..Models.store_court_sport_model import StoreCourtSport
 from ..Models.sport_model import Sport
 from ..Models.user_model import User
@@ -256,6 +258,7 @@ def CourtReservation():
             CreationDate = datetime.now(),
             CreatorNotes = "",
             IdRecurrentMatch = 0,
+            Blocked = False,
         )
         db.session.add(newMatch)
         db.session.commit()
@@ -518,7 +521,10 @@ def CancelMatch():
         
         match.Canceled = True
 
-        matchMembers = MatchMember.query.filter(MatchMember.IdMatch == idMatch).all()
+        matchMembers = MatchMember.query.filter(MatchMember.IdMatch == idMatch)\
+                                .filter(MatchMember.WaitingApproval == False)\
+                                .filter(MatchMember.Refused == False)\
+                                .filter(MatchMember.Quit == False).all()
         for matchMember in matchMembers:
             matchMember.Quit=True
             matchMember.QuitDate=datetime.now()
@@ -537,6 +543,66 @@ def CancelMatch():
                 db.session.add(newNotification)
                 db.session.commit()
         return "Partida cancelada",HttpCode.ALERT
+
+@bp_match.route("/CancelMatchEmployee", methods=["POST"])
+def CancelMatchEmployee():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    accessTokenReq = request.json.get('AccessToken')
+    idMatchReq = request.json.get('IdMatch')
+    cancelationReasonReq = request.json.get('CancelationReason')
+
+    #busca a loja a partir do token do employee
+    storeCourt = db.session.query(StoreCourt).\
+            join(Employee, Employee.IdStore == StoreCourt.IdStore)\
+            .filter(Employee.AccessToken == accessTokenReq).first()
+    
+    #Caso não encontrar Token
+    if storeCourt is None:
+        return webResponse("Token não encontrado", None), HttpCode.WARNING
+
+    match = Match.query.get(idMatchReq)
+    if match is None:
+        return 'Partida não encontrada', HttpCode.WARNING
+    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
+         return 'A partida já foi finalizada', HttpCode.WARNING
+    else:
+        
+        match.Canceled = True
+
+        matchMembers = MatchMember.query.filter(MatchMember.IdMatch == idMatchReq)\
+                        .filter(MatchMember.WaitingApproval == False)\
+                        .filter(MatchMember.Refused == False)\
+                        .filter(MatchMember.Quit == False).all()
+        for matchMember in matchMembers:
+            matchMember.Quit=True
+            matchMember.QuitDate=datetime.now()
+
+            newNotification = Notification(
+                IdUser = matchMember.IdUser,
+                IdUserReplaceText = matchMember.IdUser,
+                IdMatch = idMatchReq,
+                IdNotificationCategory = 9,
+                Seen = False
+            )
+            db.session.add(newNotification)
+            db.session.commit()
+
+        startDate = lastSundayOnLastMonth(match.Date)
+        endDate = firstSundayOnNextMonth(match.Date)
+
+        courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == storeCourt.IdStore).all()
+
+        matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
+        .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
+        .filter(Match.Canceled == False).all()
+        
+        matchList =[]
+        for match in matches:
+            matchList.append(match.to_json_min())
+
+        return jsonify({"Matches": matchList}), HttpCode.SUCCESS
 
 @bp_match.route("/RemoveMatchMember", methods=["POST"])
 def RemoveMatchMember():

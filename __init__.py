@@ -1,7 +1,7 @@
 #$env:FLASK_APP="sandfriends_backend"
 #$env:FLASK_ENV="development"  
 
-from flask import Flask
+from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from .extensions import db
@@ -16,6 +16,7 @@ from .routes.feedback_routes import bp_feedback
 from .routes.debug_routes import bp_debug
 from .routes.reward_routes import bp_reward
 from .routes.employee_routes import bp_employee
+from .routes.websites_routes import bp_websites
 
 import json
 
@@ -41,6 +42,7 @@ def create_app():
     app.register_blueprint(bp_debug)
     app.register_blueprint(bp_reward)
     app.register_blueprint(bp_employee)
+    app.register_blueprint(bp_websites)
 
     db.init_app(app)
     return app
