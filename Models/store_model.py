@@ -29,6 +29,8 @@ class Store(db.Model):
     Photos = db.relationship('StorePhoto', backref="Store")
     Employees = db.relationship('Employee', backref="Store")
         
+    IsApproved = ApprovalDate != None
+    
     def to_json(self):
         if self.Logo == None or self.Logo == "":
             logo = None

@@ -49,4 +49,4 @@ EXPOSE 8000
 #CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0"]
 
 #Para o servidor do Gunicorn - produção
-#CMD [ "gunicorn", "-w", "3", "sandfriends_backend:create_app()", "--bind", "0.0.0.0:8000"]
+CMD [ "gunicorn", "-w", "3", "sandfriends_backend:create_app()", "--bind", "0.0.0.0:8000"]
