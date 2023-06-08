@@ -3,13 +3,14 @@ from flask_cors import cross_origin
 from datetime import datetime, timedelta, date
 from ..Models.store_model import Store
 from ..extensions import db
-from ..utils import firstSundayOnNextMonth, lastSundayOnLastMonth
+from ..utils import firstSundayOnNextMonth, lastSundayOnLastMonth, getFirstDayOfLastMonth
 from ..responses import webResponse
 from ..Models.http_codes import HttpCode
 from ..Models.city_model import City
 from ..Models.state_model import State
 from ..Models.sport_model import Sport
 from ..Models.match_model import Match
+from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.employee_model import Employee
 from ..Models.available_hour_model import AvailableHour
 from ..Models.store_court_model import StoreCourt
@@ -404,7 +405,15 @@ def initStoreLoginData(employee):
     for match in matches:
         matchList.append(match.to_json_min())
 
-    return jsonify({'AccessToken':employee.AccessToken, 'LoggedEmail': employee.Email,'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList, 'MatchesStartDate': startDate.strftime("%d/%m/%Y"), 'MatchesEndDate': endDate.strftime("%d/%m/%Y")})
+    recurrentMatches = db.session.query(RecurrentMatch).filter(RecurrentMatch.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
+                            .filter(RecurrentMatch.Canceled == False)\
+                            .filter( RecurrentMatch.IsExpired == False).all()
+    
+    recurrentMatchList =[]
+    for recurrentMatch in recurrentMatches:
+        recurrentMatchList.append(recurrentMatch.to_json_store())
+
+    return jsonify({'AccessToken':employee.AccessToken, 'LoggedEmail': employee.Email,'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList, 'MatchesStartDate': startDate.strftime("%d/%m/%Y"), 'MatchesEndDate': endDate.strftime("%d/%m/%Y"), 'RecurrentMatches': recurrentMatchList})
 
 def returnStoreEmployees(storeId):
     store = db.session.query(Store).filter(Store.IdStore == storeId).first()

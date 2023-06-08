@@ -250,36 +250,3 @@ def DeleteStore(id):
     db.session.delete(store)
     db.session.commit()
     return jsonify({'result': True})
-
-
-def initStoreLoginData(store, accessToken):
-    startTime = datetime.now()
-    #Lista com todos esportes
-    sports = db.session.query(Sport).all()
-    sportsList = []
-
-    for sport in sports:
-        sportsList.append(sport.to_json())
-
-    #Lista com todas horas do dia
-    hours = db.session.query(AvailableHour).all()
-    hoursList = []
-
-    for hour in hours:
-        hoursList.append(hour.to_json())
-
-    #Lista com as quadras do estabelecimento(json da quadra, esportes e preço)
-    courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == store.IdStore).all()
-    courtsList = []
-
-    for court in courts:
-        courtsList.append(court.to_json_full())
-
-    matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
-    .filter(Match.Date >= date(2023, 4, 1)).filter(Match.Date <= date(2023, 5, 30)).all()
-    matchList =[]
-    for match in matches:
-        matchList.append(match.to_json())
-    endTime =  datetime.now()
-    return jsonify({'AccessToken':accessToken, 'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList})
-    

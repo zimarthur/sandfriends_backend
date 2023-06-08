@@ -1,0 +1,5 @@
+{
+	"SECRET_KEY":"34f903e6e3c803e5bf68e9485bedd82d",
+	"SQLALCHEMY_DATABASE_URI":"mysql://root:DBfriend#sand2022@mysql/sandfriends",
+	"EMAIL_USER":"contato@sandfriends.com.br"
+}

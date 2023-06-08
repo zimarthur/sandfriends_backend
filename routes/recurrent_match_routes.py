@@ -2,11 +2,13 @@ from flask import Blueprint, jsonify, abort, request
 from ..extensions import db
 from ..utils import getLastDayOfMonth
 from datetime import datetime, timedelta, date
+from ..utils import getFirstDayOfLastMonth
 
 from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.http_codes import HttpCode
 from ..Models.match_model import Match
 from ..Models.user_model import User
+from ..Models.employee_model import Employee
 from ..Models.user_rank_model import UserRank
 from ..Models.rank_category_model import RankCategory
 from ..Models.match_member_model import MatchMember
@@ -41,8 +43,6 @@ def getHourString(hourIndex):
     print(f"{hourIndex}:00")
     return f"{hourIndex}:00"#GAMBIARRA
 
-def getLastMonth():
-    return (datetime.today().replace(day=1) - timedelta(days=1)).replace(day=1).date()
 
 @bp_recurrent_match.route('/AvailableRecurrentMatches', methods=['POST'])
 def AvailableRecurrentMatches():
@@ -68,7 +68,7 @@ def UserRecurrentMatches():
                         .filter(RecurrentMatch.IdUser == user.IdUser)\
                         .filter(RecurrentMatch.Canceled == False)\
                         .filter( ((RecurrentMatch.LastPaymentDate == RecurrentMatch.CreationDate) & (datetime.today().replace(day=1).date() <= RecurrentMatch.CreationDate)) | \
-                        ((RecurrentMatch.LastPaymentDate != RecurrentMatch.CreationDate) & (RecurrentMatch.LastPaymentDate >= getLastMonth()))).all()
+                        ((RecurrentMatch.LastPaymentDate != RecurrentMatch.CreationDate) & (RecurrentMatch.LastPaymentDate >= getFirstDayOfLastMonth()))).all()
 
     if recurrentMatches is None:
         return "nada", 200
@@ -113,7 +113,7 @@ def SearchCourts():
                         .filter(RecurrentMatch.Canceled == False)\
                         .filter(RecurrentMatch.IdStoreCourt.in_(court.IdStoreCourt for court in courts))\
                         .filter( ((RecurrentMatch.LastPaymentDate == RecurrentMatch.CreationDate) & (datetime.today().replace(day=1).date() <= RecurrentMatch.CreationDate)) | \
-                        ((RecurrentMatch.LastPaymentDate != RecurrentMatch.CreationDate) & (RecurrentMatch.LastPaymentDate >= getLastMonth()))).all()
+                        ((RecurrentMatch.LastPaymentDate != RecurrentMatch.CreationDate) & (RecurrentMatch.LastPaymentDate >= getFirstDayOfLastMonth()))).all()
 
     dayList = []
     IdStoresList = []
@@ -301,3 +301,118 @@ def CourtReservation():
     #     db.session.add(matchMember)
     #     db.session.commit()
     #     return str(newMatch.IdMatch), 200
+
+
+@bp_recurrent_match.route("/CancelRecurrentMatchEmployee", methods=["POST"])
+def CancelRecurrentMatchEmployee():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    accessTokenReq = request.json.get('AccessToken')
+    idRecurrentMatchReq = request.json.get('IdRecurrentMatch')
+    cancelationReasonReq = request.json.get('CancelationReason')
+
+    #busca a loja a partir do token do employee
+    storeCourt = db.session.query(StoreCourt).\
+            join(Employee, Employee.IdStore == StoreCourt.IdStore)\
+            .filter(Employee.AccessToken == accessTokenReq).first()
+    
+    #Caso não encontrar Token
+    if storeCourt is None:
+        return webResponse("Token não encontrado", None), HttpCode.WARNING
+
+    recurrentMatch = RecurrentMatch.query.get(idRecurrentMatchReq)
+    if recurrentMatch is None:
+        return 'Mensalista não encontrada', HttpCode.WARNING
+    else:
+        
+        recurrentMatch.Canceled = True
+        recurrentMatch.BlockedReason = cancelationReasonReq
+        
+        db.session.commit()
+
+        courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == storeCourt.IdStore).all()
+
+        recurrentMatches = db.session.query(RecurrentMatch).filter(RecurrentMatch.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
+                            .filter(RecurrentMatch.Canceled == False)\
+                            .filter(RecurrentMatch.IsExpired == False).all()
+    
+        recurrentMatchList =[]
+        for recurrentMatch in recurrentMatches:
+            recurrentMatchList.append(recurrentMatch.to_json_store())
+
+        return jsonify({"RecurrentMatches": recurrentMatchList}), HttpCode.SUCCESS
+
+
+@bp_recurrent_match.route('/RecurrentBlockUnblockHour', methods=['POST'])
+def RecurrentBlockUnblockHour():
+    if not request.json:
+        abort(400)
+
+    accessTokenReq = request.json.get('AccessToken')
+    idStoreCourtReq = request.json.get('IdStoreCourt')
+
+    #busca a loja a partir do token do employee
+    storeCourt = db.session.query(StoreCourt).\
+            join(Employee, Employee.IdStore == StoreCourt.IdStore)\
+            .filter(Employee.AccessToken == accessTokenReq)\
+            .filter(StoreCourt.IdStoreCourt == idStoreCourtReq).first()
+    
+    #Caso não encontrar Token
+    if storeCourt is None:
+        return webResponse("Token não encontrado", None), HttpCode.WARNING
+
+    idHourReq = request.json.get('IdHour')
+    weekdayReq = request.json.get('Weekday')
+
+    recurrentMatch = db.session.query(RecurrentMatch)\
+                .filter(RecurrentMatch.Weekday == weekdayReq)\
+                .filter((RecurrentMatch.IdTimeBegin == idHourReq) | ((RecurrentMatch.IdTimeBegin < idHourReq) & (RecurrentMatch.IdTimeEnd > idHourReq)))\
+                .filter(RecurrentMatch.IdStoreCourt == idStoreCourtReq).first()
+
+
+    blockedReq = request.json.get('Blocked')
+    blockedReasonReq = request.json.get('BlockedReason')
+
+    if recurrentMatch is None:
+        newRecurrentMatch = RecurrentMatch(
+            IdStoreCourt = idStoreCourtReq,
+            IdSport = None,
+            IdUser = None,
+            Weekday = weekdayReq,
+            IdTimeBegin = idHourReq,
+            IdTimeEnd = idHourReq+1,
+            CreationDate = datetime.now(),
+            LastPaymentDate = datetime.now(),
+            Canceled = False,
+            Blocked = blockedReq,
+            BlockedReason = blockedReasonReq,
+        )
+        db.session.add(newRecurrentMatch)
+
+    else:
+        #alguem marcou mensalista nesse meio tempo
+        if recurrentMatch.IsExpired == False and recurrentMatch.Canceled == False:
+            return webResponse("Ops", "Não foi possível bloquear o horário. Um mensalista já foi marcado nesse horário"), HttpCode.WARNING
+        
+        #em teoria se chegou aqui é para desbloquear um horário, coloquei esse if só pra ter certeza
+        if blockedReq == False:
+            db.session.delete(recurrentMatch)
+        else:
+            recurrentMatch.Canceled = False
+            recurrentMatch.Blocked = blockedReq
+            recurrentMatch.BlockedReason = blockedReasonReq
+    
+    db.session.commit()
+
+    courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == storeCourt.IdStore).all()
+
+    recurrentMatches = db.session.query(RecurrentMatch).filter(RecurrentMatch.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
+                        .filter(RecurrentMatch.Canceled == False)\
+                        .filter(RecurrentMatch.IsExpired == False).all()
+
+    recurrentMatchList =[]
+    for recurrentMatch in recurrentMatches:
+        recurrentMatchList.append(recurrentMatch.to_json_store())
+
+    return jsonify({"RecurrentMatches": recurrentMatchList}), HttpCode.SUCCESS
