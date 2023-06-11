@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-#Buildar o container
+#Buildar o container (sem rodar)
 #docker build -t sandfriends_flask:latest .
 
 #Manter na versão 3.8

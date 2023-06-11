@@ -31,17 +31,18 @@ class Match(db.Model):
 
     Members = db.relationship('MatchMember', backref="Match")
 
+    IsFinished = ((Date < datetime.today().date()) | ((Date == datetime.today().date()) & (IdTimeBegin < int(datetime.now().strftime("%H")))))
+
     def to_json(self):
         CanCancelUpTo = datetime.strptime(self.TimeBegin.HourString, '%H:%M').replace(year=self.Date.year,month=self.Date.month,day=self.Date.day) - timedelta(hours=self.StoreCourt.Store.HoursBeforeCancellation)
 
         return {
             'IdMatch': self.IdMatch,
             'StoreCourt': self.StoreCourt.to_json_match(),
-            'Sport': self.Sport.to_json(),
+            'IdSport': self.IdSport,
             'Date': self.Date.strftime("%Y-%m-%d"),
-            'TimeBegin': self.TimeBegin.HourString,
-            'TimeEnd': self.TimeEnd.HourString,
-            'TimeInteger': self.IdTimeBegin,
+            'TimeBegin': self.IdTimeBegin,
+            'TimeEnd': self.IdTimeEnd,
             'Cost': int(self.Cost),
             'OpenUsers': self.OpenUsers,
             'MaxUsers': self.MaxUsers,
@@ -60,11 +61,10 @@ class Match(db.Model):
         return {
             'IdMatch': self.IdMatch,
             'StoreCourt': self.StoreCourt.to_json_match(),
-            'Sport': self.Sport.to_json(),
+            'IdSport': self.IdSport,
             'Date': self.Date.strftime("%Y-%m-%d"),
-            'TimeBegin': self.TimeBegin.HourString,
-            'TimeEnd': self.TimeEnd.HourString,
-            'TimeInteger': self.IdTimeBegin,
+            'TimeBegin': self.IdTimeBegin,
+            'TimeEnd': self.IdTimeEnd,
             'Cost': int(self.Cost),
             'OpenUsers': self.OpenUsers,
             'MaxUsers': self.MaxUsers,
@@ -95,8 +95,8 @@ class Match(db.Model):
             'IdMatch': self.IdMatch,            
             'CreationDate': self.CreationDate.strftime("%d/%m/%Y"),
             'Date': self.Date.strftime("%d/%m/%Y"),
-            'TimeBegin': self.TimeBegin.IdAvailableHour,
-            'TimeEnd': self.TimeEnd.IdAvailableHour,
+            'TimeBegin': self.IdTimeBegin,
+            'TimeEnd': self.IdTimeEnd,
             'IdStoreCourt': self.StoreCourt.IdStoreCourt,
             'Cost': int(self.Cost),
             'IdSport': self.IdSport,

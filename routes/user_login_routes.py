@@ -17,6 +17,7 @@ from ..Models.city_model import City
 from ..Models.state_model import State
 from ..Models.user_rank_model import UserRank
 from ..Models.match_model import Match
+from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.match_member_model import MatchMember
 from ..routes.match_routes import getHourString
 from ..Models.notification_model import Notification
@@ -326,7 +327,7 @@ def GetUserInfo():
                 .filter(Match.IdSport == user.IdSport)\
                 .filter(Store.IdCity == user.IdCity).all()
     
-    openMatchesCounter = 0
+    openMatchesList = []
     #esse loop é feitor para contar as partidas da query acima em que o usuario não está dentro
     for openMatch in openMatches:
         userAlreadyInMatch = False
@@ -335,11 +336,8 @@ def GetUserInfo():
             if (member.User.IdUser == user.IdUser)  and (member.Refused == False) and (member.Quit == False):
                 userAlreadyInMatch = True
                 break
-            else:
-                if (member.WaitingApproval == False) and (member.Refused == False) and (member.Quit == False):
-                    matchMemberCounter +=1
         if (userAlreadyInMatch == False) and (matchMemberCounter < openMatch.MaxUsers):
-            openMatchesCounter +=1
+            openMatchesList.append(openMatch.to_json())
 
     userMatchesList = []
     #query para as partidas que o jogador jogou e vai jogar
@@ -350,6 +348,16 @@ def GetUserInfo():
 
     for userMatch in userMatches:
         userMatchesList.append(userMatch.to_json())
+    
+    userRecurrentMatchesList = []
+    #query para os mensalistas que do jogador
+    userRecurrentMatches =  db.session.query(RecurrentMatch)\
+                .filter(RecurrentMatch.IdUser == user.IdUser)\
+                .filter(RecurrentMatch.IsExpired == False)\
+                .filter(RecurrentMatch.Canceled == False).all()
+
+    for userRecurrentMatch in userRecurrentMatches:
+        userRecurrentMatchesList.append(userRecurrentMatch.to_json())
 
     notificationList = []
     notifications = db.session.query(Notification).filter(Notification.IdUser == user.IdUser).all()
@@ -359,7 +367,7 @@ def GetUserInfo():
         notification.Seen = True
         db.session.commit()
 
-    return  jsonify({'UserMatches': userMatchesList, 'OpenMatchesCounter': openMatchesCounter, 'Notifications': notificationList, 'UserRewards': RewardStatus(user.IdUser), 'MatchCounter': matchCounterList}), 200
+    return  jsonify({'UserMatches': userMatchesList, 'UserRecurrentMatches':  userRecurrentMatchesList,'OpenMatches': openMatchesList, 'Notifications': notificationList, 'UserRewards': RewardStatus(user.IdUser), 'MatchCounter': matchCounterList}), 200
 
 def initUserLoginData(user):
     sports = db.session.query(Sport).all()

@@ -76,7 +76,7 @@ class Store(db.Model):
             'HoursBeforeCancellation': self.HoursBeforeCancellation,
             'PhoneNumber1': self.PhoneNumber1,
             'PhoneNumber2': self.PhoneNumber2,
-            'Logo': f"https://www.sandfriends.com.br/img/str/logo/{self.IdStore}.png",
+            'Logo': f"https://www.sandfriends.com.br/img/str/logo/{self.Logo}.png",
             'Description': self.Description,
             'Instagram': self.Instagram,
             'Cnpj': self.CNPJ,

@@ -3,6 +3,7 @@ from ..extensions import db
 from ..utils import getLastDayOfMonth
 from datetime import datetime, timedelta, date
 from ..utils import getFirstDayOfLastMonth
+from ..responses import webResponse
 
 from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.http_codes import HttpCode
@@ -81,23 +82,24 @@ def UserRecurrentMatches():
 
 
 
-@bp_recurrent_match.route("/SearchRecurrentMatches", methods=["POST"])
-def SearchCourts():
+@bp_recurrent_match.route("/SearchRecurrentCourts", methods=["POST"])
+def SearchRecurrentCourts():
     if not request.json:
         abort(HttpCode.ABORT)
     
-    accessToken = request.json.get('accessToken')
-    sportId = int(request.json.get('sportId'))
-    cityId = request.json.get('cityId')
-    days = request.json.get('days').split(";")
-    timeStart = request.json.get('timeStart')
-    timeEnd = request.json.get('timeEnd')
+    accessToken = request.json.get('AccessToken')
+    sportId = int(request.json.get('IdSport'))
+    cityId = request.json.get('IdCity')
+    days = request.json.get('Days').split(";")
+    timeStart = request.json.get('TimeStart')
+    timeEnd = request.json.get('TimeEnd')
 
     user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN
 
-    stores = db.session.query(Store).filter(Store.IdCity == cityId).all()
+    stores = db.session.query(Store).filter(Store.IdCity == cityId)\
+                                    .filter(Store.IsApproved).all()
 
     courts = db.session.query(StoreCourt)\
                     .join(StoreCourtSport, StoreCourtSport.IdStoreCourt == StoreCourt.IdStoreCourt)\
@@ -117,65 +119,70 @@ def SearchCourts():
 
     dayList = []
     IdStoresList = []
-    IdStoreCourtList = []
+    a = []
+    b = []
     for day in days:
         jsonStores = []
         for store in stores:
+            b = []
             filteredCourts = [court for court in courts if court.IdStore == store.IdStore]
-
-            storeOperationHours = [storeOperationHour for storeOperationHour in courtHours if \
-                                (storeOperationHour.IdStoreCourt == filteredCourts[0].IdStoreCourt) and\
-                                (storeOperationHour.Weekday == int(day)) and \
-                                ((storeOperationHour.IdAvailableHour >= getHourIndex(timeStart)) and (storeOperationHour.IdAvailableHour <= getHourIndex(timeEnd)))]
-
-            jsonStoreOperationHours =[]
-            for storeOperationHour in storeOperationHours:
-                jsonAvailableCourts =[]
-                for filteredCourt in filteredCourts:
-                    concurrentMatch = [match for match in recurrentMatches if \
-                                (match.IdStoreCourt ==  filteredCourt.IdStoreCourt) and \
-                                (match.Canceled == False) and \
-                                ((match.IdTimeBegin == storeOperationHour.IdAvailableHour) or ((match.IdTimeBegin < storeOperationHour.IdAvailableHour) and (match.IdTimeEnd > storeOperationHour.IdAvailableHour)))\
-                                ]
-                    if not concurrentMatch:
-                        jsonAvailableCourts.append({
-                            'IdStoreCourt':filteredCourt.IdStoreCourt,
-                            'Price': [int(courtHour.Price) for courtHour in courtHours if (courtHour.IdStoreCourt == filteredCourt.IdStoreCourt) and (courtHour.Weekday == int(day)) and (courtHour.IdAvailableHour == storeOperationHour.IdAvailableHour)][0]
-                        })
-                        if filteredCourt.IdStoreCourt not in IdStoreCourtList:
-                            IdStoreCourtList.append(filteredCourt.IdStoreCourt)
-
-                if jsonAvailableCourts:
-                    jsonStoreOperationHours.append({
-                        'Courts': jsonAvailableCourts, 
-                        'TimeBegin':storeOperationHour.AvailableHour.HourString,
-                        'TimeFinish':getHourString(storeOperationHour.IdAvailableHour + 1),
-                        'TimeInteger': storeOperationHour.IdAvailableHour
+            for la in filteredCourts:
+                b.append({
+                    "id":la.IdStoreCourt
                     })
-            if jsonStoreOperationHours:
-                jsonStores.append({
-                    'IdStore':store.IdStore, 
-                    'Available':jsonStoreOperationHours
-                })
-                if store.IdStore not in IdStoresList:
-                    IdStoresList.append(store.IdStore)
+            a.append({
+                "day": day,
+                "store": store.IdStore,
+                "idCourt":b,
+            })
+    #return jsonify({"a":a}), 200
+            if(len(filteredCourts) > 0):
+                storeOperationHours = [storeOperationHour for storeOperationHour in courtHours if \
+                                    (storeOperationHour.IdStoreCourt == filteredCourts[0].IdStoreCourt) and\
+                                    (storeOperationHour.Weekday == int(day)) and \
+                                    ((storeOperationHour.IdAvailableHour >= getHourIndex(timeStart)) and (storeOperationHour.IdAvailableHour < getHourIndex(timeEnd)))]
+
+                jsonStoreOperationHours =[]
+                for storeOperationHour in storeOperationHours:
+                    jsonAvailableCourts =[]
+                    for filteredCourt in filteredCourts:
+                        concurrentMatch = [match for match in recurrentMatches if \
+                                    (match.IdStoreCourt ==  filteredCourt.IdStoreCourt) and \
+                                    (match.Canceled == False) and \
+                                    ((match.IdTimeBegin == storeOperationHour.IdAvailableHour) or ((match.IdTimeBegin < storeOperationHour.IdAvailableHour) and (match.IdTimeEnd > storeOperationHour.IdAvailableHour)))\
+                                    ]
+                        if not concurrentMatch:
+                            jsonAvailableCourts.append({
+                                'IdStoreCourt':filteredCourt.IdStoreCourt,
+                                'Price': [int(courtHour.Price) for courtHour in courtHours if (courtHour.IdStoreCourt == filteredCourt.IdStoreCourt) and (courtHour.Weekday == int(day)) and (courtHour.IdAvailableHour == storeOperationHour.IdAvailableHour)][0]
+                            })
+
+
+                    if jsonAvailableCourts:
+                        jsonStoreOperationHours.append({
+                            'Courts': jsonAvailableCourts, 
+                            'TimeBegin':storeOperationHour.AvailableHour.HourString,
+                            'TimeFinish':getHourString(storeOperationHour.IdAvailableHour + 1),
+                            'TimeInteger': storeOperationHour.IdAvailableHour
+                        })
+                if jsonStoreOperationHours:
+                    jsonStores.append({
+                        'IdStore':store.IdStore, 
+                        'Hours':jsonStoreOperationHours
+                    })
+                    if store.IdStore not in IdStoresList:
+                        IdStoresList.append(store.IdStore)
 
         if jsonStores:
             dayList.append({
                 'Date':day, 
-                'Places':jsonStores
+                'Stores':jsonStores
                 })
 
-    jsonStoreList = []
-    for store in stores:
-        jsonStoreList.append({
-            'Store':store.to_json(),
-        })
+    
 
-    if dayList or jsonOpenMatches:
-        return jsonify({'Dates':dayList, 'Stores':jsonStoreList, 'Courts':[court.to_json() for court in courts if court.IdStoreCourt in IdStoreCourtList]})
-    else:
-        return "No Result", HttpCode.NO_SEARCH_RESULTS
+    return jsonify({'Dates':dayList, 'Stores':[store.to_json() for store in stores]})
+
    
 
 @bp_recurrent_match.route("/RecurrentMatchReservation", methods=["POST"])
@@ -183,20 +190,32 @@ def CourtReservation():
     if not request.json:
         abort(HttpCode.ABORT)
 
-    accessToken = request.json.get('accessToken')
-    idStoreCourt = request.json.get('idStoreCourt')
-    sportId = request.json.get('sportId')
-    weekDay = int(request.json.get('weekDay'))
-    timeStart = getHourIndex(request.json.get('timeStart'))
-    timeEnd = getHourIndex(request.json.get('timeEnd'))
-    cost = request.json.get('cost')
+    accessToken = request.json.get('AccessToken')
+    idStoreCourt = request.json.get('IdStoreCourt')
+    sportId = request.json.get('SportId')
+    weekDay = int(request.json.get('Weekday'))
+    timeStart = int(request.json.get('TimeBegin'))
+    timeEnd = int(request.json.get('TimeEnd'))
+    cost = request.json.get('Cost')
 
     user = User.query.filter_by(AccessToken = accessToken).first()
 
     if user is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN
 
-    daysList = [day for day in daterange(datetime.today().date(), getLastDayOfMonth()) if day.weekday() == weekDay]
+    #verifica se alguma partida mensalista ou algum bloqueio foi feite nesse horario
+    recurrentMatch = db.session.query(RecurrentMatch)\
+                        .filter(RecurrentMatch.IdStoreCourt == int(idStoreCourt)) \
+                        .filter(RecurrentMatch.Weekday == weekDay) \
+                        .filter(RecurrentMatch.Canceled == False)\
+                        .filter(((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin < timeEnd))  | \
+                        ((Match.IdTimeEnd > timeStart) & (Match.IdTimeEnd <= timeEnd))      | \
+                        ((Match.IdTimeBegin < timeStart) & (Match.IdTimeEnd > timeStart))   \
+                        ).first()
+    if recurrentMatch is not None:
+        return "Ops, esse horário não está mais disponível", HttpCode.WARNING
+
+    daysList = [day for day in daterange(datetime.today().date(), getLastDayOfMonth(datetime.now())) if day.weekday() == weekDay]
     matches = Match.query.filter((Match.IdStoreCourt == int(idStoreCourt)) \
                 & (Match.Date.in_(daysList)) \
                 & (((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin < timeEnd))  | \
@@ -211,6 +230,7 @@ def CourtReservation():
         CreationDate = creationDate,
         Canceled = False,
         Weekday = weekDay,
+        IdSport = sportId,
         IdTimeBegin = timeStart,
         IdTimeEnd = timeEnd,
         LastPaymentDate = creationDate,
@@ -219,15 +239,8 @@ def CourtReservation():
     db.session.commit()
     myList=[]
     for day in daysList:
-        print("day")
-        print(day)
         concurrentMatch = [match for match in matches if match.Date == day]
-        print("concurrentMatch")
-        print(concurrentMatch)
-        for a in concurrentMatch:
-            myList.append(a.to_json())
         if not concurrentMatch:
-            print("ENTROU")
             newMatch = Match(
                 IdStoreCourt = idStoreCourt,
                 IdSport = sportId,
@@ -258,49 +271,8 @@ def CourtReservation():
             db.session.add(matchMember)
             db.session.commit()
             
-    return jsonify({'Dates':myList})
-    # matches = Match.query.filter((Match.IdStoreCourt == int(idStoreCourt)) & (Match.Date == date) & (\
-    #             ((Match.IdTimeBegin >= timeBegin) & (Match.IdTimeBegin < timeEnd))  | \
-    #             ((Match.IdTimeEnd > timeBegin) & (Match.IdTimeEnd <= timeEnd))      | \
-    #             ((Match.IdTimeBegin < timeBegin) & (Match.IdTimeEnd > timeBegin))   \
-    #             )).first()
-    # if not(matches is None):
-    #     return "TIME_NO_LONGER_AVAILABLE", HttpCode.TIME_NO_LONGER_AVAILABLE
-    # else:
-    #     user = UserLogin.query.filter_by(AccessToken = accessToken).first()
-
-    #     if user is None:
-    #         return '1', HttpCode.INVALID_ACCESS_TOKEN
-    #     newMatch = Match(
-    #         IdStoreCourt = idStoreCourt,
-    #         IdSport = sportId,
-    #         Date = date,
-    #         IdTimeBegin = timeBegin,
-    #         IdTimeEnd = timeEnd,
-    #         Cost = cost,
-    #         OpenUsers = False,
-    #         MaxUsers = 0,
-    #         Canceled = False,
-    #         CreationDate = datetime.now(),
-    #         CreatorNotes = "",
-    #         IdRecurrentMatch = 0,
-    #     )
-    #     db.session.add(newMatch)
-    #     db.session.commit()
-    #     newMatch.MatchUrl = f'{newMatch.IdMatch}{int(round(newMatch.CreationDate.timestamp()))}'
-    #     db.session.commit()
-    #     matchMember = MatchMember(
-    #         IdUser = user.IdUser,
-    #         IsMatchCreator = True,
-    #         WaitingApproval = False,
-    #         Refused = False,
-    #         IdMatch = newMatch.IdMatch,
-    #         Quit = False,
-    #         EntryDate = datetime.now(),
-    #     )
-    #     db.session.add(matchMember)
-    #     db.session.commit()
-    #     return str(newMatch.IdMatch), 200
+    return "Seus horários mensalistas foram agendados!", HttpCode.ALERT
+   
 
 
 @bp_recurrent_match.route("/CancelRecurrentMatchEmployee", methods=["POST"])

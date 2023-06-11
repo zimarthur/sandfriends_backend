@@ -84,8 +84,8 @@ def SearchCourts():
     accessToken = request.json.get('AccessToken')
     sportId = int(request.json.get('IdSport'))
     cityId = request.json.get('IdCity')
-    dateStart = request.json.get('DateStart')
-    dateEnd = request.json.get('DateEnd')
+    dateStart = datetime.strptime(request.json.get('DateStart'), '%d-%m-%Y')
+    dateEnd = datetime.strptime(request.json.get('DateEnd'), '%d-%m-%Y')
     timeStart = request.json.get('TimeStart')
     timeEnd = request.json.get('TimeEnd')
 
@@ -107,23 +107,28 @@ def SearchCourts():
     #busca os horarios de todas as quadras e seus respectivos preços
     courtHours = db.session.query(StorePrice)\
                     .filter(StorePrice.IdStoreCourt.in_(court.IdStoreCourt for court in courts)).all()
+                    
 
     matches = db.session.query(Match)\
                     .filter(Match.IdStoreCourt.in_(court.IdStoreCourt for court in courts))\
-                    .filter(Match.Date.in_(daterange(datetime.strptime(dateStart, '%Y-%m-%d').date(), datetime.strptime(dateEnd, '%Y-%m-%d').date())))\
-                    .filter((Match.IdTimeBegin >= getHourIndex(timeStart)) & (Match.IdTimeBegin <= getHourIndex(timeEnd)))\
-                    .filter(Match.Canceled == False).all()
+                    .filter(Match.Date.in_(daterange(dateStart.date(), dateEnd.date())))\
+                    .filter(Match.Canceled == False) \
+                    .filter(((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin <= timeEnd)) | \
+                            ((Match.IdTimeEnd > timeStart) & (Match.IdTimeEnd <= timeEnd)) | \
+                            ((Match.IdTimeBegin < timeStart) & (Match.IdTimeEnd > timeStart))).all()
     
     searchWeekdays= []
-    for searchDay in daterange(datetime.strptime(dateStart, '%Y-%m-%d').date(), datetime.strptime(dateEnd, '%Y-%m-%d').date()):
+    for searchDay in daterange(dateStart.date(), dateEnd.date()):
         if(searchDay.weekday() not in searchWeekdays):
             searchWeekdays.append(searchDay.weekday())
     #lembrando que aqui são as partidas mensalistas e os horários bloqueados recorrentemente
     recurrentMatches = db.session.query(RecurrentMatch)\
                     .filter(RecurrentMatch.IdStoreCourt.in_(court.IdStoreCourt for court in courts))\
                     .filter(RecurrentMatch.Weekday.in_(searchWeekdays))\
-                    .filter((RecurrentMatch.IdTimeBegin >= getHourIndex(timeStart)) & (Match.IdTimeBegin <= getHourIndex(timeEnd))).all()
-
+                    .filter(RecurrentMatch.Canceled == False)\
+                    .filter(((RecurrentMatch.IdTimeBegin >= timeStart) & (Match.IdTimeBegin <= timeEnd)) | \
+                            ((RecurrentMatch.IdTimeEnd > timeStart) & (RecurrentMatch.IdTimeEnd <= timeEnd)) | \
+                            ((RecurrentMatch.IdTimeBegin < timeStart) & (RecurrentMatch.IdTimeEnd > timeStart))).all()
 
     #partidas abertas
     jsonOpenMatches = []
@@ -136,8 +141,7 @@ def SearchCourts():
     #horários livres
     jsonDates =[]
     IdStoresList = []
-    IdStoreCourtList = []
-    for validDate in daterange(datetime.strptime(dateStart, '%Y-%m-%d').date(), datetime.strptime(dateEnd, '%Y-%m-%d').date()):
+    for validDate in daterange(dateStart.date(), dateEnd.date()):
         jsonStores=[]
         
         for store in stores:
@@ -150,7 +154,7 @@ def SearchCourts():
                 storeOperationHours = [storeOperationHour for storeOperationHour in courtHours if \
                                     (storeOperationHour.IdStoreCourt == filteredCourts[0].IdStoreCourt) and\
                                     (storeOperationHour.Weekday == validDate.weekday()) and \
-                                    ((storeOperationHour.IdAvailableHour >= getHourIndex(timeStart)) and (storeOperationHour.IdAvailableHour <= getHourIndex(timeEnd))) and \
+                                    ((storeOperationHour.IdAvailableHour >= timeStart) and (storeOperationHour.IdAvailableHour <= timeEnd)) and \
                                     (((validDate == datetime.today().date()) and (datetime.strptime(storeOperationHour.AvailableHour.HourString, '%H:%M').time() < datetime.now().time())) == False)\
                                     ]
                 
@@ -162,7 +166,8 @@ def SearchCourts():
                                     (match.IdStoreCourt ==  filteredCourt.IdStoreCourt) and \
                                     (match.Canceled == False) and \
                                     (match.Date == validDate) and \
-                                    ((match.IdTimeBegin == storeOperationHour.IdAvailableHour) or ((match.IdTimeBegin < storeOperationHour.IdAvailableHour) and (match.IdTimeEnd > storeOperationHour.IdAvailableHour)))\
+                                    ((match.IdTimeBegin == storeOperationHour.IdAvailableHour) or \
+                                    ((match.IdTimeBegin < storeOperationHour.IdAvailableHour) and (match.IdTimeEnd > storeOperationHour.IdAvailableHour)))\
                                     ]
                         concurrentRecurrentMatch = [recurrentMatch for recurrentMatch in recurrentMatches if \
                                     (recurrentMatch.IdStoreCourt ==  filteredCourt.IdStoreCourt) and \
@@ -183,13 +188,10 @@ def SearchCourts():
                         # se tem uma partida recorrente, as partidas do mes jáforam marcadas, então vão aparecer no concurrentMatch
                         # se alguma delas foi cancelada, por ex, o horário ainda poderia ser agendado.
                         if(not concurrentMatch) and (not concurrentBlockedHour) and (not(isCurrentMonth(validDate) == False and concurrentRecurrentMatch)):
-                        #if ((concurrentMatch) or (concurrentBlockedHour) or (isCurrentMonth(validDate) and concurrentRecurrentMatch)) == False:
                             jsonAvailableCourts.append({
                                 'IdStoreCourt':filteredCourt.IdStoreCourt,
                                 'Price': [int(courtHour.Price) for courtHour in courtHours if (courtHour.IdStoreCourt == filteredCourt.IdStoreCourt) and (courtHour.Weekday == validDate.weekday()) and (courtHour.IdAvailableHour == storeOperationHour.IdAvailableHour)][0]
                             })
-                            if filteredCourt.IdStoreCourt not in IdStoreCourtList:
-                                IdStoreCourtList.append(filteredCourt.IdStoreCourt)
 
                     if jsonAvailableCourts:
                         jsonStoreOperationHours.append({
@@ -214,7 +216,7 @@ def SearchCourts():
                 })
     
 
-    return jsonify({'Dates':jsonDates, 'OpenMatches': jsonOpenMatches, 'Stores':[store.to_json() for store in stores], 'Courts':[court.to_json() for court in courts if court.IdStoreCourt in IdStoreCourtList]})
+    return jsonify({'Dates':jsonDates, 'OpenMatches': jsonOpenMatches, 'Stores':[store.to_json() for store in stores]})
      
 
 @bp_match.route("/GetUserMatches", methods=["POST"])
@@ -241,25 +243,35 @@ def GetUserMatches():
     return jsonify({'UserMatches': userMatchesList}), HttpCode.SUCCESS
 
 
-@bp_match.route("/CourtReservation", methods=["POST"])
-def CourtReservation():
+@bp_match.route("/MatchReservation", methods=["POST"])
+def MatchReservation():
     if not request.json:
         abort(HttpCode.ABORT)
 
     accessToken = request.json.get('AccessToken')
     idStoreCourt = request.json.get('IdStoreCourt')
     sportId = request.json.get('SportId')
-    date = request.json.get('Date')
-    timeBegin = int(request.json.get('TimeBegin'))
+    date = datetime.strptime(request.json.get('Date'), '%d-%m-%Y')
+    timeStart = int(request.json.get('TimeStart'))
     timeEnd = int(request.json.get('TimeEnd'))
     cost = request.json.get('Cost')
 
-    matches = Match.query.filter((Match.IdStoreCourt == int(idStoreCourt)) & (Match.Date == date) & (\
-                ((Match.IdTimeBegin >= timeBegin) & (Match.IdTimeBegin < timeEnd))  | \
-                ((Match.IdTimeEnd > timeBegin) & (Match.IdTimeEnd <= timeEnd))      | \
-                ((Match.IdTimeBegin < timeBegin) & (Match.IdTimeEnd > timeBegin))   \
+    concurrentMatch = Match.query.filter((Match.IdStoreCourt == int(idStoreCourt)) & (Match.Date == date) & (\
+                ((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin < timeEnd))  | \
+                ((Match.IdTimeEnd > timeStart) & (Match.IdTimeEnd <= timeEnd))      | \
+                ((Match.IdTimeBegin < timeStart) & (Match.IdTimeEnd > timeStart))   \
                 )).first()
-    if matches is not None:
+
+    #lembrando que aqui são as partidas mensalistas e os horários bloqueados recorrentemente
+    concurrentRecurrentMatch = db.session.query(RecurrentMatch)\
+                    .filter(RecurrentMatch.IdStoreCourt == int(idStoreCourt))\
+                    .filter(RecurrentMatch.Weekday == date.weekday())\
+                    .filter(RecurrentMatch.Canceled == False)\
+                    .filter(((RecurrentMatch.IdTimeBegin >= timeStart) & (Match.IdTimeBegin <= timeEnd)) | \
+                            ((RecurrentMatch.IdTimeEnd > timeStart) & (RecurrentMatch.IdTimeEnd <= timeEnd)) | \
+                            ((RecurrentMatch.IdTimeBegin < timeStart) & (RecurrentMatch.IdTimeEnd > timeStart))).first()
+
+    if (concurrentMatch is not None) or (concurrentRecurrentMatch is not None):
         return "Ops, esse horário não está mais disponível", HttpCode.WARNING
     else:
         user = User.query.filter_by(AccessToken = accessToken).first()
@@ -270,7 +282,7 @@ def CourtReservation():
             IdStoreCourt = idStoreCourt,
             IdSport = sportId,
             Date = date,
-            IdTimeBegin = timeBegin,
+            IdTimeBegin = timeStart,
             IdTimeEnd = timeEnd,
             Cost = cost,
             OpenUsers = False,

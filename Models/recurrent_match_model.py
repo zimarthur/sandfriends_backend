@@ -29,7 +29,7 @@ class RecurrentMatch(db.Model):
 
     Matches = db.relationship('Match', backref="RecurrentMatch")
     
-    IsExpired = ((LastPaymentDate == CreationDate) and (datetime.today().replace(day=1).date() > CreationDate)) or \
+    IsExpired = ((LastPaymentDate == CreationDate) & (datetime.today().replace(day=1).date() > CreationDate)) | \
                ((LastPaymentDate != CreationDate) & (LastPaymentDate < getFirstDayOfLastMonth()))
 
     def getCurrentMonthMatches(self):
@@ -37,29 +37,33 @@ class RecurrentMatch(db.Model):
 
     def getMatchCounter(self):
         recurrentMatchesCounter=0
+        for match in self.Matches:
+            if (match.Canceled == False) and (match.IsFinished == True):
+                recurrentMatchesCounter+=1
+
+        return recurrentMatchesCounter
+    
+    def getNextRecurrentMatches(self):
         recurrentMatchesList=[]
         for match in self.Matches:
-            if match.Canceled == False:
-                recurrentMatchesCounter+=1
             if datetime.today().replace(day=1).date() <= match.Date:
                 recurrentMatchesList.append(match.to_json())
-        return recurrentMatchesCounter
+        return recurrentMatchesList
 
     def to_json(self):
         return {
             'IdRecurrentMatch': self.IdRecurrentMatch,
-            'CreationDate': self.CreationDate.strftime("%Y-%m-%d"),
-            'LastPaymentDate': self.LastPaymentDate.strftime("%Y-%m-%d"),
+            'CreationDate': self.CreationDate.strftime("%d/%m/%Y"),
+            'LastPaymentDate': self.LastPaymentDate.strftime("%d/%m/%Y"),
             'Weekday': self.Weekday,
-            'TimeBegin': self.TimeBegin.HourString,
-            'TimeEnd': self.TimeEnd.HourString,
+            'TimeBegin': self.TimeBegin.IdAvailableHour,
+            'TimeEnd': self.TimeEnd.IdAvailableHour,
+            'IdSport': self.IdSport,
             'Canceled': self.Canceled,
-            'StoreCourt': self.StoreCourt.to_json(),
+            'StoreCourt': self.StoreCourt.to_json_match(),
             'User': self.User.to_json(),
             'RecurrentMatchCounter':self.getMatchCounter(),
-            'NextRecurrentMatches': recurrentMatchesList,
-            'Blocked':self.Blocked,
-            'BlockedReason':self.BlockedReason,
+            'NextRecurrentMatches': self.getNextRecurrentMatches(),
         }
 
     def to_json_store(self):
