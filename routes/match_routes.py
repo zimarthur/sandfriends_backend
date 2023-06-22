@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, date
 from sqlalchemy import func 
 from ..extensions import db
 import os
-
+from ..responses import webResponse
 from ..utils import firstSundayOnNextMonth, lastSundayOnLastMonth, isCurrentMonth
 from ..Models.http_codes import HttpCode
 from ..Models.match_model import Match
@@ -842,8 +842,31 @@ def BlockUnblockHour():
 
     return jsonify({"Matches": matchList}), HttpCode.SUCCESS
 
-
 @bp_match.route("/match/<id>", methods=["GET"])
 def match(id):
     match = match = Match.query.get(id)
     return match.to_json()
+
+@bp_match.route('/SearchCustomMatches', methods=['POST'])
+def SearchCustomMatches():
+
+    accessTokenReq = request.json.get('AccessToken')
+    dateStartReq = datetime.strptime(request.json.get('DateStart'), '%d/%m/%Y')
+    dateEndReq = datetime.strptime(request.json.get('DateEnd'), '%d/%m/%Y')
+
+    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+
+    if employee is None:
+        return '1', HttpCode.INVALID_ACCESS_TOKEN
+    
+    matches = db.session.query(Match)\
+                    .filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in employee.Store.Courts]))\
+                    .filter((Match.Date >= dateStartReq) & (Match.Date <= dateEndReq))\
+                    .filter(Match.Canceled == False)\
+                    .filter(Match.Blocked != True).all()
+
+    matchList = []
+    for match in matches:
+        matchList.append(match.to_json_min())
+
+    return {'Matches': matchList}, HttpCode.SUCCESS

@@ -345,11 +345,12 @@ def RecurrentBlockUnblockHour():
 
     blockedReq = request.json.get('Blocked')
     blockedReasonReq = request.json.get('BlockedReason')
+    idSportReq = request.json.get('IdSport')
 
     if recurrentMatch is None:
         newRecurrentMatch = RecurrentMatch(
             IdStoreCourt = idStoreCourtReq,
-            IdSport = None,
+            IdSport = idSportReq,
             IdUser = None,
             Weekday = weekdayReq,
             IdTimeBegin = idHourReq,

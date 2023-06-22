@@ -202,7 +202,7 @@ def UpdateStoreInfo():
     store.Neighbourhood = request.json.get('Neighbourhood')
 
     logoReq = request.json.get('Logo')
-    if logoReq != store.Logo:
+    if logoReq != "":
         photoName = str(store.IdStore) + str(datetime.now().strftime('%Y%m%d%H%M%S'))
         store.Logo = photoName
         imageBytes = base64.b64decode(logoReq + '==')

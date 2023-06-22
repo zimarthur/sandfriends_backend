@@ -9,5 +9,5 @@ class Sport(db.Model):
         return {
             'IdSport': self.IdSport,
             'Description': self.Description,
-            'SportPhoto': f"https://www.sandfriends.com.br/img/spt/{self.IdSport}.png",
+            'SportPhoto': f"/img/spt/{self.IdSport}.png",
         }

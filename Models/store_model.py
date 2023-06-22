@@ -35,7 +35,7 @@ class Store(db.Model):
         if self.Logo == None or self.Logo == "":
             logo = None
         else:
-            logo = f"https://www.sandfriends.com.br/img/str/logo/{self.Logo}.png"
+            logo = f"/img/str/logo/{self.Logo}.png"
         
         return {
             'IdStore': self.IdStore,
@@ -76,7 +76,7 @@ class Store(db.Model):
             'HoursBeforeCancellation': self.HoursBeforeCancellation,
             'PhoneNumber1': self.PhoneNumber1,
             'PhoneNumber2': self.PhoneNumber2,
-            'Logo': f"https://www.sandfriends.com.br/img/str/logo/{self.Logo}.png",
+            'Logo': f"/img/str/logo/{self.Logo}.png",
             'Description': self.Description,
             'Instagram': self.Instagram,
             'Cnpj': self.CNPJ,

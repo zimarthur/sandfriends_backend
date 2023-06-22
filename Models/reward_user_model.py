@@ -43,4 +43,12 @@ class RewardUser(db.Model):
             'RewardClaimedDate': rewardClaimedDate,
             'Store':store,
         }
+    
+    def to_json_store(self):
+        return {
+            'IdRewardUser': self.IdRewardUser,
+            'User': self.User.identification_to_json(),
+            'RewardItem': self.RewardItem.to_json(),
+            'RewardClaimedDate': self.RewardClaimedDate.strftime("%d/%m/%Y %H:%M"),
+        }
         

@@ -45,7 +45,7 @@ class User(db.Model):
         if self.Photo == None or self.Photo == "":
             photo = None
         else:
-            photo = f"https://www.sandfriends.com.br/img/usr/{self.Photo}.png"
+            photo = f"/img/usr/{self.Photo}.png"
         
         rankList = []
         for rank in self.Ranks:
@@ -97,7 +97,7 @@ class User(db.Model):
         if self.Photo == None:
             photo = None
         else:
-            photo = f"https://www.sandfriends.com.br/img/usr/{self.Photo}.png"
+            photo = f"/img/usr/{self.Photo}.png"
         return {
             'IdUser': self.IdUser,
             'FirstName': self.FirstName,

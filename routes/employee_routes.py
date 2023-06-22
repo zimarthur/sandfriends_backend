@@ -10,6 +10,7 @@ from ..Models.city_model import City
 from ..Models.state_model import State
 from ..Models.sport_model import Sport
 from ..Models.match_model import Match
+from ..Models.reward_user_model import RewardUser
 from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.employee_model import Employee
 from ..Models.available_hour_model import AvailableHour
@@ -24,7 +25,7 @@ bp_employee = Blueprint('bp_employee', __name__)
 
 #Rota utilizada para fazer login de qualquer employee no site
 @bp_employee.route('/EmployeeLogin', methods=['POST'])
-def StoreLogin():
+def EmployeeLogin():
     if not request.json:
         abort(HttpCode.ABORT)
 
@@ -398,8 +399,8 @@ def initStoreLoginData(employee):
     endDate = firstSundayOnNextMonth(datetime.today())
 
     matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
-    .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
-    .filter(Match.Canceled == False).all()
+        .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
+        .filter(Match.Canceled == False).all()
     
     matchList =[]
     for match in matches:
@@ -413,7 +414,15 @@ def initStoreLoginData(employee):
     for recurrentMatch in recurrentMatches:
         recurrentMatchList.append(recurrentMatch.to_json_store())
 
-    return jsonify({'AccessToken':employee.AccessToken, 'LoggedEmail': employee.Email,'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList, 'MatchesStartDate': startDate.strftime("%d/%m/%Y"), 'MatchesEndDate': endDate.strftime("%d/%m/%Y"), 'RecurrentMatches': recurrentMatchList})
+    rewards = db.session.query(RewardUser)\
+                    .filter(RewardUser.IdStore == store.IdStore)\
+                    .filter((RewardUser.RewardClaimedDate >= startDate) & (RewardUser.RewardClaimedDate <= endDate)).all()
+
+    rewardsList = []
+    for reward in rewards:
+        rewardsList.append(reward.to_json_store())
+
+    return jsonify({'AccessToken':employee.AccessToken, 'LoggedEmail': employee.Email,'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList, 'MatchesStartDate': startDate.strftime("%d/%m/%Y"), 'MatchesEndDate': endDate.strftime("%d/%m/%Y"), 'RecurrentMatches': recurrentMatchList, 'Rewards': rewardsList})
 
 def returnStoreEmployees(storeId):
     store = db.session.query(Store).filter(Store.IdStore == storeId).first()

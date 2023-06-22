@@ -10,5 +10,5 @@ class StorePhoto(db.Model):
         return {
             'IdStorePhoto': self.IdStorePhoto,
             'IdStore': self.IdStore,
-            'Photo': f"https://www.sandfriends.com.br/img/str/{self.IdStorePhoto}.png",
+            'Photo': f"/img/str/{self.IdStorePhoto}.png",
         }
