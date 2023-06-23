@@ -857,7 +857,7 @@ def SearchCustomMatches():
     employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
 
     if employee is None:
-        return '1', HttpCode.INVALID_ACCESS_TOKEN
+        return '1', HttpCode.EXPIRED_TOKEN
     
     matches = db.session.query(Match)\
                     .filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in employee.Store.Courts]))\

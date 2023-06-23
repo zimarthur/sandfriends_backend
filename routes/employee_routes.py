@@ -18,7 +18,7 @@ from ..Models.store_court_model import StoreCourt
 from ..emails import sendEmail
 from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import func
-
+import bcrypt
 
 
 bp_employee = Blueprint('bp_employee', __name__)
@@ -30,14 +30,15 @@ def EmployeeLogin():
         abort(HttpCode.ABORT)
 
     emailReq = request.json.get('Email')
-    passwordReq = request.json.get('Password')
+    passwordReq = request.json.get('Password').encode('utf-8')
 
     employee = db.session.query(Employee).filter(Employee.Email == emailReq).first()
 
     if employee is None:
         return webResponse("Email não cadastrado", None), HttpCode.WARNING
 
-    if employee.Password != passwordReq:
+    #if employee.Password != passwordReq:
+    if not bcrypt.checkpw(passwordReq, (employee.Password).encode('utf-8')):
         return webResponse("Senha incorreta", None), HttpCode.WARNING
 
     #senha correta
@@ -152,7 +153,7 @@ def AddEmployeeInformation():
     emailConfirmationTokenReq = request.json.get('EmailConfirmationToken')
     firstNameReq = (request.json.get('FirstName')).title()
     lastNameReq = (request.json.get('LastName')).title()
-    passwordReq = request.json.get('Password')
+    passwordReq = request.json.get('Password').encode('utf-8')
     
     #Verifica o emailConfirmationToken
     newEmployee = db.session.query(Employee).filter(Employee.EmailConfirmationToken == emailConfirmationTokenReq).first()
@@ -162,7 +163,7 @@ def AddEmployeeInformation():
 
     newEmployee.FirstName = firstNameReq
     newEmployee.LastName = lastNameReq
-    newEmployee.Password = passwordReq
+    newEmployee.Password = bcrypt.hashpw(passwordReq, bcrypt.gensalt())
 
     #Confirma o e-mail do usuário
     #Zera o EmailConfirmationToken após a confirmação
@@ -311,7 +312,7 @@ def ChangePasswordEmployee():
         abort(HttpCode.ABORT)
 
     resetPasswordTokenReq = request.json.get('ResetPasswordToken')
-    newPasswordReq = request.json.get('NewPassword')
+    newPasswordReq = request.json.get('NewPassword').encode('utf-8')
 
     employeeReq = db.session.query(Employee).filter(Employee.ResetPasswordToken == resetPasswordTokenReq).first()
 
@@ -319,8 +320,8 @@ def ChangePasswordEmployee():
     if (resetPasswordTokenReq == 0) or (resetPasswordTokenReq is None) or (not employeeReq):
         return webResponse("Esse link não é válido", "Verifique se você acessou o mesmo link que enviamos ao seu e-mail. Caso contrário, fale com o nosso suporte."), HttpCode.WARNING
 
-    #Ddiciona a senha no banco de dados
-    employeeReq.Password = newPasswordReq
+    #Adiciona a senha no banco de dados
+    employeeReq.Password = bcrypt.hashpw(newPasswordReq, bcrypt.gensalt())
 
     #Anula o changePasswordToken
     employeeReq.ResetPasswordToken = None

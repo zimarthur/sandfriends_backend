@@ -17,6 +17,7 @@ from ..emails import sendEmail
 from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import func
 import base64
+import bcrypt
 
 bp_store = Blueprint('bp_store', __name__)
 
@@ -58,16 +59,18 @@ def AddStore():
         RegistrationDate = datetime.now()
     )
 
+    passwordReq = request.json.get('Password').encode('utf-8')
+
     #Employee que será criado automaticamente - o dono da quadra
     employeeReq = Employee(
         Email = (request.json.get('Email')).lower(),
         FirstName = (request.json.get('FirstName')).title(),
         LastName = (request.json.get('LastName')).title(),
-        Password = request.json.get('Password'),
+        Password = bcrypt.hashpw(passwordReq, bcrypt.gensalt()),
         Admin = True,
         StoreOwner = True,
         RegistrationDate = datetime.now()
-    )
+    ) 
 
     #Algum valor nulo que é exigido
     if storeReq.hasEmptyRequiredValues() or employeeReq.hasEmptyRequiredValues():

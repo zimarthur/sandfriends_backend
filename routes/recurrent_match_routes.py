@@ -62,7 +62,7 @@ def UserRecurrentMatches():
     user = User.query.filter_by(AccessToken = accessToken).first()
 
     if user is None:
-        return '1', HttpCode.INVALID_ACCESS_TOKEN
+        return '1', HttpCode.EXPIRED_TOKEN
 
     
     recurrentMatches = db.session.query(RecurrentMatch)\
@@ -96,7 +96,7 @@ def SearchRecurrentCourts():
 
     user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
-        return '1', HttpCode.INVALID_ACCESS_TOKEN
+        return '1', HttpCode.EXPIRED_TOKEN
 
     stores = db.session.query(Store).filter(Store.IdCity == cityId)\
                                     .filter(Store.IsApproved).all()
@@ -201,7 +201,7 @@ def CourtReservation():
     user = User.query.filter_by(AccessToken = accessToken).first()
 
     if user is None:
-        return '1', HttpCode.INVALID_ACCESS_TOKEN
+        return '1', HttpCode.EXPIRED_TOKEN
 
     #verifica se alguma partida mensalista ou algum bloqueio foi feite nesse horario
     recurrentMatch = db.session.query(RecurrentMatch)\

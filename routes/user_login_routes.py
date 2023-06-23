@@ -26,6 +26,7 @@ from ..extensions import db
 from ..emails import sendEmail
 from ..Models.http_codes import HttpCode
 from ..access_token import EncodeToken, DecodeToken
+import bcrypt
 
 bp_user_login = Blueprint('bp_user_login', __name__)
 
@@ -36,7 +37,7 @@ def AddUser():
         abort(HttpCode.ABORT)
 
     emailReq = request.json.get('Email')
-    passwordReq = request.json.get('Password')
+    passwordReq = request.json.get('Password').encode('utf-8')
     time = datetime.now()
 
     user = User.query.filter_by(Email=emailReq).first()
@@ -51,7 +52,7 @@ def AddUser():
 
     userNew = User(
         Email = emailReq,
-        Password = passwordReq,
+        Password = bcrypt.hashpw(passwordReq, bcrypt.gensalt()),
         AccessToken = 0, 
         RegistrationDate = time,
         ThirdPartyLogin = False,
@@ -146,7 +147,7 @@ def LoginUser():
         abort(HttpCode.ABORT)
 
     emailReq = request.json.get('Email')
-    passwordReq = request.json.get('Password')
+    passwordReq = request.json.get('Password').encode('utf-8')
 
     user = User.query.filter_by(Email = emailReq).first()
 
@@ -156,7 +157,8 @@ def LoginUser():
     if user.ThirdPartyLogin:
         return "Este e-mail foi cadastrado com uma conta do Google - Realize o login através do Google", HttpCode.ALERT
 
-    if user.Password != passwordReq:
+    #if user.Password != passwordReq:
+    if not bcrypt.checkpw(passwordReq, (user.Password).encode('utf-8')):
         return 'Senha Incorreta', HttpCode.WARNING
 
     if user.EmailConfirmationDate == None:
@@ -282,7 +284,7 @@ def ChangePasswordUser():
         abort(HttpCode.ABORT)
 
     changePasswordTokenReq = request.json.get('ChangePasswordToken')
-    newPasswordReq = request.json.get('NewPassword')
+    newPasswordReq = request.json.get('NewPassword').encode('utf-8')
 
     user = User.query.filter_by(ResetPasswordToken=changePasswordTokenReq).first()
 
@@ -293,7 +295,7 @@ def ChangePasswordUser():
         return "Não foi possível realizar a sua solicitação", HttpCode.EXPIRED_TOKEN
 
     #Caso tudo ok
-    user.Password = newPasswordReq
+    user.Password = bcrypt.hashpw(newPasswordReq, bcrypt.gensalt())
     user.ResetPasswordToken = None
     db.session.commit()
     return "Sua senha foi alterada com sucesso", HttpCode.SUCCESS
@@ -312,7 +314,7 @@ def GetUserInfo():
     tokenNullOrZero(tokenReq)
 
     if user is None:
-        return 'Token inválido.', HttpCode.INVALID_ACCESS_TOKEN
+        return 'Token inválido.', HttpCode.EXPIRED_TOKEN
 
     matchCounterList = getMatchCounterList(user)
 

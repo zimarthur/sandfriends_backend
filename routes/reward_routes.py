@@ -60,7 +60,7 @@ def UserRewardsHistory():
     user = db.session.query(User).filter(User.AccessToken == accessTokenReq).first()
 
     if user is None:
-        return '1', HttpCode.INVALID_ACCESS_TOKEN
+        return '1', HttpCode.EXPIRED_TOKEN
 
     userRewards = db.session.query(RewardUser)\
                 .filter(RewardUser.IdUser == user.IdUser)\
@@ -82,7 +82,7 @@ def SearchCustomRewards():
     employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
 
     if employee is None:
-        return '1', HttpCode.INVALID_ACCESS_TOKEN
+        return '1', HttpCode.EXPIRED_TOKEN
 
     rewards = db.session.query(RewardUser)\
                     .filter(RewardUser.IdStore == employee.IdStore)\
