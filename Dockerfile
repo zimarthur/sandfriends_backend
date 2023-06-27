@@ -13,7 +13,11 @@ RUN pip3 install --upgrade pip
 
 RUN apt-get update
 #Precisa destes programas para a dependência do mysql do python
-RUN apt-get install gcc curl wget gnupg -y
+RUN apt-get install gcc curl wget gnupg tzdata -y
+
+#Seta o fuso horário para Brasília
+#ARG TZ
+ENV TZ=America/Sao_Paulo
 
 #Adiciona a chave do link abaixo
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 467B942D3A79BD29

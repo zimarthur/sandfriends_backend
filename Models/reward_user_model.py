@@ -3,6 +3,7 @@ from ..extensions import db
 class RewardUser(db.Model):
     __tablename__ = 'reward_user'
     IdRewardUser = db.Column(db.Integer, primary_key=True)
+    RewardClaimCode = db.Column(db.String(6))
     RewardClaimed = db.Column(db.Boolean)
     RewardClaimedDate = db.Column(db.DateTime)
 
@@ -37,6 +38,7 @@ class RewardUser(db.Model):
         return {
             'IdRewardUser': self.IdRewardUser,
             'RewardClaimed': self.RewardClaimed,
+            'RewardClaimCode': self.RewardClaimCode,
             'User': self.User.to_json(),
             'RewardMonth': self.RewardMonth.to_json(),
             'RewardItem': rewardItem,

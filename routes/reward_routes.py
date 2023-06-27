@@ -2,9 +2,12 @@ from flask import Blueprint, jsonify, abort, request
 from datetime import datetime, timedelta, date
 from ..extensions import db
 from sqlalchemy import func
+import random
+import string
 
 from ..Models.match_model import Match
 from ..Models.user_model import User
+from ..Models.store_model import Store
 from ..Models.employee_model import Employee
 from ..Models.match_member_model import MatchMember
 from ..Models.reward_month_model import RewardMonth
@@ -16,6 +19,10 @@ from ..Models.http_codes import HttpCode
 from ..responses import webResponse
 bp_reward = Blueprint('bp_reward', __name__)
 
+def generateRewardCode():
+    characters = string.ascii_uppercase + string.digits
+    random_string = ''.join(random.choice(characters) for _ in range(6))
+    return random_string
 
 @bp_reward.route('/RewardStatus/<idUser>', methods=['GET'])
 def RewardStatus(idUser):
@@ -39,12 +46,21 @@ def RewardStatus(idUser):
                     .filter(RewardUser.IdUser == idUser)\
                     .filter(RewardUser.IdRewardMonth == reward.IdRewardMonth).first()
         if rewardUser is None:
+            isNewRewardCodeUnique = False
+            while isNewRewardCodeUnique == False:
+                newRewardCode = generateRewardCode()
+                rewardCodeCheck = db.session.query(RewardUser)\
+                        .filter(RewardUser.RewardClaimCode == newRewardCode).first()
+                if rewardCodeCheck is None:
+                    isNewRewardCodeUnique = True
+
             newRewardUser = RewardUser(
                 RewardClaimed = False,
                 IdUser =  idUser,
                 IdRewardMonth = reward.IdRewardMonth,
                 IdRewardItem = None,
                 RewardClaimedDate = None,
+                RewardClaimCode = newRewardCode,
             )
             db.session.add(newRewardUser)
             db.session.commit()
@@ -98,9 +114,9 @@ def SearchCustomRewards():
 @bp_reward.route('/SendUserRewardCode', methods=['POST'])
 def SendUserRewardCode():
     
-    rewardCodeReq = request.json.get('RewardCode')
+    rewardCodeReq = request.json.get('RewardClaimCode')
 
-    reward = db.session.query(RewardUser).filter(RewardUser.IdRewardUser == rewardCodeReq).first()
+    reward = db.session.query(RewardUser).filter(RewardUser.RewardClaimCode == rewardCodeReq).first()
 
     if reward is None:
         return webResponse("Código não encontrado", "Confirme que o código inserido é o mesmo do aplicativo do jogador"), HttpCode.WARNING
@@ -113,3 +129,34 @@ def SendUserRewardCode():
         rewardsItemsList.append(rewardItemMonth.RewardItem.to_json())
 
     return {'RewardItems': rewardsItemsList}, HttpCode.SUCCESS
+
+
+@bp_reward.route('/UserRewardSelected', methods=['POST'])
+def UserRewardSelected():
+    
+    accessTokenReq = request.json.get('AccessToken')
+    rewardCodeReq = request.json.get('RewardClaimCode')
+    rewardItemReq = request.json.get('RewardItem')
+
+    #busca a loja a partir do token do employee
+    store = db.session.query(Store).\
+            join(Employee, Employee.IdStore == Store.IdStore).\
+            filter(Employee.AccessToken == accessTokenReq).first()
+    
+    #Caso não encontrar Token
+    if store is None:
+        return webResponse("Token não encontrado", None), HttpCode.WARNING
+
+    reward = db.session.query(RewardUser).filter(RewardUser.RewardClaimCode == rewardCodeReq).first()
+
+    if reward is None or reward.RewardClaimed:
+        return webResponse("Recompensa já foi retirada", None), HttpCode.WARNING
+    
+    reward.IdRewardItem = rewardItemReq
+    reward.RewardClaimed = True
+    reward.RewardClaimedDate = datetime.now()
+    reward.IdStore = store.IdStore
+
+    db.session.commit()
+
+    return webResponse("Recompensa registrada", "Entregue um/a "+reward.RewardItem.Description + " para "+reward.User.FirstName+"." ), HttpCode.ALERT

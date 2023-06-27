@@ -23,8 +23,10 @@ from ..Models.employee_model import Employee
 from ..Models.store_court_sport_model import StoreCourtSport
 from ..Models.sport_model import Sport
 from ..Models.user_model import User
-from ..Models.notification_model import Notification
-from ..Models.notification_category_model import NotificationCategory
+from ..Models.notification_user_model import NotificationUser
+from ..Models.notification_user_category_model import NotificationUserCategory
+from ..Models.notification_store_model import NotificationStore
+from ..Models.notification_store_category_model import NotificationStoreCategory
 from ..access_token import EncodeToken, DecodeToken
 
 bp_match = Blueprint('bp_match', __name__)
@@ -307,6 +309,17 @@ def MatchReservation():
             EntryDate = datetime.now(),
         )
         db.session.add(matchMember)
+
+        #notificação para a loja
+        newNotificationStore = NotificationStore(
+            IdUser = user.IdUser,
+            IdStore = newMatch.StoreCourt.IdStore,
+            IdMatch = newMatch.IdMatch,
+            IdNotificationStoreCategory = 1,
+            EventDatetime = datetime.now()
+        )
+        db.session.add(newNotificationStore)
+        
         db.session.commit()
         return "Sua partida foi agendada!", HttpCode.ALERT
 
@@ -364,18 +377,18 @@ def InvitationResponse():
         matchMember.Quit = False
         if accepted:
             matchMember.Refused = False
-            idNotificationCategory = 3
+            idNotificationUserCategory = 3
         else:
             matchMember.Refused = True
-            idNotificationCategory = 4
-        newNotification = Notification(
+            idNotificationUserCategory = 4
+        newNotificationUser = NotificationUser(
             IdUser = idUser,
             IdUserReplaceText = user.IdUser,
             IdMatch = idMatch,
-            IdNotificationCategory = idNotificationCategory,
+            IdNotificationUserCategory = idNotificationUserCategory,
             Seen = False
         )
-        db.session.add(newNotification)
+        db.session.add(newNotificationUser)
         db.session.commit()
         
         return "Ok",HttpCode.SUCCESS
@@ -405,14 +418,14 @@ def LeaveMatch():
 
         for member in match.Members:
             if member.IsMatchCreator == True:
-                newNotification = Notification(
+                newNotificationUser = NotificationUser(
                     IdUser = member.IdUser,
                     IdUserReplaceText = matchMember.IdUser,
                     IdMatch = idMatch,
-                    IdNotificationCategory = 8,
+                    IdNotificationUserCategory = 8,
                     Seen = False
                 )
-                db.session.add(newNotification)
+                db.session.add(newNotificationUser)
                 break
         db.session.commit()
         return "Você saiu da partida",HttpCode.ALERT
@@ -511,22 +524,22 @@ def JoinMatch():
             matchMember.Quit = False
         
         matchCreator = db.session.query(MatchMember).filter((MatchMember.IdMatch == idMatch) & (MatchMember.IsMatchCreator == True)).first()
-        newNotification = Notification(
+        newNotificationUser = NotificationUser(
             IdUser = matchCreator.IdUser,
             IdUserReplaceText = user.IdUser,
             IdMatch = idMatch,
-            IdNotificationCategory = 1,
+            IdNotificationUserCategory = 1,
             Seen = False
         )
-        db.session.add(newNotification)
-        newNotification = Notification(
+        db.session.add(newNotificationUser)
+        newNotificationUser = NotificationUser(
             IdUser = user.IdUser,
             IdUserReplaceText = matchCreator.IdUser,
             IdMatch = idMatch,
-            IdNotificationCategory = 2,
+            IdNotificationUserCategory = 2,
             Seen = False
         )
-        db.session.add(newNotification)
+        db.session.add(newNotificationUser)
         db.session.commit()
         return "Solicitação enviada",HttpCode.ALERT
 
@@ -562,19 +575,28 @@ def CancelMatch():
             matchMember.Quit=True
             matchMember.QuitDate=datetime.now()
             if matchMember.IsMatchCreator == True:
-                idNotificationCategory = 6
+                idNotificationUserCategory = 6
+                #notificação para a loja
+                newNotificationStore = NotificationStore(
+                    IdUser = matchMember.IdUser,
+                    IdStore = match.StoreCourt.IdStore,
+                    IdMatch = idMatch,
+                    IdNotificationUserCategory = 2,
+                    EventDatetime = datetime.now()
+                )
+                db.session.add(newNotificationStore)
             else:
-                idNotificationCategory = 7
+                idNotificationUserCategory = 7
             if matchMember.Refused == False:
-                newNotification = Notification(
+                newNotificationUser = NotificationUser(
                     IdUser = matchMember.IdUser,
                     IdUserReplaceText = matchMember.IdUser,
                     IdMatch = idMatch,
-                    IdNotificationCategory = idNotificationCategory,
+                    IdNotificationUserCategory = idNotificationUserCategory,
                     Seen = False
                 )
-                db.session.add(newNotification)
-                db.session.commit()
+                db.session.add(newNotificationUser)
+        db.session.commit()
         return "Partida cancelada",HttpCode.ALERT
 
 @bp_match.route("/CancelMatchEmployee", methods=["POST"])
@@ -613,14 +635,14 @@ def CancelMatchEmployee():
             matchMember.Quit=True
             matchMember.QuitDate=datetime.now()
 
-            newNotification = Notification(
+            newNotificationUser = NotificationUser(
                 IdUser = matchMember.IdUser,
                 IdUserReplaceText = matchMember.IdUser,
                 IdMatch = idMatchReq,
-                IdNotificationCategory = 9,
+                IdNotificationUserCategory = 9,
                 Seen = False
             )
-            db.session.add(newNotification)
+            db.session.add(newNotificationUser)
 
         db.session.commit()
 
@@ -668,14 +690,14 @@ def RemoveMatchMember():
         matchMember.Quit = True
         matchMember.WaitingApproval = False
         matchMember.QuitDate = datetime.now()
-        newNotification = Notification(
+        newNotificationUser = NotificationUser(
             IdUser = idUserDelete,
             IdUserReplaceText = matchCreator.IdUser,
             IdMatch = idMatch,
-            IdNotificationCategory = 5,
+            IdNotificationUserCategory = 5,
             Seen = False
         )
-        db.session.add(newNotification)
+        db.session.add(newNotificationUser)
 
         db.session.commit()
         return "Jogador removido",HttpCode.ALERT

@@ -41,8 +41,6 @@ from ..Models.store_court_model import StoreCourt
 from ..Models.store_court_sport_model import StoreCourtSport
 from ..Models.sport_model import Sport
 from ..Models.user_login_model import UserLogin
-from ..Models.notification_model import Notification
-from ..Models.notification_category_model import NotificationCategory
 from ..access_token import EncodeToken, DecodeToken
 
 bp_debug = Blueprint('bp_debug', __name__)
@@ -63,8 +61,7 @@ def getLastMonth():
 
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
-    
-    return "Taa4", HttpCode.SUCCESS
+    return str(datetime.now()), HttpCode.SUCCESS
     
     # firstDayOfMonth = datetime.today().replace(day = 1, month = 6)
     # return str(firstDayOfMonth - timedelta(days=(firstDayOfMonth.weekday()))), 200

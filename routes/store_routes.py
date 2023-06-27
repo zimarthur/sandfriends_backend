@@ -116,7 +116,7 @@ def AddStore():
     ###Ajustar esta parte no futuro
     employeeReq.EmailConfirmationToken = str(datetime.now().timestamp()) + str(employeeReq.IdEmployee)
     db.session.commit()
-    sendEmail("https://www.sandfriends.com.br/emcf?str=1&tk="+employeeReq.EmailConfirmationToken)
+    sendEmail("https://quadras.sandfriends.com.br/emcf?str=1&tk="+employeeReq.EmailConfirmationToken)
     return webResponse("Você está quase lá!", \
     "Para concluir seu cadastro, é necessário que você valide seu e-mail.\nAcesse o link que enviamos e sua conta será criada.\n\nSe tiver qualquer dúvida, é só nos chamar, ok?"), HttpCode.ALERT
 

@@ -15,6 +15,8 @@ from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.employee_model import Employee
 from ..Models.available_hour_model import AvailableHour
 from ..Models.store_court_model import StoreCourt
+from ..Models.notification_store_model import NotificationStore
+from ..Models.notification_store_category_model import NotificationStoreCategory
 from ..emails import sendEmail
 from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import func
@@ -124,7 +126,7 @@ def AddEmployee():
     #enviar email para funcionário
     newEmployee.EmailConfirmationToken = str(datetime.now().timestamp()) + str(newEmployee.IdEmployee)
     db.session.commit()
-    sendEmail("https://www.sandfriends.com.br/adem?tk="+newEmployee.EmailConfirmationToken)
+    sendEmail("https://quadras.sandfriends.com.br/adem?tk="+newEmployee.EmailConfirmationToken)
 
     return returnStoreEmployees(employee.IdStore), HttpCode.SUCCESS
 
@@ -287,7 +289,7 @@ def ChangePasswordRequestEmployee():
     #envia o email automático para redefinir a senha
     employee.ResetPasswordToken = str(datetime.now().timestamp()) + str(employee.IdEmployee)
     db.session.commit()
-    sendEmail("Troca de senha <br/> https://www.sandfriends.com.br/cgpw?str=1&tk="+employee.ResetPasswordToken)
+    sendEmail("Troca de senha <br/> https://quadras.sandfriends.com.br/cgpw?str=1&tk="+employee.ResetPasswordToken)
     return webResponse("Link para troca de senha enviado!", "Verifique sua caixa de e-mail e siga as instruções para trocar sua senha"), HttpCode.ALERT
 
 #Rota acessada quando o funcionario clica no link pra trocar a senha (para validar o token antes do funcionario digitar a nova senha)
@@ -423,7 +425,17 @@ def initStoreLoginData(employee):
     for reward in rewards:
         rewardsList.append(reward.to_json_store())
 
-    return jsonify({'AccessToken':employee.AccessToken, 'LoggedEmail': employee.Email,'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList, 'MatchesStartDate': startDate.strftime("%d/%m/%Y"), 'MatchesEndDate': endDate.strftime("%d/%m/%Y"), 'RecurrentMatches': recurrentMatchList, 'Rewards': rewardsList})
+
+    notifications = db.session.query(NotificationStore)\
+                    .filter(NotificationStore.IdStore == store.IdStore)\
+                    .order_by(NotificationStore.IdNotificationStore.desc()).limit(50)
+
+    notificationList = []
+    for notification in notifications:
+        notificationList.append(notification.to_json())
+
+
+    return jsonify({'AccessToken':employee.AccessToken, 'LoggedEmail': employee.Email,'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList, 'MatchesStartDate': startDate.strftime("%d/%m/%Y"), 'MatchesEndDate': endDate.strftime("%d/%m/%Y"), 'RecurrentMatches': recurrentMatchList, 'Rewards': rewardsList, 'Notifications': notificationList})
 
 def returnStoreEmployees(storeId):
     store = db.session.query(Store).filter(Store.IdStore == storeId).first()

@@ -2,8 +2,9 @@ from flask import Blueprint, jsonify, abort, request
 from datetime import datetime
 import random
 from sqlalchemy import null, true, ForeignKey
-from ..routes.reward_routes import RewardStatus
 
+from ..routes.reward_routes import RewardStatus
+from ..responses import webResponse
 from ..Models.user_model import User
 from ..Models.store_model import Store
 from ..Models.available_hour_model import AvailableHour
@@ -20,8 +21,8 @@ from ..Models.match_model import Match
 from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.match_member_model import MatchMember
 from ..routes.match_routes import getHourString
-from ..Models.notification_model import Notification
-from ..Models.notification_category_model import NotificationCategory
+from ..Models.notification_user_model import NotificationUser
+from ..Models.notification_user_category_model import NotificationUserCategory
 from ..extensions import db
 from ..emails import sendEmail
 from ..Models.http_codes import HttpCode
@@ -70,7 +71,7 @@ def AddUser():
     userNew.EmailConfirmationToken = str(datetime.now().timestamp()) + userNew.AccessToken
     #emcf=email confirmation(não sei se é legal ter uma url explicita), str(pra distinguir se é store=1 ou user = 0)
     #tk = token
-    sendEmail("https://www.sandfriends.com.br/emcf?str=0&tk="+userNew.EmailConfirmationToken)
+    sendEmail("https://quadras.sandfriends.com.br/emcf?str=0&tk="+userNew.EmailConfirmationToken)
     db.session.commit()
     return "Sua conta foi criada! Valide ela com o e-mail que enviamos.", HttpCode.SUCCESS
 
@@ -254,7 +255,7 @@ def ChangePasswordRequestUser():
     #E-mail já  confirmado
     user.ResetPasswordToken = str(datetime.now().timestamp()) + user.AccessToken
     db.session.commit()
-    sendEmail("troca de senha <br/> https://www.sandfriends.com.br/cgpw?str=0&tk="+user.ResetPasswordToken)
+    sendEmail("troca de senha <br/> https://quadras.sandfriends.com.br/cgpw?str=0&tk="+user.ResetPasswordToken)
     return 'Enviamos um e-mail para ser feita a troca de senha', HttpCode.SUCCESS
 
 #rota acessada depois do usuario clicar no link para validar a troca de senha
@@ -268,11 +269,11 @@ def ValidateChangePasswordTokenUser():
     user = User.query.filter_by(ResetPasswordToken=changePasswordTokenReq).first()
     
     if changePasswordTokenReq == 0 or changePasswordTokenReq is None:
-        return "Não foi possível realizar a sua solicitação.", HttpCode.EXPIRED_TOKEN
+        return webResponse("Não foi possível realizar a sua solicitação.", None), HttpCode.WARNING
     
     #Token não localizado
     if not user:
-        return "Não foi possível realizar a sua solicitação.", HttpCode.EXPIRED_TOKEN
+        return webResponse("Não foi possível realizar a sua solicitação.", None), HttpCode.WARNING
 
     return "Token válido.", HttpCode.SUCCESS
     
@@ -289,16 +290,16 @@ def ChangePasswordUser():
     user = User.query.filter_by(ResetPasswordToken=changePasswordTokenReq).first()
 
     if changePasswordTokenReq == 0 or changePasswordTokenReq is None:
-        return "Não foi possível realizar a sua solicitação.", HttpCode.EXPIRED_TOKEN
+        return webResponse("Não foi possível realizar a sua solicitação.", None), HttpCode.WARNING
 
     if not user:
-        return "Não foi possível realizar a sua solicitação", HttpCode.EXPIRED_TOKEN
+        return webResponse("Não foi possível realizar a sua solicitação.", None), HttpCode.WARNING
 
     #Caso tudo ok
     user.Password = bcrypt.hashpw(newPasswordReq, bcrypt.gensalt())
     user.ResetPasswordToken = None
     db.session.commit()
-    return "Sua senha foi alterada com sucesso", HttpCode.SUCCESS
+    return webResponse("Sua senha foi alterada com sucesso", None), HttpCode.ALERT
 
 #Rota utilizada pelo jogador depois de fazer login e entrar na home do app. Aqui sãao requisitadas todas pertidas, recompensas, mensalistas... do jogador
 @bp_user_login.route("/GetUserInfo", methods=["POST"])
@@ -362,12 +363,12 @@ def GetUserInfo():
         userRecurrentMatchesList.append(userRecurrentMatch.to_json())
 
     notificationList = []
-    notifications = db.session.query(Notification).filter(Notification.IdUser == user.IdUser).all()
+    notifications = db.session.query(NotificationUser).filter(NotificationUser.IdUser == user.IdUser).all()
     
     for notification in notifications:
         notificationList.append(notification.to_json())
         notification.Seen = True
-        db.session.commit()
+    db.session.commit()
 
     return  jsonify({'UserMatches': userMatchesList, 'UserRecurrentMatches':  userRecurrentMatchesList,'OpenMatches': openMatchesList, 'Notifications': notificationList, 'UserRewards': RewardStatus(user.IdUser), 'MatchCounter': matchCounterList}), 200
 
