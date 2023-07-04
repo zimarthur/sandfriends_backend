@@ -14,39 +14,6 @@ import os
 
 bp_user = Blueprint('bp_user', __name__)
 
-@bp_user.route('/AddUserInformation', methods=['POST'])
-def AddUserInformation():
-    if not request.json:
-        abort(400)
-
-    payloadUserId = user_login_routes.DecodeToken(request.json.get('AccessToken'))
-
-    user = User(
-        IdUser = payloadUserId,
-        FirstName = request.json.get('FirstName'),
-        LastName = request.json.get('LastName'),
-        PhoneNumber = request.json.get('PhoneNumber'),
-        IdGenderCategory = None,
-        Birthday = None,
-        Height = None,
-        IdSidePreferenceCategory = None,
-        Photo = None,
-        IdCity = request.json.get('IdCity'),
-        IdSport = request.json.get('IdSport'),
-    )
-    db.session.add(user)
-
-    rankCategories = db.session.query(RankCategory).all()
-
-    for rankCategory in rankCategories:
-        if rankCategory.RankSportLevel == 0:
-            userRank = UserRank(
-                IdUser = user.IdUser,
-                IdRankCategory = rankCategory.IdRankCategory,
-            )
-            db.session.add(userRank)
-    db.session.commit()
-    return jsonify(user.to_json()), 201
 
 @bp_user.route("/UpdateUser", methods=["POST"])
 def UpdateUser():

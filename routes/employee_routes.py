@@ -17,7 +17,7 @@ from ..Models.available_hour_model import AvailableHour
 from ..Models.store_court_model import StoreCourt
 from ..Models.notification_store_model import NotificationStore
 from ..Models.notification_store_category_model import NotificationStoreCategory
-from ..emails import sendEmail
+from ..emails import emailStoreChangePassword, emailStoreAddEmployee
 from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import func
 import bcrypt
@@ -37,7 +37,7 @@ def EmployeeLogin():
     employee = db.session.query(Employee).filter(Employee.Email == emailReq).first()
 
     if employee is None:
-        return webResponse("Email não cadastrado", None), HttpCode.WARNING
+        return webResponse("E-mail não cadastrado", None), HttpCode.WARNING
 
     #if employee.Password != passwordReq:
     if not bcrypt.checkpw(passwordReq, (employee.Password).encode('utf-8')):
@@ -126,7 +126,7 @@ def AddEmployee():
     #enviar email para funcionário
     newEmployee.EmailConfirmationToken = str(datetime.now().timestamp()) + str(newEmployee.IdEmployee)
     db.session.commit()
-    sendEmail("https://quadras.sandfriends.com.br/adem?tk="+newEmployee.EmailConfirmationToken)
+    emailStoreAddEmployee(newEmployee.Email, "https://quadras.sandfriends.com.br/adem?tk="+newEmployee.EmailConfirmationToken)
 
     return returnStoreEmployees(employee.IdStore), HttpCode.SUCCESS
 
@@ -193,7 +193,7 @@ def EmailConfirmationEmployee():
     #Salva a data de confirmação da conta do gestor
     employee.EmailConfirmationDate = datetime.now()
     db.session.commit()
-    return "Email confirmado com sucesso", HttpCode.SUCCESS
+    return "E-mail confirmado com sucesso", HttpCode.SUCCESS
 
 @bp_employee.route("/SetEmployeeAdmin", methods=["POST"])
 def SetEmployeeAdmin():
@@ -289,7 +289,8 @@ def ChangePasswordRequestEmployee():
     #envia o email automático para redefinir a senha
     employee.ResetPasswordToken = str(datetime.now().timestamp()) + str(employee.IdEmployee)
     db.session.commit()
-    sendEmail("Troca de senha <br/> https://quadras.sandfriends.com.br/cgpw?str=1&tk="+employee.ResetPasswordToken)
+    emailStoreChangePassword(employee.Email, employee.FirstName, "Troca de senha <br/> https://quadras.sandfriends.com.br/cgpw?str=1&tk="+employee.ResetPasswordToken)
+
     return webResponse("Link para troca de senha enviado!", "Verifique sua caixa de e-mail e siga as instruções para trocar sua senha"), HttpCode.ALERT
 
 #Rota acessada quando o funcionario clica no link pra trocar a senha (para validar o token antes do funcionario digitar a nova senha)

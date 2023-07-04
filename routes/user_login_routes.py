@@ -24,7 +24,7 @@ from ..routes.match_routes import getHourString
 from ..Models.notification_user_model import NotificationUser
 from ..Models.notification_user_category_model import NotificationUserCategory
 from ..extensions import db
-from ..emails import sendEmail
+from ..emails import emailUserWelcomeConfirmation, emailUserChangePassword
 from ..Models.http_codes import HttpCode
 from ..access_token import EncodeToken, DecodeToken
 import bcrypt
@@ -66,12 +66,13 @@ def AddUser():
     db.session.refresh(userNew)
     
     #Com o IdUser já "calculado" já da pra criar o accessToken, que é feito no arquivo access_token.py, 
-    #e criar o token pra confimação do email(que é enviado por email pela função sendEmail())
+    #e criar o token pra confimação do email(que é enviado por email pela função emailUserWelcomeConfirmation())
     userNew.AccessToken = EncodeToken(userNew.IdUser)
     userNew.EmailConfirmationToken = str(datetime.now().timestamp()) + userNew.AccessToken
     #emcf=email confirmation(não sei se é legal ter uma url explicita), str(pra distinguir se é store=1 ou user = 0)
     #tk = token
-    sendEmail("https://quadras.sandfriends.com.br/emcf?str=0&tk="+userNew.EmailConfirmationToken)
+    emailUserWelcomeConfirmation(userNew.Email, userNew.FirstName, "https://quadras.sandfriends.com.br/emcf?str=0&tk="+userNew.EmailConfirmationToken)
+    
     db.session.commit()
     return "Sua conta foi criada! Valide ela com o e-mail que enviamos.", HttpCode.SUCCESS
 
@@ -111,6 +112,16 @@ def AddUserInfo():
     user.PhoneNumber = phoneNumberReq
     user.IdCity = idCityReq
     user.IdSport = idSportReq
+
+    rankCategories = db.session.query(RankCategory).all()
+
+    for rankCategory in rankCategories:
+        if rankCategory.RankSportLevel == 0:
+            userRank = UserRank(
+                IdUser = user.IdUser,
+                IdRankCategory = rankCategory.IdRankCategory,
+            )
+            db.session.add(userRank)
 
     db.session.commit()
 
@@ -227,13 +238,13 @@ def EmailConfirmationUser():
         if user.EmailConfirmationDate == None:
             user.EmailConfirmationDate = datetime.now()
             db.session.commit()
-            return "Sua conta foi validada com sucesso!", HttpCode.SUCCESS
+            return  webResponse("Sua conta foi validada com sucesso!",None), HttpCode.SUCCESS
         #Já estava confirmado
         else:
-            return "Sua conta já está válida", HttpCode.ALERT
+            return  webResponse("Sua conta já está válida", None), HttpCode.ALERT
     
     #Token não localizado
-    return "Algo deu errado, tente novamente.", HttpCode.WARNING
+    return webResponse("Algo deu errado, tente novamente.",None), HttpCode.WARNING
 
 #rota utilizada pelo jogador quando ele solicita para troca a senha. Nesse caso é enviado somente o email. Se o email estiver no banco do dados, é enviado um link para troca
 @bp_user_login.route("/ChangePasswordRequestUser", methods=["POST"])
@@ -255,7 +266,8 @@ def ChangePasswordRequestUser():
     #E-mail já  confirmado
     user.ResetPasswordToken = str(datetime.now().timestamp()) + user.AccessToken
     db.session.commit()
-    sendEmail("troca de senha <br/> https://quadras.sandfriends.com.br/cgpw?str=0&tk="+user.ResetPasswordToken)
+    emailUserChangePassword(user.Email, user.FirstName, "troca de senha <br/> https://quadras.sandfriends.com.br/cgpw?str=0&tk="+user.ResetPasswordToken)
+
     return 'Enviamos um e-mail para ser feita a troca de senha', HttpCode.SUCCESS
 
 #rota acessada depois do usuario clicar no link para validar a troca de senha

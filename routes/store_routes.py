@@ -13,7 +13,7 @@ from ..Models.match_model import Match
 from ..Models.employee_model import Employee
 from ..Models.available_hour_model import AvailableHour
 from ..Models.store_court_model import StoreCourt
-from ..emails import sendEmail
+from ..emails import emailStoreWelcomeConfirmation, emailStoreApproved
 from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import func
 import base64
@@ -116,7 +116,8 @@ def AddStore():
     ###Ajustar esta parte no futuro
     employeeReq.EmailConfirmationToken = str(datetime.now().timestamp()) + str(employeeReq.IdEmployee)
     db.session.commit()
-    sendEmail("https://quadras.sandfriends.com.br/emcf?str=1&tk="+employeeReq.EmailConfirmationToken)
+    emailStoreWelcomeConfirmation(employeeReq.Email, employeeReq.FirstName, "https://quadras.sandfriends.com.br/emcf?str=1&tk="+employeeReq.EmailConfirmationToken)
+    
     return webResponse("Você está quase lá!", \
     "Para concluir seu cadastro, é necessário que você valide seu e-mail.\nAcesse o link que enviamos e sua conta será criada.\n\nSe tiver qualquer dúvida, é só nos chamar, ok?"), HttpCode.ALERT
 
@@ -144,8 +145,7 @@ def ApproveStore():
     employee = db.session.query(Employee).filter(Employee.StoreOwner == True)\
                                          .filter(Employee.IdStore == idStoreReq).first()
 
-    #TODO: adicionar destinatário
-    sendEmail("Sua quadra está ok")
+    emailStoreApproved(employee.Email, employee.FirstName)
 
     db.session.commit()
 

@@ -832,7 +832,7 @@ def BlockUnblockHour():
             Canceled = False,
             CreationDate = datetime.now(),
             CreatorNotes = "",
-            IdRecurrentMatch = None,
+            IdRecurrentMatch = 0,
             Blocked = blockedReq,
             BlockedReason = blockedReasonReq,
         )

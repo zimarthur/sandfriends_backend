@@ -1,29 +1,70 @@
 from .settings import mailjet
 
 
-def sendEmail( message):
+USER_WELCOME_CONFIRMATION = 4927868
+USER_CHANGE_PASSWORD = 4927873
+
+STORE_WELCOME_CONFIRMATION = 4927876
+STORE_CHANGE_PASSWORD = 4927888
+STORE_ADD_EMPLOYEE = 4927886
+STORE_APPROVED = 4927883
+ 
+
+def emailUserWelcomeConfirmation(email, name):
+    variables = {
+        "nome": "Astor",
+    }
+    sendEmail(email, name, USER_WELCOME_CONFIRMATION, variables)
+   
+def emailUserChangePassword(email, name):
+    variables = {
+        "nome": "Astor",
+    }
+    sendEmail(email, name, STORE_CHANGE_PASSWORD, variables)
+   
+def emailStoreWelcomeConfirmation(email, name):
+    variables = {
+        "nome": "Astor",
+    }
+    sendEmail(email, name, STORE_WELCOME_CONFIRMATION, variables)
+   
+def emailStoreChangePassword(email, name):
+    variables = {
+        "nome": "Astor",
+    }
+    sendEmail(email, name, STORE_CHANGE_PASSWORD, variables)
+   
+def emailStoreAddEmployee(email, name):
+    variables = {
+        "nome": "Astor",
+    }
+    sendEmail(email, name, STORE_ADD_EMPLOYEE, variables)
+
+def emailStoreApproved(email, name):
+    variables = {
+        "nome": "Astor",
+    }
+    sendEmail(email, name, STORE_APPROVED, variables)
+   
+    
+def sendEmail( email, name, templateId, variables):
     data = {
     'Messages': [
         {
         "From": {
             "Email": "contato@sandfriends.com.br",
-            "Name": "Arthur"
+            "Name": "Equipe Sandfriends"
         },
         "To": [
             {
-            "Email": "pedromilano902@gmail.com",
-            "Name": "Pedro"
-            },
-            {
-            "Email": "zim.arthur97@gmail.com",
-            "Name": "Arthur"
+                "Email": email,
+                "Name": name
             }
         ],
-        "Subject": "Email automático SandFriends",
-        "TextPart": "Meu Primeiro email",
-        "HTMLPart": "<h3>"+message+"</h3><br />Vamo dale",
-        #"HTMLPart": "<h3>Dear passenger 1, welcome to <a href='https://www.mailjet.com/'>Mailjet</a>!</h3><br />May the delivery force be with you!",
-        "CustomID": "AppGettingStartedTest"
+        
+        "TemplateId": templateId,
+        "TemplateLanguage": True,
+        "Variables": variables,
         }
     ]
     }
