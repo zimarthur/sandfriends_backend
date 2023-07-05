@@ -34,7 +34,6 @@ class Match(db.Model):
     IsFinished = ((Date < datetime.today().date()) | ((Date == datetime.today().date()) & (IdTimeBegin < int(datetime.now().strftime("%H")))))
 
     def to_json(self):
-        CanCancelUpTo = datetime.strptime(self.TimeBegin.HourString, '%H:%M').replace(year=self.Date.year,month=self.Date.month,day=self.Date.day) - timedelta(hours=self.StoreCourt.Store.HoursBeforeCancellation)
 
         return {
             'IdMatch': self.IdMatch,
@@ -51,12 +50,10 @@ class Match(db.Model):
             'MatchUrl': self.MatchUrl,
             'CreatorNotes': self.CreatorNotes,
             'Members':[member.to_json() for member in self.Members],
-            'CanCancelUpTo': CanCancelUpTo.strftime("%d/%m/%Y às %H:%M"),
         }
 
     def to_json_open_match(self):
         members = [member.to_json() for member in self.Members if not(member.WaitingApproval) and not(member.Refused) and not(member.Quit) ]
-        CanCancelUpTo = datetime.strptime(self.TimeBegin.HourString, '%H:%M').replace(year=self.Date.year,month=self.Date.month,day=self.Date.day) - timedelta(hours=self.StoreCourt.Store.HoursBeforeCancellation)
 
         return {
             'IdMatch': self.IdMatch,
@@ -73,7 +70,6 @@ class Match(db.Model):
             'MatchUrl': self.MatchUrl,
             'CreatorNotes': self.CreatorNotes,
             'Members':members,
-            'CanCancelUpTo': CanCancelUpTo.strftime("%d/%m/%Y às %H:%M"),
         }
 
     def to_json_min(self):

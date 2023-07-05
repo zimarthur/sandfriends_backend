@@ -1,4 +1,6 @@
 from ..extensions import db
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy import func
 
 class Store(db.Model):
     __tablename__ = 'store'
@@ -12,7 +14,6 @@ class Store(db.Model):
     PhoneNumber2 = db.Column(db.String(12))
     Description = db.Column(db.String(350))
     Instagram = db.Column(db.String(100))
-    HoursBeforeCancellation = db.Column(db.Integer)
     CNPJ = db.Column(db.String(14))
     CPF = db.Column(db.String(11))
     Neighbourhood = db.Column(db.String(50))
@@ -28,9 +29,18 @@ class Store(db.Model):
     Courts = db.relationship('StoreCourt', backref="Store")
     Photos = db.relationship('StorePhoto', backref="Store")
     Employees = db.relationship('Employee', backref="Store")
-        
-    IsApproved = ApprovalDate != None
+
+ 
+    @property
+    def IsAvailable(self):
+        return self.ApprovalDate != None and self.Latitude != None and self.Longitude != None and self.Description != None and self.BankAccount != None and self.Logo != None and (len(self.Courts) > 0) and (len(self.Photos) > 1)
     
+    
+
+    # @IsAvailable.expression
+    # def IsAvailable(cls):
+    #     return cls.Courts#func.abs(cls.lengthCourts) # cls.lengthCourts #cls.Name == "Amigos da Areia"#(len([court for court in cls.Courts]) >= 1)
+
     def to_json(self):
         if self.Logo == None or self.Logo == "":
             logo = None
@@ -46,7 +56,6 @@ class Store(db.Model):
             'Longitude': self.Longitude,
             'IdCity': self.IdCity,
             'City': self.City.to_json(),
-            'HoursBeforeCancellation': self.HoursBeforeCancellation,
             'PhoneNumber1': self.PhoneNumber1,
             'PhoneNumber2': self.PhoneNumber2,
             'Logo': logo,
@@ -73,7 +82,6 @@ class Store(db.Model):
             'Longitude': self.Longitude,
             'IdCity': self.IdCity,
             'City': self.City.to_json(),
-            'HoursBeforeCancellation': self.HoursBeforeCancellation,
             'PhoneNumber1': self.PhoneNumber1,
             'PhoneNumber2': self.PhoneNumber2,
             'Logo': f"/img/str/logo/{self.Logo}.png",

@@ -5,6 +5,7 @@ from ..extensions import db
 import os
 from ..responses import webResponse
 from ..utils import firstSundayOnNextMonth, lastSundayOnLastMonth, isCurrentMonth
+from ..routes.store_routes import getAvailableStores
 from ..Models.http_codes import HttpCode
 from ..Models.match_model import Match
 from ..Models.recurrent_match_model import RecurrentMatch
@@ -60,11 +61,14 @@ def GetAllCities():
         statesList.append(state.to_jsonWithCities())
     return jsonify({'States':statesList})
 
+
 #rota que retorna todas cidades que tem estabelecimento cadastrado
 @bp_match.route("/GetAvailableCities", methods=["GET"])
 def GetAvailableCities():
+    stores = getAvailableStores()
+    
     cities = db.session.query(City)\
-            .join(Store, Store.IdCity == City.IdCity).distinct()
+            .filter(City.IdCity.in_([store.IdCity for store in stores])).distinct()
 
     states = db.session.query(State)\
             .filter(State.IdState.in_([city.IdState for city in cities])).distinct()
@@ -95,10 +99,9 @@ def SearchCourts():
     if user is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN
 
-    stores = db.session.query(Store).filter(Store.IdCity == cityId)\
-                                    .filter(Store.IsApproved).all()
 
-    storePhotos = db.session.query(StorePhoto).filter(StorePhoto.IdStore.in_([store.IdStore for store in stores])).all()
+    stores = db.session.query(Store).filter(Store.IdCity == cityId)\
+                                    .filter(Store.IdStore.in_([store.IdStore for store in getAvailableStores()])).all()
 
     #query de todas as quadras(não estabelecimento) que aceita o esporte solicitado
     courts = db.session.query(StoreCourt)\
@@ -561,10 +564,7 @@ def CancelMatch():
     elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
          return 'A partida já foi finalizada', HttpCode.WARNING
     else:
-        CanCancelUpTo = datetime.strptime(match.TimeBegin.HourString, '%H:%M').replace(year=match.Date.year,month=match.Date.month,day=match.Date.day) - timedelta(hours=match.StoreCourt.Store.HoursBeforeCancellation)
-        if datetime.now() >  CanCancelUpTo:
-            return 'Não é mais possível cancelar a partida', HttpCode.WARNING
-        
+
         match.Canceled = True
 
         matchMembers = MatchMember.query.filter(MatchMember.IdMatch == idMatch)\

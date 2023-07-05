@@ -10,11 +10,11 @@ STORE_ADD_EMPLOYEE = 4927886
 STORE_APPROVED = 4927883
  
 
-def emailUserWelcomeConfirmation(email, name):
+def emailUserWelcomeConfirmation(email, link):
     variables = {
-        "nome": "Astor",
+        "link":link,
     }
-    sendEmail(email, name, USER_WELCOME_CONFIRMATION, variables)
+    sendEmail(email,"", USER_WELCOME_CONFIRMATION, variables)
    
 def emailUserChangePassword(email, name):
     variables = {
@@ -53,15 +53,14 @@ def sendEmail( email, name, templateId, variables):
         {
         "From": {
             "Email": "contato@sandfriends.com.br",
-            "Name": "Equipe Sandfriends"
+            "Name": "Sandfriends"
         },
         "To": [
             {
-                "Email": email,
-                "Name": name
+                "Email": "zim.arthur97@gmail.com",
+                "Name": "Arthur"
             }
         ],
-        
         "TemplateId": templateId,
         "TemplateLanguage": True,
         "Variables": variables,

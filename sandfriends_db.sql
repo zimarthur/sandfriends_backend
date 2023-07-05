@@ -550,7 +550,6 @@ CREATE TABLE `store` (
   `PhoneNumber2` varchar(12) DEFAULT NULL,
   `Description` varchar(350) DEFAULT NULL,
   `Instagram` varchar(100) DEFAULT NULL,
-  `HoursBeforeCancellation` int DEFAULT NULL,
   `CEP` varchar(8) DEFAULT NULL,
   `Neighbourhood` varchar(50) DEFAULT NULL,
   `CPF` varchar(11) DEFAULT NULL,

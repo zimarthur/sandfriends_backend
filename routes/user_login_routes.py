@@ -71,7 +71,7 @@ def AddUser():
     userNew.EmailConfirmationToken = str(datetime.now().timestamp()) + userNew.AccessToken
     #emcf=email confirmation(não sei se é legal ter uma url explicita), str(pra distinguir se é store=1 ou user = 0)
     #tk = token
-    emailUserWelcomeConfirmation(userNew.Email, userNew.FirstName, "https://quadras.sandfriends.com.br/emcf?str=0&tk="+userNew.EmailConfirmationToken)
+    emailUserWelcomeConfirmation(userNew.Email, "https://quadras.sandfriends.com.br/emcf?str=0&tk="+userNew.EmailConfirmationToken)
     
     db.session.commit()
     return "Sua conta foi criada! Valide ela com o e-mail que enviamos.", HttpCode.SUCCESS

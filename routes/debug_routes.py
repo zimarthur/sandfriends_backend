@@ -59,9 +59,15 @@ def getHourIndex(hourString):
 def getLastMonth():
     return (datetime.today().replace(day=1) - timedelta(days=1)).replace(day=1).date()
 
-@bp_debug.route('/debug', methods=['POST'])
+@bp_debug.route('/debug', methods=['GET'])
 def debug():
-    return str(datetime.now()), HttpCode.SUCCESS
+    #store = db.session.query(Store).first()
+    #return str(store.IsAvailable), 200
+    stores = db.session.query(Store).filter(Store.IsAvailable >= 1).all()
+    a=[]
+    for store in stores:
+        a.append(store.Name)
+    return jsonify({"a": a}), HttpCode.SUCCESS
     
     # firstDayOfMonth = datetime.today().replace(day = 1, month = 6)
     # return str(firstDayOfMonth - timedelta(days=(firstDayOfMonth.weekday()))), 200

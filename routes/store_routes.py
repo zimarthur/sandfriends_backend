@@ -175,6 +175,16 @@ def UpdateStoreInfo():
     cityReq = request.json.get('City')
     stateReq = request.json.get('State')
 
+    nameReq = request.json.get('Name')
+    addressReq = request.json.get('Address')
+    addressNumberReq = request.json.get('AddressNumber')
+    phoneNumber1Req = request.json.get('PhoneNumber1')
+    descriptionReq = request.json.get('Description')
+    cepReq = request.json.get('Cep')
+    bankAccountReq = request.json.get('BankAccount')
+    neighbourhoodReq = request.json.get('Neighbourhood')
+    photosReq = request.json.get('Photos')
+
     #primeiro recebe a cidade e o estado pra ver pegar o stateId e o cityId
     city = db.session.query(City).filter(func.lower(City.City) == func.lower(cityReq)).first()
     state = db.session.query(State).filter(func.lower(State.UF) == func.lower(stateReq)).first()
@@ -189,20 +199,45 @@ def UpdateStoreInfo():
     if city.IdState != state.IdState:
         return webResponse("Esta cidade não pertence a esse estado", None), HttpCode.WARNING
 
-    #TODO: bater com o milano se na edição de uma quadra vamos ter mais validações
-
-    store.Name = request.json.get('Name')
-    store.Address = request.json.get('Address')
-    store.AddressNumber = request.json.get('AddressNumber')
+    if store.IsAvailable:
+        if(nameReq is None or nameReq == ""):
+            return webResponse("O nome do seu estabelecimento está em branco", None), HttpCode.WARNING
+        
+        if(addressReq is None or addressReq == ""):
+            return webResponse("A rua do seu estabelecimento está em branco", None), HttpCode.WARNING
+        
+        if(addressNumberReq is None or addressNumberReq == ""):
+            return webResponse("O número do seu estabelecimento está em branco", None), HttpCode.WARNING
+        
+        if(phoneNumber1Req is None or phoneNumber1Req == ""):
+            return webResponse("O telefone do seu estabelecimento está em branco", None), HttpCode.WARNING
+        
+        if(descriptionReq is None or descriptionReq == ""):
+            return webResponse("A descrição do seu estabelecimento está em branco", None), HttpCode.WARNING
+        
+        if(cepReq is None or cepReq == ""):
+            return webResponse("O CEP do seu estabelecimento está em branco", None), HttpCode.WARNING
+        
+        if(bankAccountReq is None or bankAccountReq == ""):
+            return webResponse("O número da sua conta bancária está em branco", None), HttpCode.WARNING
+    
+        if(neighbourhoodReq is None or neighbourhoodReq == ""):
+            return webResponse("O nome do bairro do seu estabelecimento está em branco", None), HttpCode.WARNING
+        
+        if (len(photosReq) < 2):
+            return webResponse("Seu estabelecimento precisa ter pelo menos 2 fotos", None), HttpCode.WARNING
+        
+    store.Name = nameReq
+    store.Address = addressReq
+    store.AddressNumber = addressNumberReq
     store.IdCity = city.IdCity
-    store.PhoneNumber1 = request.json.get('PhoneNumber1')
+    store.PhoneNumber1 = phoneNumber1Req
     store.PhoneNumber2 = request.json.get('PhoneNumber2')
-    store.Description = request.json.get('Description')
+    store.Description = descriptionReq
     store.Instagram = request.json.get('Instagram')
-    store.CNPJ = request.json.get('Cnpj')
-    store.CEP = request.json.get('Cep')
-    store.BankAccount = request.json.get('BankAccount')
-    store.Neighbourhood = request.json.get('Neighbourhood')
+    store.CEP = cepReq
+    store.BankAccount = bankAccountReq
+    store.Neighbourhood = neighbourhoodReq
 
     logoReq = request.json.get('Logo')
     if logoReq != "":
@@ -213,7 +248,7 @@ def UpdateStoreInfo():
         imageFile.write(imageBytes)
         imageFile.close()
 
-    photosReq = request.json.get('Photos')
+    
     receivedIdStorePhotos = []
     newPhotos = []
 
@@ -253,3 +288,19 @@ def DeleteStore(id):
     db.session.delete(store)
     db.session.commit()
     return jsonify({'result': True})
+
+def getAvailableStores():
+    stores = db.session.query(Store)\
+            .filter(Store.ApprovalDate != None)\
+            .filter(Store.Latitude != None)\
+            .filter(Store.Longitude != None)\
+            .filter(Store.Description != None)\
+            .filter(Store.BankAccount != None)\
+            .filter(Store.Logo != None).all()
+    
+    storesList = []
+    for store in stores:
+        validPhotos = len([photo for photo in store.Photos if photo.Deleted==False])
+        if((validPhotos >= 2) and (len(store.Courts) >=1)):
+            storesList.append(store)
+    return storesList

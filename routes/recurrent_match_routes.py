@@ -4,7 +4,7 @@ from ..utils import getLastDayOfMonth
 from datetime import datetime, timedelta, date
 from ..utils import getFirstDayOfLastMonth
 from ..responses import webResponse
-
+from ..routes.store_routes import getAvailableStores
 from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.http_codes import HttpCode
 from ..Models.match_model import Match
@@ -99,7 +99,7 @@ def SearchRecurrentCourts():
         return '1', HttpCode.EXPIRED_TOKEN
 
     stores = db.session.query(Store).filter(Store.IdCity == cityId)\
-                                    .filter(Store.IsApproved).all()
+                                    .filter(Store.IdStore.in_([store.IdStore for store in getAvailableStores()])).all()
 
     courts = db.session.query(StoreCourt)\
                     .join(StoreCourtSport, StoreCourtSport.IdStoreCourt == StoreCourt.IdStoreCourt)\
