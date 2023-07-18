@@ -36,6 +36,10 @@ class User(db.Model):
     ResetPasswordToken = db.Column(db.Integer)
     ThirdPartyLogin = db.Column(db.Boolean)
 
+    AsaasId = db.Column(db.String(300))
+    AsaasCreationDate = db.Column(db.DateTime)
+    Cpf = db.Column(db.String(11))
+
     def to_json(self):
         if self.Birthday == None:
             birthday = None
@@ -91,6 +95,7 @@ class User(db.Model):
             'EmailConfirmationToken': self.EmailConfirmationToken,
             'ThirdPartyLogin': self.ThirdPartyLogin,
             'ResetPasswordToken':self.ResetPasswordToken,
+            'Cpf':self.Cpf,
         }
 
     def identification_to_json(self):

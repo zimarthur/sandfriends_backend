@@ -119,23 +119,12 @@ def SearchRecurrentCourts():
 
     dayList = []
     IdStoresList = []
-    a = []
-    b = []
     for day in days:
         jsonStores = []
         for store in stores:
             b = []
             filteredCourts = [court for court in courts if court.IdStore == store.IdStore]
-            for la in filteredCourts:
-                b.append({
-                    "id":la.IdStoreCourt
-                    })
-            a.append({
-                "day": day,
-                "store": store.IdStore,
-                "idCourt":b,
-            })
-    #return jsonify({"a":a}), 200
+            
             if(len(filteredCourts) > 0):
                 storeOperationHours = [storeOperationHour for storeOperationHour in courtHours if \
                                     (storeOperationHour.IdStoreCourt == filteredCourts[0].IdStoreCourt) and\
@@ -237,7 +226,7 @@ def CourtReservation():
     )
     db.session.add(newRecurrentMatch)
     db.session.commit()
-    myList=[]
+
     for day in daysList:
         concurrentMatch = [match for match in matches if match.Date == day]
         if not concurrentMatch:
@@ -272,6 +261,53 @@ def CourtReservation():
             db.session.commit()
             
     return "Seus horários mensalistas foram agendados!", HttpCode.ALERT
+
+
+@bp_recurrent_match.route("/RecurrentMonthAvailableHours", methods=["POST"])
+def RecurrentMonthAvailableHours():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    accessToken = request.json.get('AccessToken')
+    idStoreCourt = request.json.get('IdStoreCourt')
+    weekDay = int(request.json.get('Weekday'))
+    timeStart = int(request.json.get('TimeBegin'))
+    timeEnd = int(request.json.get('TimeEnd'))
+
+    user = User.query.filter_by(AccessToken = accessToken).first()
+
+    if user is None:
+        return '1', HttpCode.EXPIRED_TOKEN
+
+    #verifica se alguma partida mensalista ou algum bloqueio foi feite nesse horario
+    recurrentMatch = db.session.query(RecurrentMatch)\
+                        .filter(RecurrentMatch.IdStoreCourt == int(idStoreCourt)) \
+                        .filter(RecurrentMatch.Weekday == weekDay) \
+                        .filter(RecurrentMatch.Canceled == False)\
+                        .filter(((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin < timeEnd))  | \
+                        ((Match.IdTimeEnd > timeStart) & (Match.IdTimeEnd <= timeEnd))      | \
+                        ((Match.IdTimeBegin < timeStart) & (Match.IdTimeEnd > timeStart))   \
+                        ).first()
+    
+    if recurrentMatch is not None:
+        return "Ops, esse horário não está mais disponível", HttpCode.WARNING
+
+    daysList = [day for day in daterange(datetime.today().date(), getLastDayOfMonth(datetime.now())) if day.weekday() == weekDay]
+    matches = Match.query.filter((Match.IdStoreCourt == int(idStoreCourt)) \
+                & (Match.Date.in_(daysList)) \
+                & (((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin < timeEnd))  | \
+                ((Match.IdTimeEnd > timeStart) & (Match.IdTimeEnd <= timeEnd))      | \
+                ((Match.IdTimeBegin < timeStart) & (Match.IdTimeEnd > timeStart))   \
+                )).all()
+
+    recurrentMonthAvailableHours = []
+
+    for day in daysList:
+        concurrentMatch = [match for match in matches if match.Date == day]
+        if not concurrentMatch:
+            recurrentMonthAvailableHours.append(day.strftime("%d/%m/%Y"))
+            
+    return jsonify({"RecurrentMonthAvailableHours": recurrentMonthAvailableHours}), HttpCode.SUCCESS
    
 
 

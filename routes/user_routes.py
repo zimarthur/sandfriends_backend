@@ -73,7 +73,7 @@ def UpdateUser():
             user.IdSidePreferenceCategory = request.json.get('SidePreference')
 
         photoReq = request.json.get('Photo')
-        if photoReq != user.Photo:
+        if user.Photo not in photoReq:
             if photoReq is None or photoReq == "":
                 user.Photo = None
             else: 

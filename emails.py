@@ -1,13 +1,13 @@
 from .settings import mailjet
 
 
-USER_WELCOME_CONFIRMATION = 4927868
-USER_CHANGE_PASSWORD = 4927873
+USER_WELCOME_CONFIRMATION = 4954722
+USER_CHANGE_PASSWORD = 4954729
 
 STORE_WELCOME_CONFIRMATION = 4927876
-STORE_CHANGE_PASSWORD = 4927888
-STORE_ADD_EMPLOYEE = 4927886
-STORE_APPROVED = 4927883
+STORE_CHANGE_PASSWORD = 4954711
+STORE_ADD_EMPLOYEE = 4954715
+STORE_APPROVED = 4954730
  
 
 def emailUserWelcomeConfirmation(email, link):
@@ -16,11 +16,11 @@ def emailUserWelcomeConfirmation(email, link):
     }
     sendEmail(email,"", USER_WELCOME_CONFIRMATION, variables)
    
-def emailUserChangePassword(email, name):
+def emailUserChangePassword(email, name, link):
     variables = {
-        "nome": "Astor",
+        "link":link,
     }
-    sendEmail(email, name, STORE_CHANGE_PASSWORD, variables)
+    sendEmail(email, name, USER_CHANGE_PASSWORD, variables)
    
 def emailStoreWelcomeConfirmation(email, name):
     variables = {

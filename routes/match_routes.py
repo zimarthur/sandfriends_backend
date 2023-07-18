@@ -30,6 +30,10 @@ from ..Models.notification_store_model import NotificationStore
 from ..Models.notification_store_category_model import NotificationStoreCategory
 from ..access_token import EncodeToken, DecodeToken
 
+from ..Asaas.update_customer import updateCpf
+from ..Asaas.create_payment import createPaymentPix
+from ..Asaas.generate_qr_code import generateQrCode
+
 bp_match = Blueprint('bp_match', __name__)
 
 def getHourIndex(hourString):
@@ -139,9 +143,16 @@ def SearchCourts():
     jsonOpenMatches = []
     for match in matches:
         if (match.OpenUsers == True) and (match.Canceled == False) and (match.IdSport == sportId):
-            jsonOpenMatches.append(
-                match.to_json_open_match(),
-            )
+            userAlreadyInMatch = False
+            matchMemberCounter = 0
+            for member in match.Members:
+                if (member.User.IdUser == user.IdUser)  and (member.Refused == False) and (member.Quit == False):
+                    userAlreadyInMatch = True
+                    break
+            if (userAlreadyInMatch == False) and (matchMemberCounter < match.MaxUsers):
+                jsonOpenMatches.append(
+                    match.to_json_open_match(),
+                )
 
     #horários livres
     jsonDates =[]
@@ -234,7 +245,7 @@ def GetUserMatches():
     user = db.session.query(User).filter(User.AccessToken == tokenReq).first()
 
     if user is None:
-        return "Expired Token", HttpCode.EXPIRED_TOKEN
+        return "Expired Token " + str(tokenReq), HttpCode.EXPIRED_TOKEN
 
     userMatchesList = []
     #query para as partidas que o jogador jogou e vai jogar
@@ -253,78 +264,105 @@ def MatchReservation():
     if not request.json:
         abort(HttpCode.ABORT)
 
-    accessToken = request.json.get('AccessToken')
-    idStoreCourt = request.json.get('IdStoreCourt')
-    sportId = request.json.get('SportId')
-    date = datetime.strptime(request.json.get('Date'), '%d-%m-%Y')
-    timeStart = int(request.json.get('TimeStart'))
-    timeEnd = int(request.json.get('TimeEnd'))
-    cost = request.json.get('Cost')
+    accessTokenReq = request.json.get('AccessToken')
+    idStoreCourtReq = request.json.get('IdStoreCourt')
+    sportIdReq = request.json.get('SportId')
+    dateReq = datetime.strptime(request.json.get('Date'), '%d/%m/%Y')
+    timeStartReq = int(request.json.get('TimeStart'))
+    timeEndReq = int(request.json.get('TimeEnd'))
+    costReq = request.json.get('Cost')
+    paymentReq = request.json.get('Payment')
+    cpfReq = request.json.get('Cpf')
 
-    concurrentMatch = Match.query.filter((Match.IdStoreCourt == int(idStoreCourt)) & (Match.Date == date) & (\
-                ((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin < timeEnd))  | \
-                ((Match.IdTimeEnd > timeStart) & (Match.IdTimeEnd <= timeEnd))      | \
-                ((Match.IdTimeBegin < timeStart) & (Match.IdTimeEnd > timeStart))   \
+    concurrentMatch = Match.query.filter((Match.IdStoreCourt == int(idStoreCourtReq)) & (Match.Date == dateReq) & (\
+                ((Match.IdTimeBegin >= timeStartReq) & (Match.IdTimeBegin < timeEndReq))  | \
+                ((Match.IdTimeEnd > timeStartReq) & (Match.IdTimeEnd <= timeEndReq))      | \
+                ((Match.IdTimeBegin < timeStartReq) & (Match.IdTimeEnd > timeStartReq))   \
                 )).first()
 
     #lembrando que aqui são as partidas mensalistas e os horários bloqueados recorrentemente
     concurrentRecurrentMatch = db.session.query(RecurrentMatch)\
-                    .filter(RecurrentMatch.IdStoreCourt == int(idStoreCourt))\
-                    .filter(RecurrentMatch.Weekday == date.weekday())\
+                    .filter(RecurrentMatch.IdStoreCourt == int(idStoreCourtReq))\
+                    .filter(RecurrentMatch.Weekday == dateReq.weekday())\
                     .filter(RecurrentMatch.Canceled == False)\
-                    .filter(((RecurrentMatch.IdTimeBegin >= timeStart) & (Match.IdTimeBegin <= timeEnd)) | \
-                            ((RecurrentMatch.IdTimeEnd > timeStart) & (RecurrentMatch.IdTimeEnd <= timeEnd)) | \
-                            ((RecurrentMatch.IdTimeBegin < timeStart) & (RecurrentMatch.IdTimeEnd > timeStart))).first()
+                    .filter(((RecurrentMatch.IdTimeBegin >= timeStartReq) & (Match.IdTimeBegin <= timeEndReq)) | \
+                            ((RecurrentMatch.IdTimeEnd > timeStartReq) & (RecurrentMatch.IdTimeEnd <= timeEndReq)) | \
+                            ((RecurrentMatch.IdTimeBegin < timeStartReq) & (RecurrentMatch.IdTimeEnd > timeStartReq))).first()
 
     if (concurrentMatch is not None) or (concurrentRecurrentMatch is not None):
         return "Ops, esse horário não está mais disponível", HttpCode.WARNING
-    else:
-        user = User.query.filter_by(AccessToken = accessToken).first()
+    
+    user = User.query.filter_by(AccessToken = accessTokenReq).first()
 
-        if user is None:
-            return '1', HttpCode.INVALID_ACCESS_TOKEN
-        newMatch = Match(
-            IdStoreCourt = idStoreCourt,
-            IdSport = sportId,
-            Date = date,
-            IdTimeBegin = timeStart,
-            IdTimeEnd = timeEnd,
-            Cost = cost,
-            OpenUsers = False,
-            MaxUsers = 0,
-            Canceled = False,
-            CreationDate = datetime.now(),
-            CreatorNotes = "",
-            IdRecurrentMatch = 0,
-            Blocked = False,
-        )
-        db.session.add(newMatch)
-        db.session.commit()
-        newMatch.MatchUrl = f'{newMatch.IdMatch}{int(round(newMatch.CreationDate.timestamp()))}'
-        db.session.commit()
-        matchMember = MatchMember(
-            IdUser = user.IdUser,
-            IsMatchCreator = True,
-            WaitingApproval = False,
-            Refused = False,
-            IdMatch = newMatch.IdMatch,
-            Quit = False,
-            EntryDate = datetime.now(),
-        )
-        db.session.add(matchMember)
+    if user is None:
+        return '1', HttpCode.INVALID_ACCESS_TOKEN
 
-        #notificação para a loja
-        newNotificationStore = NotificationStore(
-            IdUser = user.IdUser,
-            IdStore = newMatch.StoreCourt.IdStore,
-            IdMatch = newMatch.IdMatch,
-            IdNotificationStoreCategory = 1,
-            EventDatetime = datetime.now()
-        )
-        db.session.add(newNotificationStore)
-        
-        db.session.commit()
-        return "Sua partida foi agendada!", HttpCode.ALERT
+    #PIX
+    if paymentReq == 1:
+        if cpfReq != user.Cpf:
+            user.Cpf = cpfReq
+            db.session.commit()
+            responseCpf = updateCpf(user)
+
+            if responseCpf.status_code != 200:
+                return "Não foi possível criar suas partida. Tente novamente", HttpCode.WARNING
+
+    responsePayment = createPaymentPix(user, costReq)
+    if responsePayment.status_code != 200:
+         return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
+
+    newMatch = Match(
+        IdStoreCourt = idStoreCourtReq,
+        IdSport = sportIdReq,
+        Date = dateReq,
+        IdTimeBegin = timeStartReq,
+        IdTimeEnd = timeEndReq,
+        Cost = costReq,
+        OpenUsers = False,
+        MaxUsers = 0,
+        Canceled = False,
+        CreationDate = datetime.now(),
+        CreatorNotes = "",
+        IdRecurrentMatch = 0,
+        Blocked = False,
+        AsaasPaymentId = responsePayment.json().get('id'),
+        AsaasBillingType = responsePayment.json().get('billingType'),
+        AsaasPaymentStatus = responsePayment.json().get('status'),
+    )
+
+    responsePixCode = generateQrCode(responsePayment.json().get('id'))
+
+    if responsePixCode.status_code == 200:
+        newMatch.AsaasPixCode = responsePixCode.json().get('payload')
+
+    db.session.add(newMatch)
+    db.session.commit()
+    newMatch.MatchUrl = f'{newMatch.IdMatch}{int(round(newMatch.CreationDate.timestamp()))}'
+    db.session.commit()
+    matchMember = MatchMember(
+        IdUser = user.IdUser,
+        IsMatchCreator = True,
+        WaitingApproval = False,
+        Refused = False,
+        IdMatch = newMatch.IdMatch,
+        Quit = False,
+        EntryDate = datetime.now(),
+    )
+    db.session.add(matchMember)
+
+    #notificação para a loja
+    newNotificationStore = NotificationStore(
+        IdUser = user.IdUser,
+        IdStore = newMatch.StoreCourt.IdStore,
+        IdMatch = newMatch.IdMatch,
+        IdNotificationStoreCategory = 1,
+        EventDatetime = datetime.now()
+    )
+    db.session.add(newNotificationStore)
+
+    db.session.commit()
+    
+    return "Sua partida foi agendada!", HttpCode.ALERT
 
 @bp_match.route("/GetMatchInfo", methods=["POST"])
 def GetMatchInfo(): 
@@ -558,10 +596,10 @@ def CancelMatch():
     if user is None:
         return 'Token inválido', HttpCode.WARNING
 
-    match = Match.query.get(idMatch)
+    match = Match.query.get(idMatch) 
     if match is None:
         return 'Partida não encontrada', HttpCode.WARNING
-    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
+    elif (match.IsFinished()):
          return 'A partida já foi finalizada', HttpCode.WARNING
     else:
 
@@ -581,7 +619,7 @@ def CancelMatch():
                     IdUser = matchMember.IdUser,
                     IdStore = match.StoreCourt.IdStore,
                     IdMatch = idMatch,
-                    IdNotificationUserCategory = 2,
+                    IdNotificationStoreCategory = 2,
                     EventDatetime = datetime.now()
                 )
                 db.session.add(newNotificationStore)

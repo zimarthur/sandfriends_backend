@@ -1,7 +1,11 @@
 from ..extensions import db
 from datetime import datetime, timedelta
 from ..utils import getFirstDayOfLastMonth, isCurrentMonth
+import json
 
+with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
+    URL_list = json.load(config_file)
+    
 class RecurrentMatch(db.Model):
     __tablename__ = 'recurrent_match'
     IdRecurrentMatch = db.Column(db.Integer, primary_key=True)
@@ -38,7 +42,7 @@ class RecurrentMatch(db.Model):
     def getMatchCounter(self):
         recurrentMatchesCounter=0
         for match in self.Matches:
-            if (match.Canceled == False) and (match.IsFinished == True):
+            if (match.Canceled == False) and (match.IsFinished() == True):
                 recurrentMatchesCounter+=1
 
         return recurrentMatchesCounter
@@ -76,7 +80,7 @@ class RecurrentMatch(db.Model):
             if self.User.Photo is None:
                 userPhoto = None
             else:
-                userPhoto = f"https://www.sandfriends.com.br/img/usr/{self.User.Photo}.png"
+                userPhoto = f"https://" + URL_list.get('URL_MAIN') + "/img/usr/{self.User.Photo}.png"
 
         return {
             'IdRecurrentMatch': self.IdRecurrentMatch,

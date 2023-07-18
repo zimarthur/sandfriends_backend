@@ -3,9 +3,11 @@ from datetime import datetime
 import random
 from sqlalchemy import null, true, ForeignKey
 
+
 from ..routes.reward_routes import RewardStatus
 from ..responses import webResponse
 from ..Models.user_model import User
+from ..Models.user_credit_card_model import UserCreditCard
 from ..Models.store_model import Store
 from ..Models.available_hour_model import AvailableHour
 from ..Models.rank_category_model import RankCategory
@@ -28,6 +30,12 @@ from ..emails import emailUserWelcomeConfirmation, emailUserChangePassword
 from ..Models.http_codes import HttpCode
 from ..access_token import EncodeToken, DecodeToken
 import bcrypt
+import json
+
+from ..Asaas.create_customer import createCustomer
+
+with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
+    URL_list = json.load(config_file)
 
 bp_user_login = Blueprint('bp_user_login', __name__)
 
@@ -71,7 +79,7 @@ def AddUser():
     userNew.EmailConfirmationToken = str(datetime.now().timestamp()) + userNew.AccessToken
     #emcf=email confirmation(não sei se é legal ter uma url explicita), str(pra distinguir se é store=1 ou user = 0)
     #tk = token
-    emailUserWelcomeConfirmation(userNew.Email, "https://quadras.sandfriends.com.br/emcf?str=0&tk="+userNew.EmailConfirmationToken)
+    emailUserWelcomeConfirmation(userNew.Email, "https://" + URL_list.get('URL_QUADRAS') + "/emcf?str=0&tk="+userNew.EmailConfirmationToken)
     
     db.session.commit()
     return "Sua conta foi criada! Valide ela com o e-mail que enviamos.", HttpCode.SUCCESS
@@ -123,6 +131,14 @@ def AddUserInfo():
             )
             db.session.add(userRank)
 
+    response = createCustomer(user)
+
+    user.AsaasId = response.json().get('id')
+    user.AsaasCreationDate = response.json().get('dateCreated')
+
+    if response.status_code != 200:
+        return "Tivemos um problema para criar sua conta. Tente novamente", HttpCode.WARNING
+   
     db.session.commit()
 
     return jsonify({'User':user.to_json()}), HttpCode.SUCCESS
@@ -266,7 +282,7 @@ def ChangePasswordRequestUser():
     #E-mail já  confirmado
     user.ResetPasswordToken = str(datetime.now().timestamp()) + user.AccessToken
     db.session.commit()
-    emailUserChangePassword(user.Email, user.FirstName, "troca de senha <br/> https://quadras.sandfriends.com.br/cgpw?str=0&tk="+user.ResetPasswordToken)
+    emailUserChangePassword(user.Email, user.FirstName, "troca de senha <br/> https://" + URL_list.get('URL_QUADRAS') + "/cgpw?str=0&tk="+user.ResetPasswordToken)
 
     return 'Enviamos um e-mail para ser feita a troca de senha', HttpCode.SUCCESS
 
@@ -382,7 +398,16 @@ def GetUserInfo():
         notification.Seen = True
     db.session.commit()
 
-    return  jsonify({'UserMatches': userMatchesList, 'UserRecurrentMatches':  userRecurrentMatchesList,'OpenMatches': openMatchesList, 'Notifications': notificationList, 'UserRewards': RewardStatus(user.IdUser), 'MatchCounter': matchCounterList}), 200
+    creditCards = db.session.query(UserCreditCard)\
+            .filter(UserCreditCard.IdUser == user.IdUser)\
+            .filter(UserCreditCard.Deleted == False).all()
+    
+    userCreditCardsList = []
+    for creditCard in creditCards:
+        userCreditCardsList.append(creditCard.to_json())
+
+
+    return  jsonify({'UserMatches': userMatchesList, 'UserRecurrentMatches':  userRecurrentMatchesList,'OpenMatches': openMatchesList, 'Notifications': notificationList, 'UserRewards': RewardStatus(user.IdUser), 'MatchCounter': matchCounterList, 'CreditCards': userCreditCardsList}), 200
 
 def initUserLoginData(user):
     sports = db.session.query(Sport).all()
@@ -410,6 +435,7 @@ def initUserLoginData(user):
     for hour in hours:
         hoursList.append(hour.to_json())
 
+    
     return jsonify({'Sports':sportsList, 'Genders': gendersList, 'SidePreferences': sidePreferencesList, 'Ranks': ranksList, 'Hours': hoursList, 'User': user.to_json()})
 
 def getMatchCounterList(user):

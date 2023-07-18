@@ -21,7 +21,10 @@ from ..emails import emailStoreChangePassword, emailStoreAddEmployee
 from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import func
 import bcrypt
+import json
 
+with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
+    URL_list = json.load(config_file)
 
 bp_employee = Blueprint('bp_employee', __name__)
 
@@ -37,8 +40,11 @@ def EmployeeLogin():
     employee = db.session.query(Employee).filter(Employee.Email == emailReq).first()
 
     if employee is None:
-        return webResponse("E-mail não cadastrado", None), HttpCode.WARNING
+        return webResponse("Não encontramos nenhuma quadra com este e-mail", "Se você é um jogador, realize o login diretamente pelo app"), HttpCode.WARNING
 
+    if employee.DateDisabled is not None:
+        return webResponse("Você não faz mais parte de nenhuma equipe",), HttpCode.WARNING
+    
     #if employee.Password != passwordReq:
     if not bcrypt.checkpw(passwordReq, (employee.Password).encode('utf-8')):
         return webResponse("Senha incorreta", None), HttpCode.WARNING
@@ -126,7 +132,7 @@ def AddEmployee():
     #enviar email para funcionário
     newEmployee.EmailConfirmationToken = str(datetime.now().timestamp()) + str(newEmployee.IdEmployee)
     db.session.commit()
-    emailStoreAddEmployee(newEmployee.Email, "https://quadras.sandfriends.com.br/adem?tk="+newEmployee.EmailConfirmationToken)
+    emailStoreAddEmployee(newEmployee.Email, "https://" + URL_list.get('URL_QUADRAS') + "/adem?tk="+newEmployee.EmailConfirmationToken)
 
     return returnStoreEmployees(employee.IdStore), HttpCode.SUCCESS
 
@@ -289,7 +295,7 @@ def ChangePasswordRequestEmployee():
     #envia o email automático para redefinir a senha
     employee.ResetPasswordToken = str(datetime.now().timestamp()) + str(employee.IdEmployee)
     db.session.commit()
-    emailStoreChangePassword(employee.Email, employee.FirstName, "Troca de senha <br/> https://quadras.sandfriends.com.br/cgpw?str=1&tk="+employee.ResetPasswordToken)
+    emailStoreChangePassword(employee.Email, employee.FirstName, "Troca de senha <br/> https://" + URL_list.get('URL_QUADRAS') + "/cgpw?str=1&tk="+employee.ResetPasswordToken)
 
     return webResponse("Link para troca de senha enviado!", "Verifique sua caixa de e-mail e siga as instruções para trocar sua senha"), HttpCode.ALERT
 

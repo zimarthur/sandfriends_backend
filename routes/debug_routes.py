@@ -1,6 +1,5 @@
 from flask import Blueprint, jsonify, abort, request
 from ..Models.feedback_model import Feedback
-from ..Models.user_login_model import UserLogin
 from ..Models.rank_category_model import RankCategory
 from ..Models.user_rank_model import UserRank
 from ..Models.user_model import User
@@ -23,7 +22,8 @@ from sqlalchemy import func, text
 from ..extensions import db
 import os
 from ..responses import webResponse
-
+import requests
+from ..Asaas.asaas_base_api import asaas_api_key
 from ..Models.http_codes import HttpCode
 from ..Models.match_model import Match
 from ..Models.recurrent_match_model import RecurrentMatch
@@ -40,8 +40,11 @@ from ..Models.store_photo_model import StorePhoto
 from ..Models.store_court_model import StoreCourt
 from ..Models.store_court_sport_model import StoreCourtSport
 from ..Models.sport_model import Sport
-from ..Models.user_login_model import UserLogin
 from ..access_token import EncodeToken, DecodeToken
+import json
+from ..Asaas.asaas_base_api import requestPost
+with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
+    URL_list = json.load(config_file)
 
 bp_debug = Blueprint('bp_debug', __name__)
 
@@ -59,15 +62,41 @@ def getHourIndex(hourString):
 def getLastMonth():
     return (datetime.today().replace(day=1) - timedelta(days=1)).replace(day=1).date()
 
-@bp_debug.route('/debug', methods=['GET'])
+@bp_debug.route('/debug', methods=['POST'])
 def debug():
+    response = requestPost(
+        "customers", 
+        {
+            "name": "python",
+            "email": "marcelo.almeida@gmail.com",
+            "phone": "4738010919",
+            "mobilePhone": "4799376637",
+            "cpfCnpj": "24971563792",
+            "postalCode": "01310-000",
+            "address": "Av. Paulista",
+            "addressNumber": "150",
+            "complement": "Sala 201",
+            "province": "Centro",
+            "externalReference": "12987382",
+            "notificationDisabled": False,
+            "additionalEmails": "marcelo.almeida2@gmail.com,marcelo.almeida3@gmail.com",
+            "municipalInscription": "46683695908",
+            "stateInscription": "646681195275",
+            "observations": "ótimo pagador, nenhum problema até o momento",
+            }
+        )
+    return response.text, 200
+    return str(createCustomer()), 200
+    # URL = URL_list.get('URL_MAIN')
+    # return URL, 200
+
     #store = db.session.query(Store).first()
     #return str(store.IsAvailable), 200
-    stores = db.session.query(Store).filter(Store.IsAvailable >= 1).all()
-    a=[]
-    for store in stores:
-        a.append(store.Name)
-    return jsonify({"a": a}), HttpCode.SUCCESS
+    # stores = db.session.query(Store).filter(Store.IsAvailable >= 1).all()
+    # a=[]
+    # for store in stores:
+    #     a.append(store.Name)
+    # return jsonify({"a": a}), HttpCode.SUCCESS
     
     # firstDayOfMonth = datetime.today().replace(day = 1, month = 6)
     # return str(firstDayOfMonth - timedelta(days=(firstDayOfMonth.weekday()))), 200

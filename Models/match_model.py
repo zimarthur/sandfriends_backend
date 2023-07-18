@@ -1,6 +1,10 @@
 from ..extensions import db
 from datetime import datetime, timedelta
+import json
 
+with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
+    URL_list = json.load(config_file)
+    
 class Match(db.Model):
     __tablename__ = 'match'
     IdMatch = db.Column(db.Integer, primary_key=True)
@@ -29,9 +33,15 @@ class Match(db.Model):
     IdTimeEnd = db.Column(db.Integer, db.ForeignKey('available_hour.IdAvailableHour'))
     TimeEnd = db.relationship('AvailableHour', foreign_keys = [IdTimeEnd])
 
+    AsaasPaymentId = db.Column(db.String(45))
+    AsaasBillingType = db.Column(db.String(45))
+    AsaasPaymentStatus = db.Column(db.String(45))
+    AsaasPixCode = db.Column(db.String(225))
+
     Members = db.relationship('MatchMember', backref="Match")
 
-    IsFinished = ((Date < datetime.today().date()) | ((Date == datetime.today().date()) & (IdTimeBegin < int(datetime.now().strftime("%H")))))
+    def IsFinished(self):
+        return (datetime.strptime(self.Date.strftime("%Y-%m-%d ") + self.TimeBegin.HourString, "%Y-%m-%d %H:%M") < datetime.now())
 
     def to_json(self):
 
@@ -50,6 +60,9 @@ class Match(db.Model):
             'MatchUrl': self.MatchUrl,
             'CreatorNotes': self.CreatorNotes,
             'Members':[member.to_json() for member in self.Members],
+            'PaymentStatus': self.AsaasPaymentStatus,
+            'PaymentType': self.AsaasBillingType,
+            'PixCode': self.AsaasPixCode,
         }
 
     def to_json_open_match(self):
@@ -85,7 +98,7 @@ class Match(db.Model):
                 if member.User.Photo is None:
                     MatchCreatorPhoto = None
                 else:
-                    MatchCreatorPhoto = f"https://www.sandfriends.com.br/img/usr/{member.User.Photo}.png"
+                    MatchCreatorPhoto = f"https://" + URL_list.get('URL_MAIN') + "/img/usr/{member.User.Photo}.png"
 
         return {
             'IdMatch': self.IdMatch,            
@@ -93,7 +106,7 @@ class Match(db.Model):
             'Date': self.Date.strftime("%d/%m/%Y"),
             'TimeBegin': self.IdTimeBegin,
             'TimeEnd': self.IdTimeEnd,
-            'IdStoreCourt': self.StoreCourt.IdStoreCourt,
+            'StoreCourt': self.StoreCourt.to_json_match(),
             'Cost': int(self.Cost),
             'IdSport': self.IdSport,
             'CreatorNotes': self.CreatorNotes,

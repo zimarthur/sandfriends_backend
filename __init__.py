@@ -17,6 +17,7 @@ from .routes.debug_routes import bp_debug
 from .routes.reward_routes import bp_reward
 from .routes.employee_routes import bp_employee
 from .routes.websites_routes import bp_websites
+from .routes.user_credit_card_routes import bp_user_credit_card
 
 import json
 
@@ -43,6 +44,7 @@ def create_app():
     app.register_blueprint(bp_reward)
     app.register_blueprint(bp_employee)
     app.register_blueprint(bp_websites)
+    app.register_blueprint(bp_user_credit_card)
 
     db.init_app(app)
     return app
