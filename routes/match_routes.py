@@ -24,15 +24,16 @@ from ..Models.employee_model import Employee
 from ..Models.store_court_sport_model import StoreCourtSport
 from ..Models.sport_model import Sport
 from ..Models.user_model import User
+from ..Models.user_credit_card_model import UserCreditCard
 from ..Models.notification_user_model import NotificationUser
 from ..Models.notification_user_category_model import NotificationUserCategory
 from ..Models.notification_store_model import NotificationStore
 from ..Models.notification_store_category_model import NotificationStoreCategory
 from ..access_token import EncodeToken, DecodeToken
 
-from ..Asaas.update_customer import updateCpf
-from ..Asaas.create_payment import createPaymentPix
-from ..Asaas.generate_qr_code import generateQrCode
+from ..Asaas.Customer.update_customer import updateCpf
+from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard
+from ..Asaas.Payment.generate_qr_code import generateQrCode
 
 bp_match = Blueprint('bp_match', __name__)
 
@@ -273,6 +274,7 @@ def MatchReservation():
     costReq = request.json.get('Cost')
     paymentReq = request.json.get('Payment')
     cpfReq = request.json.get('Cpf')
+    idCreditCard = request.json.get("IdCreditCard")
 
     concurrentMatch = Match.query.filter((Match.IdStoreCourt == int(idStoreCourtReq)) & (Match.Date == dateReq) & (\
                 ((Match.IdTimeBegin >= timeStartReq) & (Match.IdTimeBegin < timeEndReq))  | \
@@ -307,34 +309,71 @@ def MatchReservation():
             if responseCpf.status_code != 200:
                 return "Não foi possível criar suas partida. Tente novamente", HttpCode.WARNING
 
-    responsePayment = createPaymentPix(user, costReq)
-    if responsePayment.status_code != 200:
-         return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
+        responsePayment = createPaymentPix(user, costReq)
+        if responsePayment.status_code != 200:
+            return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
 
-    newMatch = Match(
-        IdStoreCourt = idStoreCourtReq,
-        IdSport = sportIdReq,
-        Date = dateReq,
-        IdTimeBegin = timeStartReq,
-        IdTimeEnd = timeEndReq,
-        Cost = costReq,
-        OpenUsers = False,
-        MaxUsers = 0,
-        Canceled = False,
-        CreationDate = datetime.now(),
-        CreatorNotes = "",
-        IdRecurrentMatch = 0,
-        Blocked = False,
-        AsaasPaymentId = responsePayment.json().get('id'),
-        AsaasBillingType = responsePayment.json().get('billingType'),
-        AsaasPaymentStatus = responsePayment.json().get('status'),
-    )
+        newMatch = Match(
+            IdStoreCourt = idStoreCourtReq,
+            IdSport = sportIdReq,
+            Date = dateReq,
+            IdTimeBegin = timeStartReq,
+            IdTimeEnd = timeEndReq,
+            Cost = costReq,
+            OpenUsers = False,
+            MaxUsers = 0,
+            Canceled = False,
+            CreationDate = datetime.now(),
+            CreatorNotes = "",
+            IdRecurrentMatch = 0,
+            Blocked = False,
+            AsaasPaymentId = responsePayment.json().get('id'),
+            AsaasBillingType = responsePayment.json().get('billingType'),
+            AsaasPaymentStatus = responsePayment.json().get('status'),
+        )
 
-    responsePixCode = generateQrCode(responsePayment.json().get('id'))
+        responsePixCode = generateQrCode(responsePayment.json().get('id'))
 
-    if responsePixCode.status_code == 200:
-        newMatch.AsaasPixCode = responsePixCode.json().get('payload')
+        if responsePixCode.status_code == 200:
+            newMatch.AsaasPixCode = responsePixCode.json().get('payload')
 
+    elif paymentReq == 2:
+        creditCard = db.session.query(UserCreditCard).filter(UserCreditCard.IdUserCreditCard == idCreditCard).first()
+
+        if creditCard is None:
+            return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
+        
+        responsePayment = createPaymentCreditCard(
+            user= user, 
+            creditCard= creditCard,
+            value= costReq,
+        )
+        
+        if responsePayment.status_code != 200:
+            return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
+
+        newMatch = Match(
+            IdStoreCourt = idStoreCourtReq,
+            IdSport = sportIdReq,
+            Date = dateReq,
+            IdTimeBegin = timeStartReq,
+            IdTimeEnd = timeEndReq,
+            Cost = costReq,
+            OpenUsers = False,
+            MaxUsers = 0,
+            Canceled = False,
+            CreationDate = datetime.now(),
+            CreatorNotes = "",
+            IdRecurrentMatch = 0,
+            Blocked = False,
+            AsaasPaymentId = responsePayment.json().get('id'),
+            AsaasBillingType = responsePayment.json().get('billingType'),
+            AsaasPaymentStatus = responsePayment.json().get('status'),
+        )
+
+    else:
+        return "Forma de pagamento inválida", HttpCode.WARNING
+    
     db.session.add(newMatch)
     db.session.commit()
     newMatch.MatchUrl = f'{newMatch.IdMatch}{int(round(newMatch.CreationDate.timestamp()))}'

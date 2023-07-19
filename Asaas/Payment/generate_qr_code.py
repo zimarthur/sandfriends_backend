@@ -1,4 +1,4 @@
-from ..Asaas.asaas_base_api import requestPost
+from ..asaas_base_api import requestPost
 
 def generateQrCode(paymentId):
     response = requestPost(

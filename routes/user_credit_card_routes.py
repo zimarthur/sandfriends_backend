@@ -7,6 +7,9 @@ from ..extensions import db
 from ..Models.http_codes import HttpCode
 from ..Models.user_credit_card_model import UserCreditCard
 
+from ..Asaas.Payment.create_payment import createPaymentPreAuthorization
+from ..Asaas.Payment.refund_payment import refundPayment
+
 bp_user_credit_card = Blueprint('bp_user_credit_card', __name__)
 
 #Adiciona um cartão de crédito de um usuário
@@ -16,41 +19,74 @@ def AddUserCreditCard():
         abort(HttpCode.ABORT)
 
     accessTokenReq = request.json.get('AccessToken')
-    cardNumberReq = request.json.get('CardNumber').encode('utf-8')
-    cvvReq = request.json.get('CVV').encode('utf-8')
+    cardNumberReq = request.json.get('CardNumber')
+    cvvReq = request.json.get('Cvv')
     nicknameReq = request.json.get('Nickname')
     expirationDateReq = request.json.get('ExpirationDate')
+    cardIssuerReq = request.json.get('CardIssuer')
     ownerNameReq = request.json.get('OwnerName')
     ownerCpfReq = request.json.get('OwnerCpf')
+    cepReq = request.json.get('Cep')
+    addressReq = request.json.get('Address')
+    addressNumberReq = request.json.get('AddressNumber')
+
+    expirationDate = datetime.strptime(expirationDateReq, "%m/%Y")
 
     user = User.query.filter_by(AccessToken = accessTokenReq).first()
     if user is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN
     
     #Caso o cartão já tenha sido cadastrado
-    userCreditCards = db.session.query(UserCreditCard)\
-        .filter(UserCreditCard.IdUser == user.IdUser)\
-        .filter(UserCreditCard.LastDigits == cardNumberReq[-4:])\
-        .filter(UserCreditCard.ExpirationDate == datetime.strptime(expirationDateReq, '%d/%m/%Y'))\
-        .filter(UserCreditCard.Deleted == False).all()
+    # userCreditCards = db.session.query(UserCreditCard)\
+    #     .filter(UserCreditCard.IdUser == user.IdUser)\
+    #     .filter(UserCreditCard.LastDigits == cardNumberReqEncoded[-4:])\
+    #     .filter(UserCreditCard.ExpirationDate == datetime.strptime(expirationDateReq, '%m/%Y'))\
+    #     .filter(UserCreditCard.Deleted == False).all()
     
-    #Caso os últimos 4 dígitos e a data de validade sejam iguais, verifica as hashes
-    for userCreditCard in userCreditCards:
-        #Caso sejam cartões iguais
-        if bcrypt.checkpw(cardNumberReq, (userCreditCard.CardNumber).encode('utf-8')):
-            return "Você já cadastrou esse cartão",HttpCode.WARNING
+    # #Caso os últimos 4 dígitos e a data de validade sejam iguais, verifica as hashes
+    # for userCreditCard in userCreditCards:
+    #     #Caso sejam cartões iguais
+    #     if bcrypt.checkpw(cardNumberReqEncoded, (userCreditCard.CardNumber).encode('utf-8')):
+    #         return "Você já cadastrou esse cartão",HttpCode.WARNING
+
+    #Pré autorização no asaas
+    #Realiza uma cobrança de R$5 (mínimo do Asaas) pra ver se o cartão está válido e gerar o Token
+    authorizationResponse = createPaymentPreAuthorization(
+        user= user,
+        holderName= ownerNameReq,
+        holderCpf= ownerCpfReq,
+        cardNumber= cardNumberReq,
+        cvv= cvvReq,
+        expirationMonth= expirationDate.strftime("%m"),
+        expirationYear= expirationDate.strftime("%Y"),
+        addressNumber=addressNumberReq,
+        cep=cepReq,
+    )
+    
+    if authorizationResponse.status_code != 200:
+        return "Não foi possível cadastrar seu cartão. Verifique se as informações estão corretas", HttpCode.WARNING
+
+    #Realiza o reembolso dos R$5 da validação do cartão
+    refundPayment(
+        paymentId= authorizationResponse.json().get('id'),
+        description= "Credit Card Authorization",
+    )
 
     #Cadastra um cartão novo
     newUserCreditCard = UserCreditCard(
         IdUser = user.IdUser,
-        CardNumber = bcrypt.hashpw(cardNumberReq, bcrypt.gensalt()),
         LastDigits = cardNumberReq[-4:],
-        CVV = bcrypt.hashpw(cvvReq, bcrypt.gensalt()),
         Nickname = nicknameReq,
-        ExpirationDate = datetime.strptime(expirationDateReq, '%d/%m/%Y'),
+        ExpirationDate = datetime.strptime(expirationDateReq, '%m/%Y'),
+        CardIssuer = cardIssuerReq,
         OwnerName = ownerNameReq,
         OwnerCpf = ownerCpfReq,
         Deleted = False,
+        Cep = cepReq,
+        Address = addressReq,
+        AddressNumber = addressNumberReq,
+        CreditCardToken = authorizationResponse.json()['creditCard']['creditCardToken'],
+        AsaasPaymentId = authorizationResponse.json().get('id') ,
     )
 
     db.session.add(newUserCreditCard)

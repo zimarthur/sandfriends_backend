@@ -32,7 +32,7 @@ from ..access_token import EncodeToken, DecodeToken
 import bcrypt
 import json
 
-from ..Asaas.create_customer import createCustomer
+from ..Asaas.Customer.create_customer import createCustomer
 
 with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
     URL_list = json.load(config_file)
