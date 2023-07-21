@@ -349,6 +349,7 @@ def GetUserInfo():
 
     #Sobre a query
     #Busca todas partidas em aberto para o jogador, com base em sua cidade e esporte favorito cadastrados.
+    #obs: aqui não precisa filtrar só por partidas em q o pagamento não expirou pq para abrir uma partida ele já verifica
     openMatches = db.session.query(Match)\
                 .join(StoreCourt, StoreCourt.IdStoreCourt == Match.IdStoreCourt)\
                 .join(Store, Store.IdStore == StoreCourt.IdStore)\

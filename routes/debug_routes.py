@@ -64,28 +64,13 @@ def getLastMonth():
 
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
-    response = requestPost(
-        "customers", 
-        {
-            "name": "python",
-            "email": "marcelo.almeida@gmail.com",
-            "phone": "4738010919",
-            "mobilePhone": "4799376637",
-            "cpfCnpj": "24971563792",
-            "postalCode": "01310-000",
-            "address": "Av. Paulista",
-            "addressNumber": "150",
-            "complement": "Sala 201",
-            "province": "Centro",
-            "externalReference": "12987382",
-            "notificationDisabled": False,
-            "additionalEmails": "marcelo.almeida2@gmail.com,marcelo.almeida3@gmail.com",
-            "municipalInscription": "46683695908",
-            "stateInscription": "646681195275",
-            "observations": "ótimo pagador, nenhum problema até o momento",
-            }
-        )
-    return response.text, 200
+    match = db.session.query(RecurrentMatch).first()
+    a = []
+
+    a.append({
+        "is":len(match.getNextRecurrentMatches()),
+        })
+    return jsonify({"a": a}), 200
     return str(createCustomer()), 200
     # URL = URL_list.get('URL_MAIN')
     # return URL, 200

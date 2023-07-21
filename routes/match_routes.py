@@ -126,6 +126,8 @@ def SearchCourts():
                     .filter(((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin <= timeEnd)) | \
                             ((Match.IdTimeEnd > timeStart) & (Match.IdTimeEnd <= timeEnd)) | \
                             ((Match.IdTimeBegin < timeStart) & (Match.IdTimeEnd > timeStart))).all()
+
+    matches = [match for match in matches if match.isPaymentExpired == False]
     
     searchWeekdays= []
     for searchDay in daterange(dateStart.date(), dateEnd.date()):
@@ -254,6 +256,7 @@ def GetUserMatches():
                 .join(MatchMember, Match.IdMatch == MatchMember.IdMatch)\
                 .filter(MatchMember.IdUser == user.IdUser).all()
 
+
     for userMatch in userMatches:
         userMatchesList.append(userMatch.to_json())
 
@@ -274,30 +277,43 @@ def MatchReservation():
     costReq = request.json.get('Cost')
     paymentReq = request.json.get('Payment')
     cpfReq = request.json.get('Cpf')
-    idCreditCard = request.json.get("IdCreditCard")
+    
+    if request.json.get("IdCreditCard")== "": 
+        idCreditCardReq =  None 
+    else: 
+        idCreditCardReq = request.json.get("IdCreditCard")
 
     concurrentMatch = Match.query.filter((Match.IdStoreCourt == int(idStoreCourtReq)) & (Match.Date == dateReq) & (\
                 ((Match.IdTimeBegin >= timeStartReq) & (Match.IdTimeBegin < timeEndReq))  | \
                 ((Match.IdTimeEnd > timeStartReq) & (Match.IdTimeEnd <= timeEndReq))      | \
                 ((Match.IdTimeBegin < timeStartReq) & (Match.IdTimeEnd > timeStartReq))   \
-                )).first()
+                )).all()
+
+    concurrentMatch = [match for match in concurrentMatch if match.isPaymentExpired == False]
 
     #lembrando que aqui são as partidas mensalistas e os horários bloqueados recorrentemente
     concurrentRecurrentMatch = db.session.query(RecurrentMatch)\
                     .filter(RecurrentMatch.IdStoreCourt == int(idStoreCourtReq))\
                     .filter(RecurrentMatch.Weekday == dateReq.weekday())\
                     .filter(RecurrentMatch.Canceled == False)\
-                    .filter(((RecurrentMatch.IdTimeBegin >= timeStartReq) & (Match.IdTimeBegin <= timeEndReq)) | \
-                            ((RecurrentMatch.IdTimeEnd > timeStartReq) & (RecurrentMatch.IdTimeEnd <= timeEndReq)) | \
-                            ((RecurrentMatch.IdTimeBegin < timeStartReq) & (RecurrentMatch.IdTimeEnd > timeStartReq))).first()
+                    .filter(((RecurrentMatch.IdTimeBegin >= timeStartReq) & (RecurrentMatch.IdTimeBegin < timeEndReq))  | \
+                ((RecurrentMatch.IdTimeEnd > timeStartReq) & (RecurrentMatch.IdTimeEnd <= timeEndReq))      | \
+                ((RecurrentMatch.IdTimeBegin < timeStartReq) & (RecurrentMatch.IdTimeEnd > timeStartReq))   \
+                ).all()
+    concurrentRecurrentMatch = [recurrentMatch for recurrentMatch in concurrentRecurrentMatch if recurrentMatch.isPaymentExpired == False]
 
-    if (concurrentMatch is not None) or (concurrentRecurrentMatch is not None):
+    if (len(concurrentMatch) > 0) or (len(concurrentRecurrentMatch) > 0):
         return "Ops, esse horário não está mais disponível", HttpCode.WARNING
     
     user = User.query.filter_by(AccessToken = accessTokenReq).first()
 
     if user is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN
+
+    asaasPaymentId = None
+    asaasBillingType = None
+    asaasPaymentStatus = None
+    asaasPixCode = None
 
     #PIX
     if paymentReq == 1:
@@ -313,29 +329,14 @@ def MatchReservation():
         if responsePayment.status_code != 200:
             return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
 
-        newMatch = Match(
-            IdStoreCourt = idStoreCourtReq,
-            IdSport = sportIdReq,
-            Date = dateReq,
-            IdTimeBegin = timeStartReq,
-            IdTimeEnd = timeEndReq,
-            Cost = costReq,
-            OpenUsers = False,
-            MaxUsers = 0,
-            Canceled = False,
-            CreationDate = datetime.now(),
-            CreatorNotes = "",
-            IdRecurrentMatch = 0,
-            Blocked = False,
-            AsaasPaymentId = responsePayment.json().get('id'),
-            AsaasBillingType = responsePayment.json().get('billingType'),
-            AsaasPaymentStatus = responsePayment.json().get('status'),
-        )
-
         responsePixCode = generateQrCode(responsePayment.json().get('id'))
 
         if responsePixCode.status_code == 200:
-            newMatch.AsaasPixCode = responsePixCode.json().get('payload')
+            asaasPixCode = responsePixCode.json().get('payload')
+        
+        asaasPaymentId = responsePayment.json().get('id'),
+        asaasBillingType = responsePayment.json().get('billingType'),
+        asaasPaymentStatus = responsePayment.json().get('status'),
 
     elif paymentReq == 2:
         creditCard = db.session.query(UserCreditCard).filter(UserCreditCard.IdUserCreditCard == idCreditCard).first()
@@ -352,27 +353,36 @@ def MatchReservation():
         if responsePayment.status_code != 200:
             return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
 
-        newMatch = Match(
-            IdStoreCourt = idStoreCourtReq,
-            IdSport = sportIdReq,
-            Date = dateReq,
-            IdTimeBegin = timeStartReq,
-            IdTimeEnd = timeEndReq,
-            Cost = costReq,
-            OpenUsers = False,
-            MaxUsers = 0,
-            Canceled = False,
-            CreationDate = datetime.now(),
-            CreatorNotes = "",
-            IdRecurrentMatch = 0,
-            Blocked = False,
-            AsaasPaymentId = responsePayment.json().get('id'),
-            AsaasBillingType = responsePayment.json().get('billingType'),
-            AsaasPaymentStatus = responsePayment.json().get('status'),
-        )
+        asaasPaymentId = responsePayment.json().get('id'),
+        asaasBillingType = responsePayment.json().get('billingType'),
+        asaasPaymentStatus = responsePayment.json().get('status'),
 
+    elif paymentReq == 3:
+        asaasBillingType = "PAY_IN_STORE"
+        asaasPaymentStatus = "CONFIRMED"
     else:
         return "Forma de pagamento inválida", HttpCode.WARNING
+    
+    newMatch = Match(
+        IdStoreCourt = idStoreCourtReq,
+        IdSport = sportIdReq,
+        Date = dateReq,
+        IdTimeBegin = timeStartReq,
+        IdTimeEnd = timeEndReq,
+        Cost = costReq,
+        OpenUsers = False,
+        MaxUsers = 0,
+        Canceled = False,
+        CreationDate = datetime.now(),
+        CreatorNotes = "",
+        IdRecurrentMatch = 0,
+        Blocked = False,
+        AsaasPaymentId = asaasPaymentId,
+        AsaasBillingType = asaasBillingType,
+        AsaasPaymentStatus = asaasPaymentStatus,
+        AsaasPixCode = asaasPixCode,
+        IdUserCreditCard = idCreditCardReq,
+    )
     
     db.session.add(newMatch)
     db.session.commit()

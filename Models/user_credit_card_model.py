@@ -17,6 +17,7 @@ class UserCreditCard(db.Model):
     AddressNumber = db.Column(db.String(255))
     CreditCardToken = db.Column(db.String(255))
     AsaasPaymentId = db.Column(db.String(255))
+    Issuer = db.Column(db.String(45))
 
     IdUser = db.Column(db.Integer, db.ForeignKey('user.IdUser'))
     User = db.relationship('User', foreign_keys = [IdUser])
@@ -27,9 +28,5 @@ class UserCreditCard(db.Model):
             'CardNumber': self.LastDigits,
             'Nickname': self.Nickname,
             'ExpirationDate': self.ExpirationDate.strftime("%d/%m/%Y"),
-            'OwnerName': self.OwnerName,
-            'OwnerCpf': self.OwnerCpf,
-            'Cep': self.Cep,
-            'Address': self.Address,
-            'AddressNumber': self.AddressNumber,
+            'Issuer': self.Issuer,
         }

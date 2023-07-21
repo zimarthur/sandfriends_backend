@@ -37,10 +37,14 @@ def RewardStatus(idUser):
                 .filter((Match.Date >= reward.StartingDate) & (Match.Date <= reward.EndingDate))\
                 .filter((Match.Date < datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeBegin <= int(datetime.now().strftime("%H")))))\
                 .filter(Match.Canceled == False)\
-                .count()
+                .all()
 
-    if matches >= reward.NTimesToReward:
-        matches = reward.NTimesToReward
+    matches = [match for match in matches if match.isPaymentExpired == False]
+
+    matchesCounter = len(matches)
+
+    if matchesCounter >= reward.NTimesToReward:
+        matchesCounter = reward.NTimesToReward
         #check if reward is in reward_user
         rewardUser = db.session.query(RewardUser)\
                     .filter(RewardUser.IdUser == idUser)\
@@ -66,7 +70,7 @@ def RewardStatus(idUser):
             db.session.commit()
 
 
-    return {'Reward': reward.to_json(), 'UserRewardQuantity':matches}
+    return {'Reward': reward.to_json(), 'UserRewardQuantity':matchesCounter}
 
 @bp_reward.route('/UserRewardsHistory', methods=['POST'])
 def UserRewardsHistory():

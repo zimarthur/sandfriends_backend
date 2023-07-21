@@ -2,6 +2,7 @@ from ..extensions import db
 from datetime import datetime, timedelta
 from ..utils import getFirstDayOfLastMonth, isCurrentMonth
 import json
+from sqlalchemy.ext.hybrid import hybrid_property
 
 with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
     URL_list = json.load(config_file)
@@ -9,12 +10,13 @@ with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
 class RecurrentMatch(db.Model):
     __tablename__ = 'recurrent_match'
     IdRecurrentMatch = db.Column(db.Integer, primary_key=True)
-    CreationDate = db.Column(db.DateTime)
-    LastPaymentDate = db.Column(db.DateTime)
     Weekday = db.Column(db.Integer)
     Canceled = db.Column(db.Boolean)
     Blocked = db.Column(db.Boolean)
     BlockedReason = db.Column(db.String(255))
+    CreationDate = db.Column(db.DateTime)
+    LastPaymentDate = db.Column(db.DateTime)
+    ValidUntil = db.Column(db.DateTime)
 
     IdTimeBegin = db.Column(db.Integer, db.ForeignKey('available_hour.IdAvailableHour'))
     TimeBegin = db.relationship('AvailableHour', foreign_keys = [IdTimeBegin])
@@ -36,6 +38,13 @@ class RecurrentMatch(db.Model):
     IsExpired = ((LastPaymentDate == CreationDate) & (datetime.today().replace(day=1).date() > CreationDate)) | \
                ((LastPaymentDate != CreationDate) & (LastPaymentDate < getFirstDayOfLastMonth()))
 
+    @hybrid_property
+    def isPaymentExpired(self):
+        for match in self.Matches:
+            if match.isPaymentExpired == True:
+                return True
+        return False
+    
     def getCurrentMonthMatches(self):
         return [match.to_json_min() for match in self.Matches if isCurrentMonth(match.Date)]
 
@@ -68,6 +77,7 @@ class RecurrentMatch(db.Model):
             'User': self.User.to_json(),
             'RecurrentMatchCounter':self.getMatchCounter(),
             'NextRecurrentMatches': self.getNextRecurrentMatches(),
+            'ValidUntil': self.ValidUntil.strftime("%d/%m/%Y"),
         }
 
     def to_json_store(self):

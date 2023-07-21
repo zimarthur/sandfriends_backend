@@ -1,6 +1,7 @@
 from ..extensions import db
 from datetime import datetime, timedelta
 import json
+from sqlalchemy.ext.hybrid import hybrid_property
 
 with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
     URL_list = json.load(config_file)
@@ -38,13 +39,28 @@ class Match(db.Model):
     AsaasPaymentStatus = db.Column(db.String(45))
     AsaasPixCode = db.Column(db.String(225))
 
+    IdUserCreditCard = db.Column(db.Integer, db.ForeignKey('user_credit_card.IdUserCreditCard'))
+    UserCreditCard = db.relationship('UserCreditCard', foreign_keys = [IdUserCreditCard])
+    
+    
+    @hybrid_property
+    def paymentExpiration(self):
+        return self.CreationDate + timedelta(minutes = 30)
+    
+    @hybrid_property
+    def isPaymentExpired(self):
+        return ((self.AsaasPaymentStatus == "PENDING") and (datetime.now() > self.paymentExpiration))
+    
     Members = db.relationship('MatchMember', backref="Match")
 
     def IsFinished(self):
         return (datetime.strptime(self.Date.strftime("%Y-%m-%d ") + self.TimeBegin.HourString, "%Y-%m-%d %H:%M") < datetime.now())
 
     def to_json(self):
-
+        if self.IdUserCreditCard is None:
+            creditCard = None
+        else:
+            creditCard = self.UserCreditCard.to_json()
         return {
             'IdMatch': self.IdMatch,
             'StoreCourt': self.StoreCourt.to_json_match(),
@@ -63,6 +79,8 @@ class Match(db.Model):
             'PaymentStatus': self.AsaasPaymentStatus,
             'PaymentType': self.AsaasBillingType,
             'PixCode': self.AsaasPixCode,
+            'CreditCard': creditCard,
+            'PaymentExpirationDate': self.paymentExpiration.strftime("%Y-%m-%d %H:%M:%S"),
         }
 
     def to_json_open_match(self):

@@ -29,6 +29,7 @@ def AddUserCreditCard():
     cepReq = request.json.get('Cep')
     addressReq = request.json.get('Address')
     addressNumberReq = request.json.get('AddressNumber')
+    issuerReq = request.json.get('Issuer')
 
     expirationDate = datetime.strptime(expirationDateReq, "%m/%Y")
 
@@ -87,6 +88,7 @@ def AddUserCreditCard():
         AddressNumber = addressNumberReq,
         CreditCardToken = authorizationResponse.json()['creditCard']['creditCardToken'],
         AsaasPaymentId = authorizationResponse.json().get('id') ,
+        Issuer = issuerReq,
     )
 
     db.session.add(newUserCreditCard)
