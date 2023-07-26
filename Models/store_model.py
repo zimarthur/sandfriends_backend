@@ -20,7 +20,6 @@ class Store(db.Model):
     CEP = db.Column(db.String(8))
     RegistrationDate = db.Column(db.DateTime)
     ApprovalDate = db.Column(db.DateTime)
-    BankAccount = db.Column(db.String(45))
     Logo = db.Column(db.String(100))
 
     IdCity = db.Column(db.Integer, db.ForeignKey('city.IdCity'))
@@ -30,16 +29,21 @@ class Store(db.Model):
     Photos = db.relationship('StorePhoto', backref="Store")
     Employees = db.relationship('Employee', backref="Store")
 
+    AsaasId = db.Column(db.String(255))
+    AsaasWalletId = db.Column(db.String(255))
+    AsaasApiKey = db.Column(db.String(255))
+
+    CompanyType = db.Column(db.String(45))
  
     @property
     def IsAvailable(self):
-        return self.ApprovalDate != None and self.Latitude != None and self.Longitude != None and self.Description != None and self.BankAccount != None and self.Logo != None and (len(self.Courts) > 0) and (len(self.Photos) > 1)
+        return self.ApprovalDate != None and self.Latitude != None and self.Longitude != None and self.Description != None and self.Logo != None and (len(self.Courts) > 0) and (len(self.Photos) > 1)
     
-    
-
-    # @IsAvailable.expression
-    # def IsAvailable(cls):
-    #     return cls.Courts#func.abs(cls.lengthCourts) # cls.lengthCourts #cls.Name == "Amigos da Areia"#(len([court for court in cls.Courts]) >= 1)
+    @property
+    def StoreOwner(self):
+        for employee in self.Employees:
+            if employee.StoreOwner:
+                return employee
 
     def to_json(self):
         if self.Logo == None or self.Logo == "":
@@ -69,7 +73,6 @@ class Store(db.Model):
             'StorePhotos':[photo.to_json() for photo in self.Photos if not(photo.Deleted)],
             'Courts':[court.to_json() for court in self.Courts],
             'Employees': [employee.to_json() for employee in self.Employees if employee.DateDisabled is None],
-            'BankAccount': self.BankAccount
         }
     
     def to_json_match(self):

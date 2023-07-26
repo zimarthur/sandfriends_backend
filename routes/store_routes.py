@@ -9,7 +9,7 @@ from ..Models.city_model import City
 from ..Models.state_model import State
 from ..Models.store_photo_model import StorePhoto
 from ..Models.sport_model import Sport
-from ..Models.match_model import Match
+from ..Models.match_model import Match, URL_list
 from ..Models.employee_model import Employee
 from ..Models.available_hour_model import AvailableHour
 from ..Models.store_court_model import StoreCourt
@@ -18,6 +18,8 @@ from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import func
 import base64
 import bcrypt
+
+from ..Asaas.Account.create_account import createCustomer
 
 bp_store = Blueprint('bp_store', __name__)
 
@@ -130,6 +132,10 @@ def ApproveStore():
         abort(HttpCode.ABORT)
         
     idStoreReq = request.json.get('IdStore')
+    latitudeReq = request.json.get('Latitude')
+    longitudeReq = request.json.get('Longitude')
+    companyTypeReq = request.json.get('CompanyType')
+
     store = db.session.query(Store).filter(Store.IdStore == idStoreReq).first()
 
     if store is None:
@@ -138,6 +144,19 @@ def ApproveStore():
     if store.ApprovalDate is not None:
         return "Loja já aprovada anteriormente", HttpCode.STORE_ALREADY_APPROVED
         
+    responseStore = createCustomer(store, companyTypeReq)
+    
+    if responseStore.status_code != 200:
+        return "Erro Integração asaas" + responseStore.text, HttpCode.WARNING
+
+    store.AsaasId = responseStore.json().get('id')
+    store.AsaasApiKey = responseStore.json().get('apiKey')
+    store.AsaasWalletId = responseStore.json().get('walletId')
+
+    store.Latitude = latitudeReq
+    store.Longitude = longitudeReq
+    store.CompanyType = companyTypeReq
+
     #Salva a data atual como ApprovalDate
     store.ApprovalDate = datetime.now()
 
@@ -181,7 +200,6 @@ def UpdateStoreInfo():
     phoneNumber1Req = request.json.get('PhoneNumber1')
     descriptionReq = request.json.get('Description')
     cepReq = request.json.get('Cep')
-    bankAccountReq = request.json.get('BankAccount')
     neighbourhoodReq = request.json.get('Neighbourhood')
     photosReq = request.json.get('Photos')
 
@@ -218,9 +236,6 @@ def UpdateStoreInfo():
         if(cepReq is None or cepReq == ""):
             return webResponse("O CEP do seu estabelecimento está em branco", None), HttpCode.WARNING
         
-        if(bankAccountReq is None or bankAccountReq == ""):
-            return webResponse("O número da sua conta bancária está em branco", None), HttpCode.WARNING
-    
         if(neighbourhoodReq is None or neighbourhoodReq == ""):
             return webResponse("O nome do bairro do seu estabelecimento está em branco", None), HttpCode.WARNING
         
@@ -236,7 +251,6 @@ def UpdateStoreInfo():
     store.Description = descriptionReq
     store.Instagram = request.json.get('Instagram')
     store.CEP = cepReq
-    store.BankAccount = bankAccountReq
     store.Neighbourhood = neighbourhoodReq
 
     logoReq = request.json.get('Logo')
@@ -295,7 +309,6 @@ def getAvailableStores():
             .filter(Store.Latitude != None)\
             .filter(Store.Longitude != None)\
             .filter(Store.Description != None)\
-            .filter(Store.BankAccount != None)\
             .filter(Store.Logo != None).all()
     
     storesList = []

@@ -48,15 +48,6 @@ def getHourString(hourIndex):
     return f"{hourIndex}:00"#GAMBIARRA
 
 
-@bp_recurrent_match.route('/AvailableRecurrentMatches', methods=['POST'])
-def AvailableRecurrentMatches():
-    if not request.json:
-        
-        abort(400)
-
-    weekday = request.json.get('AccessToken')
-    return "a", 200
-
 @bp_recurrent_match.route('/UserRecurrentMatches', methods=['POST'])
 def UserRecurrentMatches():
     
@@ -71,8 +62,7 @@ def UserRecurrentMatches():
     recurrentMatches = db.session.query(RecurrentMatch)\
                         .filter(RecurrentMatch.IdUser == user.IdUser)\
                         .filter(RecurrentMatch.Canceled == False)\
-                        .filter( ((RecurrentMatch.LastPaymentDate == RecurrentMatch.CreationDate) & (datetime.today().replace(day=1).date() <= RecurrentMatch.CreationDate)) | \
-                        ((RecurrentMatch.LastPaymentDate != RecurrentMatch.CreationDate) & (RecurrentMatch.LastPaymentDate >= getFirstDayOfLastMonth()))).all()
+                        .filter( RecurrentMatch.ValidUntil > datetime.now()).all()
 
     if recurrentMatches is None:
         return "nada", 200
@@ -117,8 +107,7 @@ def SearchRecurrentCourts():
     recurrentMatches = db.session.query(RecurrentMatch)\
                         .filter(RecurrentMatch.Canceled == False)\
                         .filter(RecurrentMatch.IdStoreCourt.in_(court.IdStoreCourt for court in courts))\
-                        .filter( ((RecurrentMatch.LastPaymentDate == RecurrentMatch.CreationDate) & (datetime.today().replace(day=1).date() <= RecurrentMatch.CreationDate)) | \
-                        ((RecurrentMatch.LastPaymentDate != RecurrentMatch.CreationDate) & (RecurrentMatch.LastPaymentDate >= getFirstDayOfLastMonth()))).all()
+                        .filter(RecurrentMatch.ValidUntil > datetime.now()).all()
 
     recurrentMatches = [recurrentMatch for recurrentMatch in recurrentMatches if recurrentMatch.isPaymentExpired == False]
 
@@ -127,7 +116,6 @@ def SearchRecurrentCourts():
     for day in days:
         jsonStores = []
         for store in stores:
-            b = []
             filteredCourts = [court for court in courts if court.IdStore == store.IdStore]
             
             if(len(filteredCourts) > 0):
@@ -145,10 +133,10 @@ def SearchRecurrentCourts():
                                     (match.Canceled == False) and \
                                     ((match.IdTimeBegin == storeOperationHour.IdAvailableHour) or ((match.IdTimeBegin < storeOperationHour.IdAvailableHour) and (match.IdTimeEnd > storeOperationHour.IdAvailableHour)))\
                                     ]
-                        if not concurrentMatch:
+                        if len(concurrentMatch) == 0:
                             jsonAvailableCourts.append({
                                 'IdStoreCourt':filteredCourt.IdStoreCourt,
-                                'Price': [int(courtHour.Price) for courtHour in courtHours if (courtHour.IdStoreCourt == filteredCourt.IdStoreCourt) and (courtHour.Weekday == int(day)) and (courtHour.IdAvailableHour == storeOperationHour.IdAvailableHour)][0]
+                                'Price': [int(courtHour.RecurrentPrice) for courtHour in courtHours if (courtHour.IdStoreCourt == filteredCourt.IdStoreCourt) and (courtHour.Weekday == int(day)) and (courtHour.IdAvailableHour == storeOperationHour.IdAvailableHour)][0]
                             })
 
 
@@ -379,9 +367,9 @@ def RecurrentMonthAvailableHours():
                         .filter(RecurrentMatch.IdStoreCourt == int(idStoreCourt)) \
                         .filter(RecurrentMatch.Weekday == weekDay) \
                         .filter(RecurrentMatch.Canceled == False)\
-                        .filter(((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin < timeEnd))  | \
-                        ((Match.IdTimeEnd > timeStart) & (Match.IdTimeEnd <= timeEnd))      | \
-                        ((Match.IdTimeBegin < timeStart) & (Match.IdTimeEnd > timeStart))   \
+                        .filter(((RecurrentMatch.IdTimeBegin >= timeStart) & (RecurrentMatch.IdTimeBegin < timeEnd))  | \
+                        ((RecurrentMatch.IdTimeEnd > timeStart) & (RecurrentMatch.IdTimeEnd <= timeEnd))      | \
+                        ((RecurrentMatch.IdTimeBegin < timeStart) & (RecurrentMatch.IdTimeEnd > timeStart))   \
                         ).first()
     
     if (recurrentMatch is not None) and (isRenovating == False):

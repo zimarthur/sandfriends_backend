@@ -295,7 +295,7 @@ def ChangePasswordRequestEmployee():
     #envia o email automático para redefinir a senha
     employee.ResetPasswordToken = str(datetime.now().timestamp()) + str(employee.IdEmployee)
     db.session.commit()
-    emailStoreChangePassword(employee.Email, employee.FirstName, "Troca de senha <br/> https://" + URL_list.get('URL_QUADRAS') + "/cgpw?str=1&tk="+employee.ResetPasswordToken)
+    emailStoreChangePassword(employee.Email, employee.FirstName, "https://" + URL_list.get('URL_QUADRAS') + "/cgpw?str=1&tk="+employee.ResetPasswordToken)
 
     return webResponse("Link para troca de senha enviado!", "Verifique sua caixa de e-mail e siga as instruções para trocar sua senha"), HttpCode.ALERT
 
@@ -339,7 +339,10 @@ def ChangePasswordEmployee():
     #Deixa a data de LastAccess deles como 10 ano atrás
     tokens = db.session.query(Employee).filter(Employee.IdEmployee == employeeReq.IdEmployee).all()
     for token in tokens:
-        token.LastAccessDate = token.LastAccessDate - timedelta(days=10*365)
+        if token.LastAccessDate is None:
+            token.LastAccessDate = datetime.now() - timedelta(days=10*365)
+        else:
+            token.LastAccessDate = token.LastAccessDate - timedelta(days=10*365)
         
     db.session.commit()
     return webResponse("Sua senha foi alterada!", None), HttpCode.ALERT

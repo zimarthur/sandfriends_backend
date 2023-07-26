@@ -33,6 +33,7 @@ from ..access_token import EncodeToken, DecodeToken
 
 from ..Asaas.Customer.update_customer import updateCpf
 from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard
+from ..Asaas.Payment.refund_payment import refundPayment
 from ..Asaas.Payment.generate_qr_code import generateQrCode
 
 bp_match = Blueprint('bp_match', __name__)
@@ -262,7 +263,7 @@ def GetUserMatches():
 
     return jsonify({'UserMatches': userMatchesList}), HttpCode.SUCCESS
 
-
+#Faz a reserva de uma partida
 @bp_match.route("/MatchReservation", methods=["POST"])
 def MatchReservation():
     if not request.json:
@@ -283,7 +284,13 @@ def MatchReservation():
     else: 
         idCreditCardReq = request.json.get("IdCreditCard")
 
-    concurrentMatch = Match.query.filter((Match.IdStoreCourt == int(idStoreCourtReq)) & (Match.Date == dateReq) & (\
+    user = User.query.filter_by(AccessToken = accessTokenReq).first()
+
+    if user is None:
+        return '1', HttpCode.INVALID_ACCESS_TOKEN
+
+    #Verifica se já tem uma partida agendada no mesmo horário
+    concurrentMatch = Match.query.filter((Match.IdStoreCourt == int(idStoreCourtReq)) & (Match.Date == dateReq) & (Match.Canceled == False) & (\
                 ((Match.IdTimeBegin >= timeStartReq) & (Match.IdTimeBegin < timeEndReq))  | \
                 ((Match.IdTimeEnd > timeStartReq) & (Match.IdTimeEnd <= timeEndReq))      | \
                 ((Match.IdTimeBegin < timeStartReq) & (Match.IdTimeEnd > timeStartReq))   \
@@ -291,7 +298,7 @@ def MatchReservation():
 
     concurrentMatch = [match for match in concurrentMatch if match.isPaymentExpired == False]
 
-    #lembrando que aqui são as partidas mensalistas e os horários bloqueados recorrentemente
+    #Lembrando que aqui são as partidas mensalistas e os horários bloqueados recorrentemente
     concurrentRecurrentMatch = db.session.query(RecurrentMatch)\
                     .filter(RecurrentMatch.IdStoreCourt == int(idStoreCourtReq))\
                     .filter(RecurrentMatch.Weekday == dateReq.weekday())\
@@ -302,33 +309,32 @@ def MatchReservation():
                 ).all()
     concurrentRecurrentMatch = [recurrentMatch for recurrentMatch in concurrentRecurrentMatch if recurrentMatch.isPaymentExpired == False]
 
+    #Caso o horário não esteja mais disponível na hora dele fazer a reserva
     if (len(concurrentMatch) > 0) or (len(concurrentRecurrentMatch) > 0):
         return "Ops, esse horário não está mais disponível", HttpCode.WARNING
     
-    user = User.query.filter_by(AccessToken = accessTokenReq).first()
-
-    if user is None:
-        return '1', HttpCode.INVALID_ACCESS_TOKEN
-
     asaasPaymentId = None
     asaasBillingType = None
     asaasPaymentStatus = None
     asaasPixCode = None
 
-    #PIX
+    #### PIX
     if paymentReq == 1:
         if cpfReq != user.Cpf:
             user.Cpf = cpfReq
             db.session.commit()
+            #Atualiza o CPF do usuário do Asaas - necessário pra fazer o pagamento
             responseCpf = updateCpf(user)
 
             if responseCpf.status_code != 200:
                 return "Não foi possível criar suas partida. Tente novamente", HttpCode.WARNING
 
+        #Gera a cobrança no Asaas
         responsePayment = createPaymentPix(user, costReq)
         if responsePayment.status_code != 200:
             return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
 
+        #Obtém o código para pagamento do Pix
         responsePixCode = generateQrCode(responsePayment.json().get('id'))
 
         if responsePixCode.status_code == 200:
@@ -338,12 +344,14 @@ def MatchReservation():
         asaasBillingType = responsePayment.json().get('billingType'),
         asaasPaymentStatus = responsePayment.json().get('status'),
 
+    #### CARTÃO DE CRÉDITO
     elif paymentReq == 2:
-        creditCard = db.session.query(UserCreditCard).filter(UserCreditCard.IdUserCreditCard == idCreditCard).first()
+        creditCard = db.session.query(UserCreditCard).filter(UserCreditCard.IdUserCreditCard == idCreditCardReq).first()
 
         if creditCard is None:
             return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
         
+        #Gera a cobrança no Asaas
         responsePayment = createPaymentCreditCard(
             user= user, 
             creditCard= creditCard,
@@ -357,12 +365,15 @@ def MatchReservation():
         asaasBillingType = responsePayment.json().get('billingType'),
         asaasPaymentStatus = responsePayment.json().get('status'),
 
+    #### PAGAMENTO NO LOCAL
     elif paymentReq == 3:
         asaasBillingType = "PAY_IN_STORE"
         asaasPaymentStatus = "CONFIRMED"
+
     else:
         return "Forma de pagamento inválida", HttpCode.WARNING
     
+    #Cria a partida
     newMatch = Match(
         IdStoreCourt = idStoreCourtReq,
         IdSport = sportIdReq,
@@ -399,7 +410,7 @@ def MatchReservation():
     )
     db.session.add(matchMember)
 
-    #notificação para a loja
+    #Notificação para a loja
     newNotificationStore = NotificationStore(
         IdUser = user.IdUser,
         IdStore = newMatch.StoreCourt.IdStore,
@@ -652,6 +663,12 @@ def CancelMatch():
          return 'A partida já foi finalizada', HttpCode.WARNING
     else:
 
+        if match.AsaasPaymentStatus == "CONFIRMED":
+            responseRefund = refundPayment(paymentId= match.AsaasPaymentId, description= f"Partida cancelada/IdMatch {match.IdMatch}")
+            if responseRefund.status_code != 200:
+                return "Não conseguimos processar o estorno. Tente novamente", HttpCode.WARNING
+            match.AsaasPaymentStatus = "REFUNDED"
+
         match.Canceled = True
 
         matchMembers = MatchMember.query.filter(MatchMember.IdMatch == idMatch)\
@@ -711,6 +728,12 @@ def CancelMatchEmployee():
          return 'A partida já foi finalizada', HttpCode.WARNING
     else:
         
+        if match.AsaasPaymentStatus == "CONFIRMED":
+            responseRefund = refundPayment(paymentId= match.AsaasPaymentId, description= f"Partida cancelada pelo estabelecimento/IdMatch {match.IdMatch}")
+            if responseRefund.status_code != 200:
+                return "Não conseguimos processar o estorno. Tente novamente", HttpCode.WARNING
+            match.AsaasPaymentStatus = "REFUNDED"
+
         match.Canceled = True
         match.BlockedReason = cancelationReasonReq
 

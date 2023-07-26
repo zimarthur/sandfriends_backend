@@ -8,7 +8,6 @@ class UserCreditCard(db.Model):
     Nickname = db.Column(db.String(45))
     LastDigits = db.Column(db.String(4))
     ExpirationDate = db.Column(db.DateTime)
-    CardIssuer = db.Column(db.String(45))
     OwnerName = db.Column(db.String(45))
     OwnerCpf = db.Column(db.String(11))
     Deleted = db.Column(db.Boolean)

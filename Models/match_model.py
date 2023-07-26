@@ -116,7 +116,7 @@ class Match(db.Model):
                 if member.User.Photo is None:
                     MatchCreatorPhoto = None
                 else:
-                    MatchCreatorPhoto = f"https://" + URL_list.get('URL_MAIN') + "/img/usr/{member.User.Photo}.png"
+                    MatchCreatorPhoto = f"https://" + URL_list.get('URL_MAIN') + f"/img/usr/{member.User.Photo}.png"
 
         return {
             'IdMatch': self.IdMatch,            
@@ -134,5 +134,8 @@ class Match(db.Model):
             'MatchCreatorPhoto': MatchCreatorPhoto,
             'Blocked':self.Blocked,
             'BlockedReason':self.BlockedReason,
+            'PaymentStatus': self.AsaasPaymentStatus,
+            'PaymentType': self.AsaasBillingType,
+            'PaymentExpirationDate': self.paymentExpiration.strftime("%Y-%m-%d %H:%M:%S"),
         }
         

@@ -282,7 +282,7 @@ def ChangePasswordRequestUser():
     #E-mail já  confirmado
     user.ResetPasswordToken = str(datetime.now().timestamp()) + user.AccessToken
     db.session.commit()
-    emailUserChangePassword(user.Email, user.FirstName, "troca de senha <br/> https://" + URL_list.get('URL_QUADRAS') + "/cgpw?str=0&tk="+user.ResetPasswordToken)
+    emailUserChangePassword(user.Email, user.FirstName, "https://" + URL_list.get('URL_QUADRAS') + "/cgpw?str=0&tk="+user.ResetPasswordToken)
 
     return 'Enviamos um e-mail para ser feita a troca de senha', HttpCode.SUCCESS
 

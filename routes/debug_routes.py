@@ -64,14 +64,22 @@ def getLastMonth():
 
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
-    match = db.session.query(RecurrentMatch).first()
-    a = []
+    # newRecurrentMatch = RecurrentMatch(
+    #         IdUser = 1,
+    #         IdStoreCourt = 1,
+    #         CreationDate = datetime.now(),
+    #         Canceled = False,
+    #         Weekday = 1,
+    #         IdSport = 1,
+    #         IdTimeBegin = 10,
+    #         IdTimeEnd = 20,
+    #         LastPaymentDate = datetime.now().date(),
+    #         ValidUntil = datetime.now()
+    #     )
+    # db.session.add(newRecurrentMatch)
+    # db.session.commit()
 
-    a.append({
-        "is":len(match.getNextRecurrentMatches()),
-        })
-    return jsonify({"a": a}), 200
-    return str(createCustomer()), 200
+    return "success", 200
     # URL = URL_list.get('URL_MAIN')
     # return URL, 200
 

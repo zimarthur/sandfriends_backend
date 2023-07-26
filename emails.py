@@ -22,23 +22,23 @@ def emailUserChangePassword(email, name, link):
     }
     sendEmail(email, name, USER_CHANGE_PASSWORD, variables)
    
-def emailStoreWelcomeConfirmation(email, name):
+def emailStoreWelcomeConfirmation(email, name, link):
     variables = {
-        "nome": "Astor",
+        "link":link,
     }
     sendEmail(email, name, STORE_WELCOME_CONFIRMATION, variables)
    
-def emailStoreChangePassword(email, name):
+def emailStoreChangePassword(email, name, link):
     variables = {
-        "nome": "Astor",
+       "link":link,
     }
     sendEmail(email, name, STORE_CHANGE_PASSWORD, variables)
    
-def emailStoreAddEmployee(email, name):
+def emailStoreAddEmployee(email, link):
     variables = {
-        "nome": "Astor",
+        "link":link,
     }
-    sendEmail(email, name, STORE_ADD_EMPLOYEE, variables)
+    sendEmail(email, email, STORE_ADD_EMPLOYEE, variables)
 
 def emailStoreApproved(email, name):
     variables = {
@@ -59,7 +59,11 @@ def sendEmail( email, name, templateId, variables):
             {
                 "Email": "zim.arthur97@gmail.com",
                 "Name": "Arthur"
-            }
+            },
+            {
+                "Email": "pedromilano902@gmail.com",
+                "Name": "Pedro"
+            },
         ],
         "TemplateId": templateId,
         "TemplateLanguage": True,

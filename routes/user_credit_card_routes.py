@@ -1,6 +1,5 @@
 from flask import Blueprint, jsonify, abort, request
 from datetime import datetime, timedelta, date
-import bcrypt
 
 from ..Models.user_model import User
 from ..extensions import db
@@ -23,7 +22,6 @@ def AddUserCreditCard():
     cvvReq = request.json.get('Cvv')
     nicknameReq = request.json.get('Nickname')
     expirationDateReq = request.json.get('ExpirationDate')
-    cardIssuerReq = request.json.get('CardIssuer')
     ownerNameReq = request.json.get('OwnerName')
     ownerCpfReq = request.json.get('OwnerCpf')
     cepReq = request.json.get('Cep')
@@ -38,17 +36,16 @@ def AddUserCreditCard():
         return '1', HttpCode.INVALID_ACCESS_TOKEN
     
     #Caso o cartão já tenha sido cadastrado
-    # userCreditCards = db.session.query(UserCreditCard)\
-    #     .filter(UserCreditCard.IdUser == user.IdUser)\
-    #     .filter(UserCreditCard.LastDigits == cardNumberReqEncoded[-4:])\
-    #     .filter(UserCreditCard.ExpirationDate == datetime.strptime(expirationDateReq, '%m/%Y'))\
-    #     .filter(UserCreditCard.Deleted == False).all()
+    userCreditCards = db.session.query(UserCreditCard)\
+        .filter(UserCreditCard.IdUser == user.IdUser)\
+        .filter(UserCreditCard.LastDigits == cardNumberReq[-4:])\
+        .filter(UserCreditCard.ExpirationDate == datetime.strptime(expirationDateReq, '%m/%Y'))\
+        .filter(UserCreditCard.Issuer == issuerReq)\
+        .filter(UserCreditCard.Deleted == False).first()
     
-    # #Caso os últimos 4 dígitos e a data de validade sejam iguais, verifica as hashes
-    # for userCreditCard in userCreditCards:
-    #     #Caso sejam cartões iguais
-    #     if bcrypt.checkpw(cardNumberReqEncoded, (userCreditCard.CardNumber).encode('utf-8')):
-    #         return "Você já cadastrou esse cartão",HttpCode.WARNING
+    #Caso os últimos 4 dígitos e a data de validade sejam iguais, verifica as hashes
+    if userCreditCards is not None:
+        return "Este cartão já foi cadastrado anteriormente",HttpCode.SUCCESS
 
     #Pré autorização no asaas
     #Realiza uma cobrança de R$5 (mínimo do Asaas) pra ver se o cartão está válido e gerar o Token
@@ -79,7 +76,6 @@ def AddUserCreditCard():
         LastDigits = cardNumberReq[-4:],
         Nickname = nicknameReq,
         ExpirationDate = datetime.strptime(expirationDateReq, '%m/%Y'),
-        CardIssuer = cardIssuerReq,
         OwnerName = ownerNameReq,
         OwnerCpf = ownerCpfReq,
         Deleted = False,
