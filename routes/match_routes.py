@@ -342,7 +342,7 @@ def MatchReservation():
         
         asaasPaymentId = responsePayment.json().get('id'),
         asaasBillingType = responsePayment.json().get('billingType'),
-        asaasPaymentStatus = responsePayment.json().get('status'),
+        asaasPaymentStatus = "PENDING",
 
     #### CARTÃO DE CRÉDITO
     elif paymentReq == 2:
@@ -363,7 +363,7 @@ def MatchReservation():
 
         asaasPaymentId = responsePayment.json().get('id'),
         asaasBillingType = responsePayment.json().get('billingType'),
-        asaasPaymentStatus = responsePayment.json().get('status'),
+        asaasPaymentStatus = "PENDING",
 
     #### PAGAMENTO NO LOCAL
     elif paymentReq == 3:

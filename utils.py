@@ -19,3 +19,13 @@ def lastSundayOnLastMonth(date):
 
 def isCurrentMonth(date):
     return date.month == datetime.today().month and date.year == datetime.today().year
+
+weekdays =[
+    "Segundas-feiras",
+    "Terças-feiras",
+    "Quartas-feiras",
+    "Quintas-feiras",
+    "Sextas-feiras",
+    "Sábados",
+    "Domingos"
+]

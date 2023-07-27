@@ -88,9 +88,9 @@ class RecurrentMatch(db.Model):
             firstName = self.User.FirstName
             lastName = self.User.LastName
             if self.User.Photo is None:
-                userPhoto = None
+                photo = None
             else:
-                userPhoto = f"https://" + URL_list.get('URL_MAIN') + "/img/usr/{self.User.Photo}.png"
+                photo = f"https://" + URL_list.get('URL_MAIN') + "/img/usr/{self.User.Photo}.png"
 
         return {
             'IdRecurrentMatch': self.IdRecurrentMatch,

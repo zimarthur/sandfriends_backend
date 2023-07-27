@@ -53,6 +53,9 @@ class Match(db.Model):
     
     Members = db.relationship('MatchMember', backref="Match")
 
+    def matchCreator(self):
+        return [user for user in self.Members if user.IsMatchCreator][0]
+    
     def IsFinished(self):
         return (datetime.strptime(self.Date.strftime("%Y-%m-%d ") + self.TimeBegin.HourString, "%Y-%m-%d %H:%M") < datetime.now())
 

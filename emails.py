@@ -1,5 +1,6 @@
+import json
 from .settings import mailjet
-
+from .utils import weekdays
 
 USER_WELCOME_CONFIRMATION = 4954722
 USER_CHANGE_PASSWORD = 4954729
@@ -8,7 +9,33 @@ STORE_WELCOME_CONFIRMATION = 4927876
 STORE_CHANGE_PASSWORD = 4954711
 STORE_ADD_EMPLOYEE = 4954715
 STORE_APPROVED = 4954730
+
+USER_MATCH_CONFIRMED = 4954742
+USER_RECURRENT_MATCH_CONFIRMED = 4978838
  
+with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
+    URL_list = json.load(config_file)
+
+def emailUserMatchConfirmed(match):
+    variables = {
+        "link": f"https://{URL_list.get('URL_MAIN')}/redirect/?ct=mtch&bd={match.MatchUrl}",
+        "store": match.StoreCourt.Store.Name,
+        "date": match.Date.strftime("%d/%m/%Y"),
+        "price": f"R$ {int(match.Cost)},00",
+        "time": f"{match.TimeBegin.HourString} - {match.TimeEnd.HourString}",
+        "sport": match.Sport.Description,
+    }
+    sendEmail(match.matchCreator().User.Email,"", USER_MATCH_CONFIRMED, variables)
+
+def emailUserRecurrentMatchConfirmed(match, cost):
+    variables = {
+        "store": match.StoreCourt.Store.Name,
+        "date": weekdays[match.Date.weekday()],
+        "price": f"R$ {cost},00",
+        "time": f"{match.TimeBegin.HourString} - {match.TimeEnd.HourString}",
+        "sport": match.Sport.Description,
+    }
+    sendEmail(match.matchCreator().User.Email,"", USER_RECURRENT_MATCH_CONFIRMED, variables)
 
 def emailUserWelcomeConfirmation(email, link):
     variables = {

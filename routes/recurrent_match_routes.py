@@ -245,7 +245,7 @@ def CourtReservation():
 
         asaasPaymentId = responsePayment.json().get('id')
         asaasBillingType = responsePayment.json().get('billingType')
-        asaasPaymentStatus = responsePayment.json().get('status')
+        asaasPaymentStatus = "PENDING",
         
         if responsePixCode.status_code == 200:
             asaasPixCode = responsePixCode.json().get('payload')
@@ -267,7 +267,7 @@ def CourtReservation():
 
         asaasPaymentId = responsePayment.json().get('id'),
         asaasBillingType = responsePayment.json().get('billingType'),
-        asaasPaymentStatus = responsePayment.json().get('status'),
+        asaasPaymentStatus = "PENDING",
 
     else:
         return "Forma de pagamento inválida", HttpCode.WARNING
