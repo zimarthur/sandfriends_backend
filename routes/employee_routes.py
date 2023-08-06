@@ -413,6 +413,7 @@ def initStoreLoginData(employee):
 
     matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
         .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
+        .filter(Match.IsPaymentConfirmed)\
         .filter(Match.Canceled == False).all()
     
     matchList =[]

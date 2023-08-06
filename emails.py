@@ -18,7 +18,7 @@ with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
 
 def emailUserMatchConfirmed(match):
     variables = {
-        "link": f"https://{URL_list.get('URL_MAIN')}/redirect/?ct=mtch&bd={match.MatchUrl}",
+        "link": f"https://{URL_list.get('URL_QUADRAS')}/redirect/?ct=mtch&bd={match.MatchUrl}",
         "store": match.StoreCourt.Store.Name,
         "date": match.Date.strftime("%d/%m/%Y"),
         "price": f"R$ {int(match.Cost)},00",
@@ -90,6 +90,10 @@ def sendEmail( email, name, templateId, variables):
             {
                 "Email": "pedromilano902@gmail.com",
                 "Name": "Pedro"
+            },
+            {
+                "Email": "pietro.berger@gmail.com",
+                "Name": "Pietro"
             },
         ],
         "TemplateId": templateId,

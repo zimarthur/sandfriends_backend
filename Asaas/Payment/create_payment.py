@@ -1,7 +1,27 @@
 from datetime import datetime
 from ..asaas_base_api import requestPost
 
-def createPaymentPix(user, value):
+from ...extensions import db
+from ...utils import getFirstDayOfMonth, getLastDayOfMonth
+from ...Models.store_model import Store
+from ...Models.match_model import Match
+
+def getSplitPercentage(store):
+    currentMonthMatches = db.session.query(Match)\
+        .filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in store.Courts]))\
+        .filter(Match.Canceled == False)\
+        .filter((Match.CreationDate >= getFirstDayOfMonth(datetime.now())) & (Match.CreationDate >= getLastDayOfMonth(datetime.now())) ).all()        
+
+    currentMonthMatches = [match for match in currentMonthMatches if match.isPaymentExpired == False]
+
+    if len(currentMonthMatches) < 50:
+        return 90
+    elif len(currentMonthMatches) < 100:
+        return 92
+    else:
+        return 94
+
+def createPaymentPix(user, value, store):
     response = requestPost(
         f"payments", 
         {
@@ -9,11 +29,17 @@ def createPaymentPix(user, value):
             "billingType": "PIX",
             "value": value,
             "dueDate": datetime.now().strftime("%Y-%m-%d"),
+            "split": [
+                {
+                "walletId": store.AsaasWalletId,
+                "percentualValue": getSplitPercentage(store),
+                }
+            ]
         }
     )
     return response
 
-def createPaymentCreditCard(user, value, creditCard):
+def createPaymentCreditCard(user, value, creditCard, store):
     response = requestPost(
         f"payments", 
         {
@@ -22,6 +48,12 @@ def createPaymentCreditCard(user, value, creditCard):
             "value": value,
             "dueDate": datetime.now().strftime("%Y-%m-%d"),
             "creditCardToken": creditCard.CreditCardToken,
+            "split": [
+                {
+                "walletId":  store.AsaasWalletId,
+                "percentualValue": getSplitPercentage(store),
+                }
+            ]
         }
     )
     return response

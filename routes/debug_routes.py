@@ -1,4 +1,6 @@
 from flask import Blueprint, jsonify, abort, request
+
+from sandfriends_backend.utils import getFirstDayOfMonth, getLastDayOfMonth
 from ..Models.feedback_model import Feedback
 from ..Models.rank_category_model import RankCategory
 from ..Models.user_rank_model import UserRank
@@ -40,6 +42,7 @@ from ..Models.store_photo_model import StorePhoto
 from ..Models.store_court_model import StoreCourt
 from ..Models.store_court_sport_model import StoreCourtSport
 from ..Models.sport_model import Sport
+from ..Models.reward_month_model import RewardMonth
 from ..access_token import EncodeToken, DecodeToken
 import json
 from ..Asaas.asaas_base_api import requestPost
@@ -78,9 +81,20 @@ def debug():
     #     )
     # db.session.add(newRecurrentMatch)
     # db.session.commit()
+    return str(datetime.now()), 200
+    newReward = RewardMonth(
+        StartingDate = getFirstDayOfMonth(datetime.now()),
+        EndingDate = getLastDayOfMonth(datetime.now()),
+        NTimesToReward = 4,
+        IdRewardCategory = 1,
+    )
+    db.session.add(newReward)
+    db.session.commit()
+    db.session.refresh(newReward)
+    #reward = db.session.query(RewardMonth).first()
 
-    return "success", 200
-    # URL = URL_list.get('URL_MAIN')
+    return jsonify({'reward': newReward.to_json()}), 200
+    # URL = URL_list.get('URL_QUADRAS')
     # return URL, 200
 
     #store = db.session.query(Store).first()

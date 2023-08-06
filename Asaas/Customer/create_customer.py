@@ -8,7 +8,7 @@ def createCustomer(user):
             "email": user.Email,
             "phone": user.PhoneNumber,
             "externalReference": user.IdUser,
-            "notificationDisabled": False,
+            "notificationDisabled": True,
             }
         )
     return response

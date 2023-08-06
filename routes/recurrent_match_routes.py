@@ -42,9 +42,6 @@ def getHourIndex(hourString):
     return datetime.strptime(hourString, '%H:%M').hour
 
 def getHourString(hourIndex):
-    print(hourIndex)
-    print(type(hourIndex))
-    print(f"{hourIndex}:00")
     return f"{hourIndex}:00"#GAMBIARRA
 
 
@@ -227,6 +224,11 @@ def CourtReservation():
     asaasPaymentStatus = None
     asaasPixCode = None
 
+    #busca a quadra que vai ser feita a cobrança
+    store = db.session.query(Store)\
+            .join(StoreCourt, StoreCourt.IdStore == Store.IdStore)\
+            .filter(StoreCourt.IdStoreCourt == idStoreCourtReq).first()
+    
     #PIX
     if paymentReq == 1:
         if cpfReq != user.Cpf:
@@ -237,7 +239,11 @@ def CourtReservation():
             if responseCpf.status_code != 200:
                 return "Não foi possível criar suas partida. Tente novamente", HttpCode.WARNING
 
-        responsePayment = createPaymentPix(user, totalCostReq)
+        responsePayment = createPaymentPix(
+            user= user, 
+            value= totalCostReq,
+            store= store,
+        )
         if responsePayment.status_code != 200:
             return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
 
@@ -260,6 +266,7 @@ def CourtReservation():
             user= user, 
             creditCard= creditCard,
             value= totalCostReq,
+            store= store,
         )
         
         if responsePayment.status_code != 200:

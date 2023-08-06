@@ -83,16 +83,6 @@ def UpdateUser():
                 imageFile = open(f'/var/www/html/img/usr/{user.Photo}.png', 'wb')
                 imageFile.write(imageBytes)
                 imageFile.close()
-  
-
-
-        # else:
-        #     user.Photo = str(user.RegistrationDate.timestamp()).replace(".","") + str(user.IdUser)
-        #     print(user.Photo)
-        #     decoded_data=base64.b64decode(request.json.get('Photo')+ '==')
-        #     img_file = open(f'/var/www/html/img/usr/{user.Photo}.png', 'wb')
-        #     img_file.write(decoded_data)
-        #     img_file.close()
 
         db.session.commit()
         return user.to_json(), HttpCode.SUCCESS

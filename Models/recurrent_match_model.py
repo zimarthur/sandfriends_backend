@@ -90,7 +90,7 @@ class RecurrentMatch(db.Model):
             if self.User.Photo is None:
                 photo = None
             else:
-                photo = f"https://" + URL_list.get('URL_MAIN') + "/img/usr/{self.User.Photo}.png"
+                photo = f"https://{URL_list.get('URL_QUADRAS')}/img/usr/{self.User.Photo}.png"
 
         return {
             'IdRecurrentMatch': self.IdRecurrentMatch,

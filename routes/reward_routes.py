@@ -34,6 +34,7 @@ def RewardStatus(idUser):
     matches = db.session.query(Match)\
                 .join(MatchMember, MatchMember.IdMatch == Match.IdMatch)\
                 .filter((MatchMember.IdUser == idUser) & (MatchMember.IsMatchCreator == True))\
+                .filter(Match.AsaasBillingType != "PAY_IN_STORE")\
                 .filter((Match.Date >= reward.StartingDate) & (Match.Date <= reward.EndingDate))\
                 .filter((Match.Date < datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeBegin <= int(datetime.now().strftime("%H")))))\
                 .filter(Match.Canceled == False)\

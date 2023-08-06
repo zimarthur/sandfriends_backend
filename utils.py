@@ -4,6 +4,9 @@ from dateutil.relativedelta import relativedelta
 def getFirstDayOfLastMonth():
     return (datetime.today().replace(day=1) - timedelta(days=1)).replace(day=1).date()
 
+def getFirstDayOfMonth(date):
+    return (date.replace(day=1)).date()
+
 def getLastDayOfMonth(date):
     next_month = date.replace(day=28) + timedelta(days=4)
     res = next_month - timedelta(days=next_month.day)

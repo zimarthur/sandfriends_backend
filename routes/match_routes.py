@@ -43,9 +43,6 @@ def getHourIndex(hourString):
     #return AvailableHours.query.filter_by(HourString=hourString).first().IdAvailableHours
 
 def getHourString(hourIndex):
-    print(hourIndex)
-    print(type(hourIndex))
-    print(f"{hourIndex}:00")
     return f"{hourIndex}:00"#GAMBIARRA
     #return AvailableHours.query.filter_by(IdAvailableHours=hourIndex).first().HourString
 
@@ -318,6 +315,11 @@ def MatchReservation():
     asaasPaymentStatus = None
     asaasPixCode = None
 
+    #busca a quadra que vai ser feita a cobrança
+    store = db.session.query(Store)\
+            .join(StoreCourt, StoreCourt.IdStore == Store.IdStore)\
+            .filter(StoreCourt.IdStoreCourt == idStoreCourtReq).first()
+    
     #### PIX
     if paymentReq == 1:
         if cpfReq != user.Cpf:
@@ -330,7 +332,7 @@ def MatchReservation():
                 return "Não foi possível criar suas partida. Tente novamente", HttpCode.WARNING
 
         #Gera a cobrança no Asaas
-        responsePayment = createPaymentPix(user, costReq)
+        responsePayment = createPaymentPix(user, costReq, store)
         if responsePayment.status_code != 200:
             return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
 
@@ -356,6 +358,7 @@ def MatchReservation():
             user= user, 
             creditCard= creditCard,
             value= costReq,
+            store= store,
         )
         
         if responsePayment.status_code != 200:
@@ -410,16 +413,6 @@ def MatchReservation():
     )
     db.session.add(matchMember)
 
-    #Notificação para a loja
-    newNotificationStore = NotificationStore(
-        IdUser = user.IdUser,
-        IdStore = newMatch.StoreCourt.IdStore,
-        IdMatch = newMatch.IdMatch,
-        IdNotificationStoreCategory = 1,
-        EventDatetime = datetime.now()
-    )
-    db.session.add(newNotificationStore)
-
     db.session.commit()
     
     return "Sua partida foi agendada!", HttpCode.ALERT
@@ -469,7 +462,7 @@ def InvitationResponse():
     match = Match.query.get(idMatch)
     if match is None:
         return "Partida não encontrada", HttpCode.WARNING
-    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
+    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (match.IsFinished())):
          return 'A partida já foi finalizada', HttpCode.WARNING
     else:
         matchMember = MatchMember.query.filter((MatchMember.IdMatch == idMatch) & (MatchMember.IdUser == idUser)).first()
@@ -509,7 +502,7 @@ def LeaveMatch():
     match = Match.query.get(idMatch)
     if match is None:
         return "Partida não encontrada", HttpCode.WARNING
-    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
+    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (match.IsFinished())):
          return 'A partida já foi finalizada', HttpCode.WARNING
     else:
         matchMember = MatchMember.query.filter((MatchMember.IdMatch == idMatch) & (MatchMember.IdUser == user.IdUser)).first()
@@ -548,7 +541,7 @@ def SaveCreatorNotes():
     match = db.session.query(Match).get(idMatch)
     if match is None:
         return 'Partida não encontrada', HttpCode.WARNING
-    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
+    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (match.IsFinished())):
          return 'Partida já foi finalizada', HttpCode.WARNING
     else:
         match.CreatorNotes = newCreatorNotes
@@ -572,8 +565,9 @@ def SaveOpenMatch():
     match = db.session.query(Match).get(idMatch)
     if match is None:
         return 'Partida não encontrada', HttpCode.WARNING
-    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
-         return 'Partida já foi finalizada', HttpCode.WARNING
+    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (match.IsFinished())):
+         return str(match.IsFinished()), HttpCode.WARNING
+         #return 'Partida já foi finalizada', HttpCode.WARNING
     else:
         match.OpenUsers = isOpenMatch
         if isOpenMatch == False:
@@ -599,7 +593,7 @@ def JoinMatch():
     match = db.session.query(Match).get(idMatch)
     if match is None:
         return 'Partida não encontrada', HttpCode.WARNING
-    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
+    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (match.IsFinished())):
          return 'A partida já foi finalizada', HttpCode.WARNING
     else:
         matchMember = db.session.query(MatchMember).filter((MatchMember.IdMatch == idMatch) & (MatchMember.IdUser == user.IdUser)).first()
@@ -663,7 +657,7 @@ def CancelMatch():
          return 'A partida já foi finalizada', HttpCode.WARNING
     else:
 
-        if match.AsaasPaymentStatus == "CONFIRMED":
+        if match.IsPaymentConfirmed:
             responseRefund = refundPayment(paymentId= match.AsaasPaymentId, description= f"Partida cancelada/IdMatch {match.IdMatch}")
             if responseRefund.status_code != 200:
                 return "Não conseguimos processar o estorno. Tente novamente", HttpCode.WARNING
@@ -724,11 +718,11 @@ def CancelMatchEmployee():
     match = Match.query.get(idMatchReq)
     if match is None:
         return 'Partida não encontrada', HttpCode.WARNING
-    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
+    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (match.IsFinished())):
          return 'A partida já foi finalizada', HttpCode.WARNING
     else:
         
-        if match.AsaasPaymentStatus == "CONFIRMED":
+        if match.IsPaymentConfirmed:
             responseRefund = refundPayment(paymentId= match.AsaasPaymentId, description= f"Partida cancelada pelo estabelecimento/IdMatch {match.IdMatch}")
             if responseRefund.status_code != 200:
                 return "Não conseguimos processar o estorno. Tente novamente", HttpCode.WARNING
@@ -789,7 +783,7 @@ def RemoveMatchMember():
     match = Match.query.get(idMatch)
     if match is None:
         return 'Partida não encontrada', HttpCode.WARNING
-    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (datetime.strptime(getHourString(match.IdTimeBegin), '%H:%M') < datetime.now())):
+    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (match.IsFinished())):
          return 'A partida já foi finalizada', HttpCode.WARNING
     else:
 

@@ -53,11 +53,18 @@ class Match(db.Model):
     
     Members = db.relationship('MatchMember', backref="Match")
 
+    @hybrid_property
+    def IsPaymentConfirmed(self):
+        return self.AsaasPaymentStatus == "CONFIRMED"
+
+    def MatchDatetime(self):
+        return datetime.strptime(self.Date.strftime("%Y-%m-%d ") + self.TimeBegin.HourString, "%Y-%m-%d %H:%M")
+    
     def matchCreator(self):
         return [user for user in self.Members if user.IsMatchCreator][0]
     
     def IsFinished(self):
-        return (datetime.strptime(self.Date.strftime("%Y-%m-%d ") + self.TimeBegin.HourString, "%Y-%m-%d %H:%M") < datetime.now())
+        return (self.MatchDatetime() < datetime.now())
 
     def to_json(self):
         if self.IdUserCreditCard is None:
@@ -119,7 +126,7 @@ class Match(db.Model):
                 if member.User.Photo is None:
                     MatchCreatorPhoto = None
                 else:
-                    MatchCreatorPhoto = f"https://" + URL_list.get('URL_MAIN') + f"/img/usr/{member.User.Photo}.png"
+                    MatchCreatorPhoto = f"https://{URL_list.get('URL_QUADRAS')}/img/usr/{member.User.Photo}.png"
 
         return {
             'IdMatch': self.IdMatch,            
