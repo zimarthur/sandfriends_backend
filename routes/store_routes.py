@@ -9,7 +9,7 @@ from ..Models.city_model import City
 from ..Models.state_model import State
 from ..Models.store_photo_model import StorePhoto
 from ..Models.sport_model import Sport
-from ..Models.match_model import Match, URL_list
+from ..Models.match_model import Match
 from ..Models.employee_model import Employee
 from ..Models.available_hour_model import AvailableHour
 from ..Models.store_court_model import StoreCourt
@@ -18,6 +18,7 @@ from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import func
 import base64
 import bcrypt
+import os
 
 from ..Asaas.Account.create_account import createCustomer
 
@@ -118,7 +119,7 @@ def AddStore():
     ###Ajustar esta parte no futuro
     employeeReq.EmailConfirmationToken = str(datetime.now().timestamp()) + str(employeeReq.IdEmployee)
     db.session.commit()
-    emailStoreWelcomeConfirmation(employeeReq.Email, employeeReq.FirstName, "https://" + URL_list.get('URL_QUADRAS') + "/emcf?str=1&tk="+employeeReq.EmailConfirmationToken)
+    emailStoreWelcomeConfirmation(employeeReq.Email, employeeReq.FirstName, "https://" + os.environ['URL_QUADRAS'] + "/emcf?str=1&tk="+employeeReq.EmailConfirmationToken)
     
     return webResponse("Você está quase lá!", \
     "Para concluir seu cadastro, é necessário que você valide seu e-mail.\nAcesse o link que enviamos e sua conta será criada.\n\nSe tiver qualquer dúvida, é só nos chamar, ok?"), HttpCode.ALERT

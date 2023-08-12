@@ -1,11 +1,8 @@
 import requests
-import json
+import os
 
-with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
-    URL_list = json.load(config_file)
-
-asaas_url = URL_list.get('URL_ASAAS')
-asaas_api_key = URL_list.get('ASAAS_API_KEY')
+asaas_url = os.environ['URL_ASAAS']
+asaas_api_key = os.environ['ASAAS_API_KEY']
 
 headers = {
     "accept": "application/json",

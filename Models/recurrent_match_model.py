@@ -3,9 +3,6 @@ from datetime import datetime, timedelta
 from ..utils import getFirstDayOfLastMonth, isCurrentMonth
 import json
 from sqlalchemy.ext.hybrid import hybrid_property
-
-with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
-    URL_list = json.load(config_file)
     
 class RecurrentMatch(db.Model):
     __tablename__ = 'recurrent_match'
@@ -90,7 +87,7 @@ class RecurrentMatch(db.Model):
             if self.User.Photo is None:
                 photo = None
             else:
-                photo = f"https://{URL_list.get('URL_QUADRAS')}/img/usr/{self.User.Photo}.png"
+                photo = f"/img/usr/{self.User.Photo}.png"
 
         return {
             'IdRecurrentMatch': self.IdRecurrentMatch,

@@ -81,19 +81,21 @@ def debug():
     #     )
     # db.session.add(newRecurrentMatch)
     # db.session.commit()
-    return str(datetime.now()), 200
-    newReward = RewardMonth(
-        StartingDate = getFirstDayOfMonth(datetime.now()),
-        EndingDate = getLastDayOfMonth(datetime.now()),
-        NTimesToReward = 4,
-        IdRewardCategory = 1,
-    )
-    db.session.add(newReward)
-    db.session.commit()
-    db.session.refresh(newReward)
-    #reward = db.session.query(RewardMonth).first()
+    ambiente = os.environ['SQLALCHEMY_DATABASE_URI']
 
-    return jsonify({'reward': newReward.to_json()}), 200
+    return ambiente, 200
+    # newReward = RewardMonth(
+    #     StartingDate = getFirstDayOfMonth(datetime.now()),
+    #     EndingDate = getLastDayOfMonth(datetime.now()),
+    #     NTimesToReward = 4,
+    #     IdRewardCategory = 1,
+    # )
+    # db.session.add(newReward)
+    # db.session.commit()
+    # db.session.refresh(newReward)
+    # #reward = db.session.query(RewardMonth).first()
+
+    # return jsonify({'reward': newReward.to_json()}), 200
     # URL = URL_list.get('URL_QUADRAS')
     # return URL, 200
 

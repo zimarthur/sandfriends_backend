@@ -18,6 +18,7 @@ from .routes.reward_routes import bp_reward
 from .routes.employee_routes import bp_employee
 from .routes.user_credit_card_routes import bp_user_credit_card
 from .routes.webhook_routes import bp_webhook
+import os
 
 import json
 
@@ -29,7 +30,7 @@ def create_app():
     app.config['CORS_HEADERS'] = 'Content-Type'
     
     app.config['SECRET_KEY'] = config.get('SECRET_KEY')
-    app.config['SQLALCHEMY_DATABASE_URI'] = config.get('SQLALCHEMY_DATABASE_URI')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ['SQLALCHEMY_DATABASE_URI']
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     app.register_blueprint(bp_user_login)

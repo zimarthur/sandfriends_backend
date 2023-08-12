@@ -3,9 +3,6 @@ from datetime import datetime, timedelta
 import json
 from sqlalchemy.ext.hybrid import hybrid_property
 
-with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
-    URL_list = json.load(config_file)
-    
 class Match(db.Model):
     __tablename__ = 'match'
     IdMatch = db.Column(db.Integer, primary_key=True)
@@ -126,7 +123,7 @@ class Match(db.Model):
                 if member.User.Photo is None:
                     MatchCreatorPhoto = None
                 else:
-                    MatchCreatorPhoto = f"https://{URL_list.get('URL_QUADRAS')}/img/usr/{member.User.Photo}.png"
+                    MatchCreatorPhoto = f"/img/usr/{member.User.Photo}.png"
 
         return {
             'IdMatch': self.IdMatch,            

@@ -22,9 +22,7 @@ from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import func
 import bcrypt
 import json
-
-with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
-    URL_list = json.load(config_file)
+import os
 
 bp_employee = Blueprint('bp_employee', __name__)
 
@@ -132,7 +130,7 @@ def AddEmployee():
     #enviar email para funcionário
     newEmployee.EmailConfirmationToken = str(datetime.now().timestamp()) + str(newEmployee.IdEmployee)
     db.session.commit()
-    emailStoreAddEmployee(newEmployee.Email, "https://" + URL_list.get('URL_QUADRAS') + "/adem?tk="+newEmployee.EmailConfirmationToken)
+    emailStoreAddEmployee(newEmployee.Email, "https://" + os.environ['URL_QUADRAS'] + "/adem?tk="+newEmployee.EmailConfirmationToken)
 
     return returnStoreEmployees(employee.IdStore), HttpCode.SUCCESS
 
@@ -295,7 +293,7 @@ def ChangePasswordRequestEmployee():
     #envia o email automático para redefinir a senha
     employee.ResetPasswordToken = str(datetime.now().timestamp()) + str(employee.IdEmployee)
     db.session.commit()
-    emailStoreChangePassword(employee.Email, employee.FirstName, "https://" + URL_list.get('URL_QUADRAS') + "/cgpw?str=1&tk="+employee.ResetPasswordToken)
+    emailStoreChangePassword(employee.Email, employee.FirstName, "https://" + os.environ['URL_QUADRAS'] + "/cgpw?str=1&tk="+employee.ResetPasswordToken)
 
     return webResponse("Link para troca de senha enviado!", "Verifique sua caixa de e-mail e siga as instruções para trocar sua senha"), HttpCode.ALERT
 

@@ -31,11 +31,9 @@ from ..Models.http_codes import HttpCode
 from ..access_token import EncodeToken, DecodeToken
 import bcrypt
 import json
+import os
 
 from ..Asaas.Customer.create_customer import createCustomer
-
-with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
-    URL_list = json.load(config_file)
 
 bp_user_login = Blueprint('bp_user_login', __name__)
 
@@ -79,7 +77,7 @@ def AddUser():
     userNew.EmailConfirmationToken = str(datetime.now().timestamp()) + userNew.AccessToken
     #emcf=email confirmation(não sei se é legal ter uma url explicita), str(pra distinguir se é store=1 ou user = 0)
     #tk = token
-    emailUserWelcomeConfirmation(userNew.Email, "https://" + URL_list.get('URL_QUADRAS') + "/emcf?str=0&tk="+userNew.EmailConfirmationToken)
+    emailUserWelcomeConfirmation(userNew.Email, "https://" + os.environ['URL_QUADRAS'] + "/emcf?str=0&tk="+userNew.EmailConfirmationToken)
     
     db.session.commit()
     return "Sua conta foi criada! Valide ela com o e-mail que enviamos.", HttpCode.SUCCESS
@@ -282,7 +280,7 @@ def ChangePasswordRequestUser():
     #E-mail já  confirmado
     user.ResetPasswordToken = str(datetime.now().timestamp()) + user.AccessToken
     db.session.commit()
-    emailUserChangePassword(user.Email, user.FirstName, "https://" + URL_list.get('URL_QUADRAS') + "/cgpw?str=0&tk="+user.ResetPasswordToken)
+    emailUserChangePassword(user.Email, user.FirstName, "https://" + os.environ['URL_QUADRAS'] + "/cgpw?str=0&tk="+user.ResetPasswordToken)
 
     return 'Enviamos um e-mail para ser feita a troca de senha', HttpCode.SUCCESS
 

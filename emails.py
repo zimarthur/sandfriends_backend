@@ -1,4 +1,5 @@
 import json
+import os
 from .settings import mailjet
 from .utils import weekdays
 
@@ -12,13 +13,10 @@ STORE_APPROVED = 4954730
 
 USER_MATCH_CONFIRMED = 4954742
 USER_RECURRENT_MATCH_CONFIRMED = 4978838
- 
-with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
-    URL_list = json.load(config_file)
 
 def emailUserMatchConfirmed(match):
     variables = {
-        "link": f"https://{URL_list.get('URL_QUADRAS')}/redirect/?ct=mtch&bd={match.MatchUrl}",
+        "link": f"https://{os.environ['URL_QUADRAS']}/redirect/?ct=mtch&bd={match.MatchUrl}",
         "store": match.StoreCourt.Store.Name,
         "date": match.Date.strftime("%d/%m/%Y"),
         "price": f"R$ {int(match.Cost)},00",
