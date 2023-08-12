@@ -30,7 +30,7 @@ from ..Models.notification_user_category_model import NotificationUserCategory
 from ..Models.notification_store_model import NotificationStore
 from ..Models.notification_store_category_model import NotificationStoreCategory
 from ..access_token import EncodeToken, DecodeToken
-
+from ..emails import emailUserMatchConfirmed
 from ..Asaas.Customer.update_customer import updateCpf
 from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard
 from ..Asaas.Payment.refund_payment import refundPayment
@@ -116,17 +116,8 @@ def SearchCourts():
     courtHours = db.session.query(StorePrice)\
                     .filter(StorePrice.IdStoreCourt.in_(court.IdStoreCourt for court in courts)).all()
                     
+    matches = queryConcurrentMatches([court.IdStoreCourt for court in courts], daterange(dateStart.date(), dateEnd.date()), timeStart, timeEnd)
 
-    matches = db.session.query(Match)\
-                    .filter(Match.IdStoreCourt.in_(court.IdStoreCourt for court in courts))\
-                    .filter(Match.Date.in_(daterange(dateStart.date(), dateEnd.date())))\
-                    .filter(Match.Canceled == False) \
-                    .filter(((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin <= timeEnd)) | \
-                            ((Match.IdTimeEnd > timeStart) & (Match.IdTimeEnd <= timeEnd)) | \
-                            ((Match.IdTimeBegin < timeStart) & (Match.IdTimeEnd > timeStart))).all()
-
-    matches = [match for match in matches if match.isPaymentExpired == False]
-    
     searchWeekdays= []
     for searchDay in daterange(dateStart.date(), dateEnd.date()):
         if(searchDay.weekday() not in searchWeekdays):
@@ -287,13 +278,7 @@ def MatchReservation():
         return '1', HttpCode.INVALID_ACCESS_TOKEN
 
     #Verifica se já tem uma partida agendada no mesmo horário
-    concurrentMatch = Match.query.filter((Match.IdStoreCourt == int(idStoreCourtReq)) & (Match.Date == dateReq) & (Match.Canceled == False) & (\
-                ((Match.IdTimeBegin >= timeStartReq) & (Match.IdTimeBegin < timeEndReq))  | \
-                ((Match.IdTimeEnd > timeStartReq) & (Match.IdTimeEnd <= timeEndReq))      | \
-                ((Match.IdTimeBegin < timeStartReq) & (Match.IdTimeEnd > timeStartReq))   \
-                )).all()
-
-    concurrentMatch = [match for match in concurrentMatch if match.isPaymentExpired == False]
+    concurrentMatch = queryConcurrentMatches([idStoreCourtReq],[dateReq], timeStartReq, timeEndReq)
 
     #Lembrando que aqui são as partidas mensalistas e os horários bloqueados recorrentemente
     concurrentRecurrentMatch = db.session.query(RecurrentMatch)\
@@ -308,7 +293,7 @@ def MatchReservation():
 
     #Caso o horário não esteja mais disponível na hora dele fazer a reserva
     if (len(concurrentMatch) > 0) or (len(concurrentRecurrentMatch) > 0):
-        return "Ops, esse horário não está mais disponível", HttpCode.WARNING
+        return f"Ops, esse horário não está mais disponível {concurrentMatch[0].TimeBegin.HourString}{concurrentMatch[0].TimeEnd.HourString}", HttpCode.WARNING
     
     asaasPaymentId = None
     asaasBillingType = None
@@ -414,9 +399,27 @@ def MatchReservation():
     db.session.add(matchMember)
 
     db.session.commit()
-    
-    return "Sua partida foi agendada!", HttpCode.ALERT
+    db.session.refresh(newMatch)
 
+    #Se for pagamento no local, já envia notificação pra quadra sobre o agendamento
+    if paymentReq == 3:
+        #Notificação para a loja
+        newNotificationStore = NotificationStore(
+            IdUser = newMatch.matchCreator().IdUser,
+            IdStore = newMatch.StoreCourt.IdStore,
+            IdMatch = newMatch.IdMatch,
+            IdNotificationStoreCategory = 1,
+            EventDatetime = datetime.now()
+        )
+        db.session.add(newNotificationStore)
+        db.session.commit()
+        emailUserMatchConfirmed(newMatch)
+    #PIX
+    if paymentReq == 1:
+        return "Sua partida foi reservada! Entre na partida para copiar o código pix", HttpCode.ALERT
+    else:
+        return "Sua partida foi agendada!", HttpCode.ALERT
+    
 @bp_match.route("/GetMatchInfo", methods=["POST"])
 def GetMatchInfo(): 
 
@@ -657,7 +660,7 @@ def CancelMatch():
          return 'A partida já foi finalizada', HttpCode.WARNING
     else:
 
-        if match.IsPaymentConfirmed:
+        if match.IsPaymentConfirmed and match.AsaasBillingType != "PAY_IN_STORE":
             responseRefund = refundPayment(paymentId= match.AsaasPaymentId, description= f"Partida cancelada/IdMatch {match.IdMatch}")
             if responseRefund.status_code != 200:
                 return "Não conseguimos processar o estorno. Tente novamente", HttpCode.WARNING
@@ -945,7 +948,7 @@ def BlockUnblockHour():
     else:
         #se tinha alguma partida com custo != 0 quer dizer q alguem agendou uma partida nesse meio tempo, ai não pode mais bloear o horario
         if match.Cost != 0:
-            return webResponse("Ops", "Não foi possível bloquear o horário. Uma partida já foi marcada"), HttpCode.WARNING
+            return webResponse("Ops", "Não foi possível bloquear o horário. Uma partida já foi ou está sendo marcada"), HttpCode.WARNING
         
         #em teoria se chegou aqui é para desbloquear um horário, coloquei esse if só pra ter certeza
         if blockedReq == False:
@@ -996,3 +999,15 @@ def SearchCustomMatches():
         matchList.append(match.to_json_min())
 
     return {'Matches': matchList}, HttpCode.SUCCESS
+
+def queryConcurrentMatches(listIdStoreCourt, listDate, timeStart, timeEnd):
+    matches = db.session.query(Match)\
+            .filter(Match.IdStoreCourt.in_(listIdStoreCourt))\
+            .filter(Match.Date.in_(listDate))\
+            .filter(Match.Canceled == False) \
+            .filter(Match.isPaymentExpired == False)\
+            .filter(((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin <= timeEnd)) | \
+                    ((Match.IdTimeEnd > timeStart) & (Match.IdTimeEnd <= timeEnd)) | \
+                    ((Match.IdTimeBegin < timeStart) & (Match.IdTimeEnd > timeStart))).all()
+    
+    return [match for match in matches if match.IsFinished() ==  False]

@@ -4,22 +4,27 @@ from ..asaas_base_api import requestPost
 from ...extensions import db
 from ...utils import getFirstDayOfMonth, getLastDayOfMonth
 from ...Models.store_model import Store
+from ...Models.store_court_model import StoreCourt
 from ...Models.match_model import Match
 
 def getSplitPercentage(store):
+    numberOfCourts = db.session.query(StoreCourt)\
+        .filter(StoreCourt.IdStore == store.IdStore).count()
+    
     currentMonthMatches = db.session.query(Match)\
         .filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in store.Courts]))\
         .filter(Match.Canceled == False)\
         .filter((Match.CreationDate >= getFirstDayOfMonth(datetime.now())) & (Match.CreationDate >= getLastDayOfMonth(datetime.now())) ).all()        
+    
+    currentMonthMatchesHours=0
+    for match in currentMonthMatches:
+        if match.isPaymentExpired == False:
+            currentMonthMatchesHours += match.MatchDuration()
 
-    currentMonthMatches = [match for match in currentMonthMatches if match.isPaymentExpired == False]
-
-    if len(currentMonthMatches) < 50:
-        return 90
-    elif len(currentMonthMatches) < 100:
-        return 92
+    if (currentMonthMatchesHours/numberOfCourts) < 30:
+        return 88
     else:
-        return 94
+        return 93
 
 def createPaymentPix(user, value, store):
     response = requestPost(

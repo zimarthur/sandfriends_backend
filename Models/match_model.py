@@ -3,6 +3,9 @@ from datetime import datetime, timedelta
 import json
 from sqlalchemy.ext.hybrid import hybrid_property
 
+with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
+    URL_list = json.load(config_file)
+    
 class Match(db.Model):
     __tablename__ = 'match'
     IdMatch = db.Column(db.Integer, primary_key=True)
@@ -57,6 +60,8 @@ class Match(db.Model):
     def MatchDatetime(self):
         return datetime.strptime(self.Date.strftime("%Y-%m-%d ") + self.TimeBegin.HourString, "%Y-%m-%d %H:%M")
     
+    def MatchDuration(self):
+        return (self.TimeEnd - self.TimeBegin)
     def matchCreator(self):
         return [user for user in self.Members if user.IsMatchCreator][0]
     
@@ -108,6 +113,9 @@ class Match(db.Model):
             'MatchUrl': self.MatchUrl,
             'CreatorNotes': self.CreatorNotes,
             'Members':members,
+            'PaymentStatus': self.AsaasPaymentStatus,
+            'PaymentType': self.AsaasBillingType,
+            'PaymentExpirationDate': self.paymentExpiration.strftime("%Y-%m-%d %H:%M:%S"),
         }
 
     def to_json_min(self):
