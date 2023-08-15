@@ -47,33 +47,34 @@ def AddUserCreditCard():
     if userCreditCards is not None:
         return "Este cartão já foi cadastrado anteriormente",HttpCode.SUCCESS
 
-    #Pré autorização no asaas
-    #Realiza uma cobrança de R$5 (mínimo do Asaas) pra ver se o cartão está válido e gerar o Token
-    authorizationResponse = createPaymentPreAuthorization(
-        user= user,
-        holderName= ownerNameReq,
-        holderCpf= ownerCpfReq,
-        cardNumber= cardNumberReq,
-        cvv= cvvReq,
-        expirationMonth= expirationDate.strftime("%m"),
-        expirationYear= expirationDate.strftime("%Y"),
-        addressNumber=addressNumberReq,
-        cep=cepReq,
-    )
+    # #Pré autorização no asaas
+    # #Realiza uma cobrança de R$5 (mínimo do Asaas) pra ver se o cartão está válido e gerar o Token
+    # authorizationResponse = createPaymentPreAuthorization(
+    #     user= user,
+    #     holderName= ownerNameReq,
+    #     holderCpf= ownerCpfReq,
+    #     cardNumber= cardNumberReq,
+    #     cvv= cvvReq,
+    #     expirationMonth= expirationDate.strftime("%m"),
+    #     expirationYear= expirationDate.strftime("%Y"),
+    #     addressNumber=addressNumberReq,
+    #     cep=cepReq,
+    # )
     
-    if authorizationResponse.status_code != 200:
-        return "Não foi possível cadastrar seu cartão. Verifique se as informações estão corretas", HttpCode.WARNING
+    # if authorizationResponse.status_code != 200:
+    #     return "Não foi possível cadastrar seu cartão. Verifique se as informações estão corretas", HttpCode.WARNING
 
-    #Realiza o reembolso dos R$5 da validação do cartão
-    refundPayment(
-        paymentId= authorizationResponse.json().get('id'),
-        description= "Credit Card Authorization",
-    )
+    # #Realiza o reembolso dos R$5 da validação do cartão
+    # refundPayment(
+    #     paymentId= authorizationResponse.json().get('id'),
+    #     description= "Credit Card Authorization",
+    # )
 
     #Cadastra um cartão novo
     newUserCreditCard = UserCreditCard(
         IdUser = user.IdUser,
-        LastDigits = cardNumberReq[-4:],
+        CardNumber = cardNumberReq,
+        cvv = cvvReq,
         Nickname = nicknameReq,
         ExpirationDate = datetime.strptime(expirationDateReq, '%m/%Y'),
         OwnerName = ownerNameReq,
@@ -82,8 +83,8 @@ def AddUserCreditCard():
         Cep = cepReq,
         Address = addressReq,
         AddressNumber = addressNumberReq,
-        CreditCardToken = authorizationResponse.json()['creditCard']['creditCardToken'],
-        AsaasPaymentId = authorizationResponse.json().get('id') ,
+        CreditCardToken = "awaiting asaas token",
+        AsaasPaymentId = "awaiting asaas token",
         Issuer = issuerReq,
     )
 
