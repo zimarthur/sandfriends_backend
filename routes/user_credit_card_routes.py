@@ -38,7 +38,7 @@ def AddUserCreditCard():
     #Caso o cartão já tenha sido cadastrado
     userCreditCards = db.session.query(UserCreditCard)\
         .filter(UserCreditCard.IdUser == user.IdUser)\
-        .filter(UserCreditCard.LastDigits == cardNumberReq[-4:])\
+        .filter(UserCreditCard.CardNumber == cardNumberReq)\
         .filter(UserCreditCard.ExpirationDate == datetime.strptime(expirationDateReq, '%m/%Y'))\
         .filter(UserCreditCard.Issuer == issuerReq)\
         .filter(UserCreditCard.Deleted == False).first()
@@ -74,7 +74,7 @@ def AddUserCreditCard():
     newUserCreditCard = UserCreditCard(
         IdUser = user.IdUser,
         CardNumber = cardNumberReq,
-        cvv = cvvReq,
+        Cvv = cvvReq,
         Nickname = nicknameReq,
         ExpirationDate = datetime.strptime(expirationDateReq, '%m/%Y'),
         OwnerName = ownerNameReq,

@@ -52,7 +52,21 @@ def createPaymentCreditCard(user, value, creditCard, store):
             "billingType": "CREDIT_CARD",
             "value": value,
             "dueDate": datetime.now().strftime("%Y-%m-%d"),
-            "creditCardToken": creditCard.CreditCardToken,
+            "creditCard": { 
+                "holderName": creditCard.OwnerName,
+                "number": creditCard.CardNumber,
+                "expiryMonth" :creditCard.ExpirationDate.strftime("%m"),
+                "expiryYear": creditCard.ExpirationDate.strftime("%Y"),
+                "ccv": creditCard.Cvv,
+            },
+            "creditCardHolderInfo": {
+                "name": creditCard.OwnerName,
+                "cpfCnpj": creditCard.OwnerCpf,
+                "email": user.Email,
+                "postalCode": creditCard.Cep,
+                "addressNumber": creditCard.AddressNumber,
+                "phone": user.PhoneNumber
+            },
             "split": [
                 {
                 "walletId":  store.AsaasWalletId,
@@ -62,6 +76,24 @@ def createPaymentCreditCard(user, value, creditCard, store):
         }
     )
     return response
+# def createPaymentCreditCard(user, value, creditCard, store):
+#     response = requestPost(
+#         f"payments", 
+#         {
+#             "customer": user.AsaasId,
+#             "billingType": "CREDIT_CARD",
+#             "value": value,
+#             "dueDate": datetime.now().strftime("%Y-%m-%d"),
+#             "creditCardToken": creditCard.CreditCardToken,
+#             "split": [
+#                 {
+#                 "walletId":  store.AsaasWalletId,
+#                 "percentualValue": getSplitPercentage(store),
+#                 }
+#             ]
+#         }
+#     )
+#     return response
 
 def createPaymentPreAuthorization(user, holderName, holderCpf, cardNumber, expirationMonth, expirationYear, cvv, cep, addressNumber):
     response = requestPost(
