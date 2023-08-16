@@ -128,6 +128,7 @@ def AddStore():
 
 #Rota utilizada por nós para aprovar manualmente os estabelecimentos
 @bp_store.route("/ApproveStore", methods=["POST"])
+#Milano
 def ApproveStore():
     if not request.json:
         abort(HttpCode.ABORT)
