@@ -45,7 +45,7 @@ def AddUserCreditCard():
     
     #Caso os últimos 4 dígitos e a data de validade sejam iguais, verifica as hashes
     if userCreditCards is not None:
-        return "Este cartão já foi cadastrado anteriormente",HttpCode.SUCCESS
+        return "Este cartão já foi cadastrado anteriormente",HttpCode.ALERT
 
     # #Pré autorização no asaas
     # #Realiza uma cobrança de R$5 (mínimo do Asaas) pra ver se o cartão está válido e gerar o Token
