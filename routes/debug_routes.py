@@ -46,8 +46,6 @@ from ..Models.reward_month_model import RewardMonth
 from ..access_token import EncodeToken, DecodeToken
 import json
 from ..Asaas.asaas_base_api import requestPost
-with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
-    URL_list = json.load(config_file)
 
 bp_debug = Blueprint('bp_debug', __name__)
 
