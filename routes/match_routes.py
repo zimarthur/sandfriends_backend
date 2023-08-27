@@ -64,10 +64,7 @@ def GetAllCities():
         statesList.append(state.to_jsonWithCities())
     return jsonify({'States':statesList})
 
-
-#rota que retorna todas cidades que tem estabelecimento cadastrado
-@bp_match.route("/GetAvailableCities", methods=["GET"])
-def GetAvailableCities():
+def GetAvailableCitiesList():
     stores = getAvailableStores()
     
     cities = db.session.query(City)\
@@ -81,7 +78,12 @@ def GetAvailableCities():
     for state in states:
         statesList.append(state.to_jsonWithFilteredCities([city.IdCity for city in cities]))
 
-    return jsonify({'States':statesList})
+    return statesList
+
+#rota que retorna todas cidades que tem estabelecimento cadastrado
+@bp_match.route("/GetAvailableCities", methods=["GET"])
+def GetAvailableCities():
+    return jsonify({'States':GetAvailableCitiesList()})
 
     
 #rota utilizada pra buscar horários e partidas abertas
