@@ -23,6 +23,7 @@ from ..Models.match_model import Match
 from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.match_member_model import MatchMember
 from ..routes.match_routes import getHourString
+from ..routes.match_routes import GetAvailableCitiesList
 from ..Models.notification_user_model import NotificationUser
 from ..Models.notification_user_category_model import NotificationUserCategory
 from ..extensions import db
@@ -77,7 +78,7 @@ def AddUser():
     userNew.EmailConfirmationToken = str(datetime.now().timestamp()) + userNew.AccessToken
     #emcf=email confirmation(não sei se é legal ter uma url explicita), str(pra distinguir se é store=1 ou user = 0)
     #tk = token
-    emailUserWelcomeConfirmation(userNew.Email, "https://" + os.environ['URL_QUADRAS'] + "/emcf?str=0&tk="+userNew.EmailConfirmationToken)
+    emailUserWelcomeConfirmation(userNew.Email, "https://" + os.environ['URL_APP'] + "/redirect/?ct=emcf&bd="+userNew.EmailConfirmationToken)
     
     db.session.commit()
     return "Sua conta foi criada! Valide ela com o e-mail que enviamos.", HttpCode.SUCCESS
@@ -252,13 +253,13 @@ def EmailConfirmationUser():
         if user.EmailConfirmationDate == None:
             user.EmailConfirmationDate = datetime.now()
             db.session.commit()
-            return  webResponse("Sua conta foi validada com sucesso!",None), HttpCode.SUCCESS
+            return  {"AccessToken": user.AccessToken}, HttpCode.SUCCESS
         #Já estava confirmado
         else:
-            return  webResponse("Sua conta já está válida", None), HttpCode.ALERT
+            return  "Sua conta já está válida", HttpCode.ALERT
     
     #Token não localizado
-    return webResponse("Algo deu errado, tente novamente.",None), HttpCode.WARNING
+    return "Algo deu errado, tente novamente.", HttpCode.WARNING
 
 #rota utilizada pelo jogador quando ele solicita para troca a senha. Nesse caso é enviado somente o email. Se o email estiver no banco do dados, é enviado um link para troca
 @bp_user_login.route("/ChangePasswordRequestUser", methods=["POST"])
@@ -435,7 +436,7 @@ def initUserLoginData(user):
         hoursList.append(hour.to_json())
 
     
-    return jsonify({'Sports':sportsList, 'Genders': gendersList, 'SidePreferences': sidePreferencesList, 'Ranks': ranksList, 'Hours': hoursList, 'User': user.to_json()})
+    return jsonify({'States':GetAvailableCitiesList(), 'Sports':sportsList, 'Genders': gendersList, 'SidePreferences': sidePreferencesList, 'Ranks': ranksList, 'Hours': hoursList, 'User': user.to_json()})
 
 def getMatchCounterList(user):
     #Como o num de jogos do jogador não está e não pode ser obtida na tabela User ou UserLogin, tive q fazer a query manualmente(abaixo)

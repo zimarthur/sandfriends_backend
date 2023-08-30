@@ -46,9 +46,7 @@ from ..Models.reward_month_model import RewardMonth
 from ..access_token import EncodeToken, DecodeToken
 import json
 from ..Asaas.asaas_base_api import requestPost
-with open('/sandfriends/sandfriends_backend/URL_config.json') as config_file:
-    URL_list = json.load(config_file)
-
+from .match_routes import GetAvailableCitiesList
 bp_debug = Blueprint('bp_debug', __name__)
 
 
@@ -67,6 +65,7 @@ def getLastMonth():
 
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
+    return jsonify({'Sports': "a",  "b":GetAvailableCitiesList()}), 200
     # newRecurrentMatch = RecurrentMatch(
     #         IdUser = 1,
     #         IdStoreCourt = 1,
