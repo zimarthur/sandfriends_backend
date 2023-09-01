@@ -186,7 +186,7 @@ def CourtReservation():
         idCreditCardReq =  None 
     else: 
         idCreditCardReq = request.json.get("IdCreditCard")
-    
+        cvvReq = request.json.get("Cvv")
 
     user = User.query.filter_by(AccessToken = accessTokenReq).first()
 
@@ -267,6 +267,7 @@ def CourtReservation():
             creditCard= creditCard,
             value= totalCostReq,
             store= store,
+            cvv= cvvReq,
         )
         
         if responsePayment.status_code != 200:

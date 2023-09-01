@@ -44,7 +44,7 @@ def createPaymentPix(user, value, store):
     )
     return response
 
-def createPaymentCreditCard(user, value, creditCard, store):
+def createPaymentCreditCard(user, value, creditCard, store, cvv):
     response = requestPost(
         f"payments", 
         {
@@ -57,7 +57,7 @@ def createPaymentCreditCard(user, value, creditCard, store):
                 "number": creditCard.CardNumber,
                 "expiryMonth" :creditCard.ExpirationDate.strftime("%m"),
                 "expiryYear": creditCard.ExpirationDate.strftime("%Y"),
-                "ccv": creditCard.Cvv,
+                "ccv": cvv,
             },
             "creditCardHolderInfo": {
                 "name": creditCard.OwnerName,
