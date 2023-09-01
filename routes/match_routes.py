@@ -274,6 +274,7 @@ def MatchReservation():
         idCreditCardReq =  None 
     else: 
         idCreditCardReq = request.json.get("IdCreditCard")
+        cvvReq = request.json.get("Cvv")
 
     user = User.query.filter_by(AccessToken = accessTokenReq).first()
 
@@ -296,7 +297,7 @@ def MatchReservation():
 
     #Caso o horário não esteja mais disponível na hora dele fazer a reserva
     if (len(concurrentMatch) > 0) or (len(concurrentRecurrentMatch) > 0):
-        return f"Ops, esse horário não está mais disponível {concurrentMatch[0].TimeBegin.HourString}{concurrentMatch[0].TimeEnd.HourString}", HttpCode.WARNING
+        return f"Ops, esse horário não está mais disponível", HttpCode.WARNING
     
     asaasPaymentId = None
     asaasBillingType = None
@@ -347,6 +348,7 @@ def MatchReservation():
             creditCard= creditCard,
             value= costReq,
             store= store,
+            cvv= cvvReq,
         )
         
         if responsePayment.status_code != 200:

@@ -20,7 +20,6 @@ def AddUserCreditCard():
     accessTokenReq = request.json.get('AccessToken')
     phoneNumberReq = request.json.get('PhoneNumber')
     cardNumberReq = request.json.get('CardNumber')
-    cvvReq = request.json.get('Cvv')
     nicknameReq = request.json.get('Nickname')
     expirationDateReq = request.json.get('ExpirationDate')
     ownerNameReq = request.json.get('OwnerName')
@@ -75,7 +74,6 @@ def AddUserCreditCard():
     newUserCreditCard = UserCreditCard(
         IdUser = user.IdUser,
         CardNumber = cardNumberReq,
-        Cvv = cvvReq,
         Nickname = nicknameReq,
         ExpirationDate = datetime.strptime(expirationDateReq, '%m/%Y'),
         OwnerName = ownerNameReq,
@@ -84,8 +82,6 @@ def AddUserCreditCard():
         Cep = cepReq,
         Address = addressReq,
         AddressNumber = addressNumberReq,
-        CreditCardToken = "awaiting asaas token",
-        AsaasPaymentId = "awaiting asaas token",
         Issuer = issuerReq,
         PhoneNumber = phoneNumberReq,
     )

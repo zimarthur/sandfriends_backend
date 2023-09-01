@@ -7,7 +7,6 @@ class UserCreditCard(db.Model):
     IdUserCreditCard = db.Column(db.Integer, primary_key=True)
     Nickname = db.Column(db.String(45))
     CardNumber = db.Column(db.String(16))
-    Cvv = db.Column(db.String(4))
     ExpirationDate = db.Column(db.DateTime)
     OwnerName = db.Column(db.String(45))
     OwnerCpf = db.Column(db.String(11))
@@ -15,8 +14,6 @@ class UserCreditCard(db.Model):
     Cep = db.Column(db.String(8))
     Address = db.Column(db.String(255))
     AddressNumber = db.Column(db.String(255))
-    CreditCardToken = db.Column(db.String(255))
-    AsaasPaymentId = db.Column(db.String(255))
     Issuer = db.Column(db.String(45))
     PhoneNumber = db.Column(db.String(45))
 
@@ -26,7 +23,7 @@ class UserCreditCard(db.Model):
     def to_json(self):
         return {
             'IdUserCreditCard': self.IdUserCreditCard,
-            'CardNumber': self.CardNumber[:4],
+            'CardNumber': self.CardNumber[-4:],
             'Nickname': self.Nickname,
             'ExpirationDate': self.ExpirationDate.strftime("%d/%m/%Y"),
             'Issuer': self.Issuer,
