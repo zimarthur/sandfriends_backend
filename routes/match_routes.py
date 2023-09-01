@@ -260,6 +260,7 @@ def MatchReservation():
         abort(HttpCode.ABORT)
 
     accessTokenReq = request.json.get('AccessToken')
+    phoneNumberReq = request.json.get('PhoneNumber')
     idStoreCourtReq = request.json.get('IdStoreCourt')
     sportIdReq = request.json.get('SportId')
     dateReq = datetime.strptime(request.json.get('Date'), '%d/%m/%Y')
@@ -278,7 +279,7 @@ def MatchReservation():
 
     if user is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN
-
+    
     #Verifica se já tem uma partida agendada no mesmo horário
     concurrentMatch = queryConcurrentMatches([idStoreCourtReq],[dateReq], timeStartReq, timeEndReq)
 

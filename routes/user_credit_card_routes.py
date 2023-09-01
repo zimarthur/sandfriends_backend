@@ -18,6 +18,7 @@ def AddUserCreditCard():
         abort(HttpCode.ABORT)
 
     accessTokenReq = request.json.get('AccessToken')
+    phoneNumberReq = request.json.get('PhoneNumber')
     cardNumberReq = request.json.get('CardNumber')
     cvvReq = request.json.get('Cvv')
     nicknameReq = request.json.get('Nickname')
@@ -86,6 +87,7 @@ def AddUserCreditCard():
         CreditCardToken = "awaiting asaas token",
         AsaasPaymentId = "awaiting asaas token",
         Issuer = issuerReq,
+        PhoneNumber = phoneNumberReq,
     )
 
     db.session.add(newUserCreditCard)
