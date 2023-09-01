@@ -1010,9 +1010,8 @@ def queryConcurrentMatches(listIdStoreCourt, listDate, timeStart, timeEnd):
             .filter(Match.IdStoreCourt.in_(listIdStoreCourt))\
             .filter(Match.Date.in_(listDate))\
             .filter(Match.Canceled == False) \
-            .filter(Match.isPaymentExpired == False)\
             .filter(((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin <= timeEnd)) | \
                     ((Match.IdTimeEnd > timeStart) & (Match.IdTimeEnd <= timeEnd)) | \
                     ((Match.IdTimeBegin < timeStart) & (Match.IdTimeEnd > timeStart))).all()
     
-    return [match for match in matches if match.IsFinished() ==  False]
+    return [match for match in matches if match.IsFinished() ==  False and match.isPaymentExpired == False]
