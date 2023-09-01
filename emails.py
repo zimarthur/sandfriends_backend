@@ -73,14 +73,8 @@ def emailStoreApproved(email, name):
    
     
 def sendEmail( email, name, templateId, variables):
-    data = {
-    'Messages': [
-        {
-        "From": {
-            "Email": "contato@sandfriends.com.br",
-            "Name": "Sandfriends"
-        },
-        "To": [
+    #Emails nossos - Irá enviar apenas no ambiente de dev
+    emails_admin = [
             {
                 "Email": "zim.arthur97@gmail.com",
                 "Name": "Arthur"
@@ -93,7 +87,29 @@ def sendEmail( email, name, templateId, variables):
                 "Email": "pietro.berger@gmail.com",
                 "Name": "Pietro"
             },
-        ],
+        ]
+    
+    #Envia para o e-mail da conta nos ambientes de demo e de prod
+    email_account = [
+        {
+                "Email": email,
+                "Name": name
+        },
+    ]
+
+    if os.environ['AMBIENTE'] == "prod" or os.environ['AMBIENTE'] == "demo":
+        emailToSend = email_account
+    else:
+        emailToSend = emails_admin
+
+    data = {
+    'Messages': [
+        {
+        "From": {
+            "Email": "contato@sandfriends.com.br",
+            "Name": "Sandfriends"
+        },
+        "To": emailToSend,
         "TemplateId": templateId,
         "TemplateLanguage": True,
         "Variables": variables,

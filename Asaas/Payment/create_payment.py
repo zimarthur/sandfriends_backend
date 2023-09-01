@@ -65,7 +65,7 @@ def createPaymentCreditCard(user, value, creditCard, store):
                 "email": user.Email,
                 "postalCode": creditCard.Cep,
                 "addressNumber": creditCard.AddressNumber,
-                "phone": user.PhoneNumber
+                "phone": creditCard.PhoneNumber
             },
             "split": [
                 {

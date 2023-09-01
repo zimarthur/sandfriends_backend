@@ -18,6 +18,7 @@ class UserCreditCard(db.Model):
     CreditCardToken = db.Column(db.String(255))
     AsaasPaymentId = db.Column(db.String(255))
     Issuer = db.Column(db.String(45))
+    PhoneNumber = db.Column(db.String(45))
 
     IdUser = db.Column(db.Integer, db.ForeignKey('user.IdUser'))
     User = db.relationship('User', foreign_keys = [IdUser])
