@@ -6,6 +6,7 @@ from sandfriends_backend.emails import emailUserMatchConfirmed, emailUserRecurre
 from ..Models.http_codes import HttpCode
 from ..extensions import db
 from ..Models.match_model import Match
+from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.asaas_webhook_payments import AsaasWebhookPayments
 
 bp_webhook = Blueprint('bp_webhook', __name__)
@@ -60,12 +61,17 @@ def WebhookPayment():
             db.session.commit()
             emailUserMatchConfirmed(matches[0])
         if sendRecurrentMatchEmail:
+            recurrentMatch = RecurrentMatch.query.get(matches[0].IdRecurrentMatch)
+            if recurrentMatch.LastPaymentDate != recurrentMatch.CreationDate:
+                idNotification = 4
+            else:
+                idNotification = 3
             #Notificação para a loja
             newNotificationStore = NotificationStore(
                 IdUser = matches[0].matchCreator().IdUser,
                 IdStore = matches[0].StoreCourt.IdStore,
                 IdMatch = matches[0].IdMatch,
-                IdNotificationStoreCategory = 3,
+                IdNotificationStoreCategory = idNotification,
                 EventDatetime = datetime.now()
             )
             db.session.add(newNotificationStore)

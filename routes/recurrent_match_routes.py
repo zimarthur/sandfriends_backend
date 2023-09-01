@@ -24,6 +24,8 @@ from ..Models.store_court_model import StoreCourt
 from ..Models.store_court_sport_model import StoreCourtSport
 from ..Models.sport_model import Sport
 from ..Models.user_model import User
+from ..Models.notification_store_model import NotificationStore
+from ..emails import emailUserMatchConfirmed
 
 from ..Asaas.Customer.update_customer import updateCpf
 from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard
@@ -277,6 +279,11 @@ def CourtReservation():
         asaasBillingType = responsePayment.json().get('billingType'),
         asaasPaymentStatus = "PENDING",
 
+    #### PAGAMENTO NO LOCAL
+    elif paymentReq == 3:
+        asaasBillingType = "PAY_IN_STORE"
+        asaasPaymentStatus = "CONFIRMED"
+
     else:
         return "Forma de pagamento inválida", HttpCode.WARNING
 
@@ -349,7 +356,25 @@ def CourtReservation():
         )
         db.session.add(matchMember)
         db.session.commit()
-            
+    
+    #Se for pagamento no local, já envia notificação pra quadra sobre o agendamento
+    if paymentReq == 3:
+        if isRenovatingReq:
+            idNotification = 4
+        else:
+            idNotification = 3
+        #Notificação para a loja
+        newNotificationStore = NotificationStore(
+            IdUser = user.IdUser,
+            IdStore = store.IdStore,
+            IdMatch = newMatch.IdMatch,
+            IdNotificationStoreCategory = idNotification,
+            EventDatetime = datetime.now()
+        )
+        db.session.add(newNotificationStore)
+        db.session.commit()
+        emailUserMatchConfirmed(newMatch)
+
     return "Seus horários mensalistas foram agendados!", HttpCode.ALERT
 
 
