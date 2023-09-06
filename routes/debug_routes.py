@@ -47,6 +47,7 @@ from ..access_token import EncodeToken, DecodeToken
 import json
 from ..Asaas.asaas_base_api import requestPost
 from .match_routes import GetAvailableCitiesList
+from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard, getSplitPercentage
 bp_debug = Blueprint('bp_debug', __name__)
 
 
@@ -65,7 +66,14 @@ def getLastMonth():
 
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
-    return jsonify({'Sports': "a",  "b":GetAvailableCitiesList()}), 200
+    store = db.session.query(Store)\
+            .filter(Store.IdStore == 1).first()
+    value = 100
+
+    return str(getSplitPercentage(store, value, "CREDIT_CARD"))
+    
+    
+    #return jsonify({'Sports': "a",  "b":GetAvailableCitiesList()}), 200
     # newRecurrentMatch = RecurrentMatch(
     #         IdUser = 1,
     #         IdStoreCourt = 1,
@@ -80,9 +88,9 @@ def debug():
     #     )
     # db.session.add(newRecurrentMatch)
     # db.session.commit()
-    ambiente = os.environ['SQLALCHEMY_DATABASE_URI']
+    #ambiente = os.environ['SQLALCHEMY_DATABASE_URI']
 
-    return ambiente, 200
+    #return ambiente, 200
     # newReward = RewardMonth(
     #     StartingDate = getFirstDayOfMonth(datetime.now()),
     #     EndingDate = getLastDayOfMonth(datetime.now()),

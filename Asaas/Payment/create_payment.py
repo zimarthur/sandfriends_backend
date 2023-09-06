@@ -44,9 +44,9 @@ def getSplitPercentage(store, value, billingType):
 
     ####Ajuste do split
     #Asaas cobra as taxas deles sobre o valor total
-    valorPosAsaas = value * (1 - feeAsaas[billingType]["percentage"]) - feeAsaas[billingType]["flat"]
+    valorPosAsaas = value * (1 - feeAsaas[billingType]["percentage"]/100) - feeAsaas[billingType]["flat"]
     #Valor que cobraremos do valor total (Contém a taxa do Sandfriends + taxa do Asaas)
-    valorPosSandfriends = value * (1 - feeSandfriends)
+    valorPosSandfriends = value * (1 - feeSandfriends/100)
     #Quanto o Sandfriends receberia pela partida
     parcelaSandfriends = valorPosAsaas - valorPosSandfriends
     #Percentual de split para considerar no Asaas
@@ -55,6 +55,7 @@ def getSplitPercentage(store, value, billingType):
     #Precisa retornar um valor de 0 a 100 - o valor é o quanto vai para a walled da loja
     print(split)
     return (1 - split) * 100
+    #return parcelaSandfriends
 
 def createPaymentPix(user, value, store):
     response = requestPost(
@@ -73,6 +74,8 @@ def createPaymentPix(user, value, store):
         }
     )
     return response
+
+#getSplitPercentage(store, value, "PIX")
 
 def createPaymentCreditCard(user, value, creditCard, store, cvv):
     response = requestPost(
@@ -100,7 +103,7 @@ def createPaymentCreditCard(user, value, creditCard, store, cvv):
             "split": [
                 {
                 "walletId":  store.AsaasWalletId,
-                "percentualValue": 88,
+                "percentualValue": getSplitPercentage(store, value, "CREDIT_CARD"),
                 }
             ]
         }
