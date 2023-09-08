@@ -5,6 +5,7 @@ from .utils import weekdays
 
 USER_WELCOME_CONFIRMATION = 4954722
 USER_CHANGE_PASSWORD = 4954729
+USER_WELCOME_CONFIRMATION_TEST = 5076422
 
 STORE_WELCOME_CONFIRMATION = 4927876
 STORE_CHANGE_PASSWORD = 4954711
@@ -70,7 +71,12 @@ def emailStoreApproved(email, name):
         "nome": "Astor",
     }
     sendEmail(email, name, STORE_APPROVED, variables)
-   
+#Teste
+def emailUserWelcomeConfirmationTest(email, link):
+    variables = {
+        "link":link,
+    }
+    sendEmail(email,"", USER_WELCOME_CONFIRMATION_TEST, variables)   
     
 def sendEmail( email, name, templateId, variables):
     #Emails nossos - Irá enviar apenas no ambiente de dev

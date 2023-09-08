@@ -47,6 +47,7 @@ from ..access_token import EncodeToken, DecodeToken
 import json
 from ..Asaas.asaas_base_api import requestPost
 from .match_routes import GetAvailableCitiesList
+from ..emails import emailUserWelcomeConfirmationTest
 bp_debug = Blueprint('bp_debug', __name__)
 
 
@@ -65,7 +66,11 @@ def getLastMonth():
 
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
-    return jsonify({'Sports': "a",  "b":GetAvailableCitiesList()}), 200
+    emailUserWelcomeConfirmationTest("pedromilano902@gmail.com", "https://" + os.environ['URL_APP'] + "/redirect/?ct=emcf&bd=123123123")
+    
+    return "E-mail enviado", 200
+
+    #return jsonify({'Sports': "a",  "b":GetAvailableCitiesList()}), 200
     # newRecurrentMatch = RecurrentMatch(
     #         IdUser = 1,
     #         IdStoreCourt = 1,
@@ -80,9 +85,9 @@ def debug():
     #     )
     # db.session.add(newRecurrentMatch)
     # db.session.commit()
-    ambiente = os.environ['SQLALCHEMY_DATABASE_URI']
+    #ambiente = os.environ['SQLALCHEMY_DATABASE_URI']
 
-    return ambiente, 200
+    #return ambiente, 200
     # newReward = RewardMonth(
     #     StartingDate = getFirstDayOfMonth(datetime.now()),
     #     EndingDate = getLastDayOfMonth(datetime.now()),

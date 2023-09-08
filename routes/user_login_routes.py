@@ -387,8 +387,7 @@ def GetUserInfo():
                 .filter(RecurrentMatch.IsExpired == False)\
                 .filter(RecurrentMatch.Canceled == False).all()
 
-    for userRecurrentMatch in userRecurrentMatches:
-        userRecurrentMatchesList.append(userRecurrentMatch.to_json())
+    userRecurrentMatchesList = [recurrentMatch.to_json() for recurrentMatch in userRecurrentMatches if recurrentMatch.isPaymentExpired == False]
 
     notificationList = []
     notifications = db.session.query(NotificationUser).filter(NotificationUser.IdUser == user.IdUser).all()
