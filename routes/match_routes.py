@@ -421,7 +421,7 @@ def MatchReservation():
         emailUserMatchConfirmed(newMatch)
     #PIX
     if paymentReq == 1:
-        return "Sua partida foi reservada! Entre na partida para copiar o código pix", HttpCode.ALERT
+        return jsonify({'Message':"Sua partida foi reservada!", "Pixcode": asaasPixCode}), HttpCode.ALERT
     else:
         return "Sua partida foi agendada!", HttpCode.ALERT
     
@@ -1010,7 +1010,7 @@ def queryConcurrentMatches(listIdStoreCourt, listDate, timeStart, timeEnd):
             .filter(Match.IdStoreCourt.in_(listIdStoreCourt))\
             .filter(Match.Date.in_(listDate))\
             .filter(Match.Canceled == False) \
-            .filter(((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin <= timeEnd)) | \
+            .filter(((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin < timeEnd)) | \
                     ((Match.IdTimeEnd > timeStart) & (Match.IdTimeEnd <= timeEnd)) | \
                     ((Match.IdTimeBegin < timeStart) & (Match.IdTimeEnd > timeStart))).all()
     

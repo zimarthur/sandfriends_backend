@@ -90,6 +90,7 @@ class Match(db.Model):
             'PixCode': self.AsaasPixCode,
             'CreditCard': creditCard,
             'PaymentExpirationDate': self.paymentExpiration.strftime("%Y-%m-%d %H:%M:%S"),
+            'IdRecurrentMatch':self.IdRecurrentMatch,
         }
 
     def to_json_open_match(self):
@@ -113,6 +114,7 @@ class Match(db.Model):
             'PaymentStatus': self.AsaasPaymentStatus,
             'PaymentType': self.AsaasBillingType,
             'PaymentExpirationDate': self.paymentExpiration.strftime("%Y-%m-%d %H:%M:%S"),
+            
         }
 
     def to_json_min(self):
