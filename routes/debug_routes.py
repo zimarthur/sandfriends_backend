@@ -48,6 +48,7 @@ import json
 from ..Asaas.asaas_base_api import requestPost
 from .match_routes import GetAvailableCitiesList
 from ..emails import emailUserWelcomeConfirmationTest
+from ..encryption import encrypt_aes, decrypt_aes
 bp_debug = Blueprint('bp_debug', __name__)
 
 
@@ -66,9 +67,20 @@ def getLastMonth():
 
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
-    emailUserWelcomeConfirmationTest("pedromilano902@gmail.com", "https://" + os.environ['URL_APP'] + "/redirect/?ct=emcf&bd=123123123")
+    password = "YourSecretPassword"
+    data_to_encrypt = "Senha"
+
+    encrypted_data = encrypt_aes(data_to_encrypt, password)
+    print(f"Encrypted: {encrypted_data}")
+
+    decrypted_data = decrypt_aes(encrypted_data+1, password)
+    print(f"Decrypted: {decrypted_data}")
+
+    return f"Decrypted: {decrypted_data}, Encrypted: {encrypted_data}", 200
     
-    return "E-mail enviado", 200
+    # emailUserWelcomeConfirmationTest("pedromilano902@gmail.com", "https://" + os.environ['URL_APP'] + "/redirect/?ct=emcf&bd=123123123")
+    
+    # return "E-mail enviado", 200
 
     #return jsonify({'Sports': "a",  "b":GetAvailableCitiesList()}), 200
     # newRecurrentMatch = RecurrentMatch(
