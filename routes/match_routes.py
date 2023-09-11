@@ -64,10 +64,7 @@ def GetAllCities():
         statesList.append(state.to_jsonWithCities())
     return jsonify({'States':statesList})
 
-
-#rota que retorna todas cidades que tem estabelecimento cadastrado
-@bp_match.route("/GetAvailableCities", methods=["GET"])
-def GetAvailableCities():
+def GetAvailableCitiesList():
     stores = getAvailableStores()
     
     cities = db.session.query(City)\
@@ -81,7 +78,12 @@ def GetAvailableCities():
     for state in states:
         statesList.append(state.to_jsonWithFilteredCities([city.IdCity for city in cities]))
 
-    return jsonify({'States':statesList})
+    return statesList
+
+#rota que retorna todas cidades que tem estabelecimento cadastrado
+@bp_match.route("/GetAvailableCities", methods=["GET"])
+def GetAvailableCities():
+    return jsonify({'States':GetAvailableCitiesList()})
 
     
 #rota utilizada pra buscar horários e partidas abertas
@@ -258,6 +260,7 @@ def MatchReservation():
         abort(HttpCode.ABORT)
 
     accessTokenReq = request.json.get('AccessToken')
+    phoneNumberReq = request.json.get('PhoneNumber')
     idStoreCourtReq = request.json.get('IdStoreCourt')
     sportIdReq = request.json.get('SportId')
     dateReq = datetime.strptime(request.json.get('Date'), '%d/%m/%Y')
@@ -271,12 +274,13 @@ def MatchReservation():
         idCreditCardReq =  None 
     else: 
         idCreditCardReq = request.json.get("IdCreditCard")
+        cvvReq = request.json.get("Cvv")
 
     user = User.query.filter_by(AccessToken = accessTokenReq).first()
 
     if user is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN
-
+    
     #Verifica se já tem uma partida agendada no mesmo horário
     concurrentMatch = queryConcurrentMatches([idStoreCourtReq],[dateReq], timeStartReq, timeEndReq)
 
@@ -293,7 +297,7 @@ def MatchReservation():
 
     #Caso o horário não esteja mais disponível na hora dele fazer a reserva
     if (len(concurrentMatch) > 0) or (len(concurrentRecurrentMatch) > 0):
-        return f"Ops, esse horário não está mais disponível {concurrentMatch[0].TimeBegin.HourString}{concurrentMatch[0].TimeEnd.HourString}", HttpCode.WARNING
+        return f"Ops, esse horário não está mais disponível", HttpCode.WARNING
     
     asaasPaymentId = None
     asaasBillingType = None
@@ -344,6 +348,7 @@ def MatchReservation():
             creditCard= creditCard,
             value= costReq,
             store= store,
+            cvv= cvvReq,
         )
         
         if responsePayment.status_code != 200:
@@ -416,7 +421,7 @@ def MatchReservation():
         emailUserMatchConfirmed(newMatch)
     #PIX
     if paymentReq == 1:
-        return "Sua partida foi reservada! Entre na partida para copiar o código pix", HttpCode.ALERT
+        return jsonify({'Message':"Sua partida foi reservada!", "Pixcode": asaasPixCode}), HttpCode.ALERT
     else:
         return "Sua partida foi agendada!", HttpCode.ALERT
     
@@ -1005,9 +1010,8 @@ def queryConcurrentMatches(listIdStoreCourt, listDate, timeStart, timeEnd):
             .filter(Match.IdStoreCourt.in_(listIdStoreCourt))\
             .filter(Match.Date.in_(listDate))\
             .filter(Match.Canceled == False) \
-            .filter(Match.isPaymentExpired == False)\
-            .filter(((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin <= timeEnd)) | \
+            .filter(((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin < timeEnd)) | \
                     ((Match.IdTimeEnd > timeStart) & (Match.IdTimeEnd <= timeEnd)) | \
                     ((Match.IdTimeBegin < timeStart) & (Match.IdTimeEnd > timeStart))).all()
     
-    return [match for match in matches if match.IsFinished() ==  False]
+    return [match for match in matches if match.IsFinished() ==  False and match.isPaymentExpired == False]

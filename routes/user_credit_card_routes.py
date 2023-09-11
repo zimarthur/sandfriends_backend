@@ -8,6 +8,8 @@ from ..Models.user_credit_card_model import UserCreditCard
 
 from ..Asaas.Payment.create_payment import createPaymentPreAuthorization
 from ..Asaas.Payment.refund_payment import refundPayment
+from ..encryption import encrypt_aes, decrypt_aes
+import os
 
 bp_user_credit_card = Blueprint('bp_user_credit_card', __name__)
 
@@ -18,8 +20,8 @@ def AddUserCreditCard():
         abort(HttpCode.ABORT)
 
     accessTokenReq = request.json.get('AccessToken')
+    phoneNumberReq = request.json.get('PhoneNumber')
     cardNumberReq = request.json.get('CardNumber')
-    cvvReq = request.json.get('Cvv')
     nicknameReq = request.json.get('Nickname')
     expirationDateReq = request.json.get('ExpirationDate')
     ownerNameReq = request.json.get('OwnerName')
@@ -35,17 +37,17 @@ def AddUserCreditCard():
     if user is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN
     
-    #Caso o cartão já tenha sido cadastrado
-    userCreditCards = db.session.query(UserCreditCard)\
-        .filter(UserCreditCard.IdUser == user.IdUser)\
-        .filter(UserCreditCard.CardNumber == cardNumberReq)\
-        .filter(UserCreditCard.ExpirationDate == datetime.strptime(expirationDateReq, '%m/%Y'))\
-        .filter(UserCreditCard.Issuer == issuerReq)\
-        .filter(UserCreditCard.Deleted == False).first()
+    # #Caso o cartão já tenha sido cadastrado
+    # userCreditCards = db.session.query(UserCreditCard)\
+    #     .filter(UserCreditCard.IdUser == user.IdUser)\
+    #     .filter(UserCreditCard.CardNumber == cardNumberReq)\
+    #     .filter(UserCreditCard.ExpirationDate == datetime.strptime(expirationDateReq, '%m/%Y'))\
+    #     .filter(UserCreditCard.Issuer == issuerReq)\
+    #     .filter(UserCreditCard.Deleted == False).first()
     
-    #Caso os últimos 4 dígitos e a data de validade sejam iguais, verifica as hashes
-    if userCreditCards is not None:
-        return "Este cartão já foi cadastrado anteriormente",HttpCode.ALERT
+    # #Caso os últimos 4 dígitos e a data de validade sejam iguais, verifica as hashes
+    # if userCreditCards is not None:
+    #     return "Este cartão já foi cadastrado anteriormente",HttpCode.ALERT
 
     # #Pré autorização no asaas
     # #Realiza uma cobrança de R$5 (mínimo do Asaas) pra ver se o cartão está válido e gerar o Token
@@ -73,8 +75,7 @@ def AddUserCreditCard():
     #Cadastra um cartão novo
     newUserCreditCard = UserCreditCard(
         IdUser = user.IdUser,
-        CardNumber = cardNumberReq,
-        Cvv = cvvReq,
+        CardNumber = encrypt_aes(cardNumberReq, os.environ['ENCRYPTION_KEY']),
         Nickname = nicknameReq,
         ExpirationDate = datetime.strptime(expirationDateReq, '%m/%Y'),
         OwnerName = ownerNameReq,
@@ -83,9 +84,8 @@ def AddUserCreditCard():
         Cep = cepReq,
         Address = addressReq,
         AddressNumber = addressNumberReq,
-        CreditCardToken = "awaiting asaas token",
-        AsaasPaymentId = "awaiting asaas token",
         Issuer = issuerReq,
+        PhoneNumber = phoneNumberReq,
     )
 
     db.session.add(newUserCreditCard)

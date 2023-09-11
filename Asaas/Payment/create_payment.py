@@ -6,6 +6,8 @@ from ...utils import getFirstDayOfMonth, getLastDayOfMonth
 from ...Models.store_model import Store
 from ...Models.store_court_model import StoreCourt
 from ...Models.match_model import Match
+from ...encryption import encrypt_aes, decrypt_aes
+import os
 
 def getSplitPercentage(store):
     numberOfCourts = db.session.query(StoreCourt)\
@@ -44,7 +46,7 @@ def createPaymentPix(user, value, store):
     )
     return response
 
-def createPaymentCreditCard(user, value, creditCard, store):
+def createPaymentCreditCard(user, value, creditCard, store, cvv):
     response = requestPost(
         f"payments", 
         {
@@ -54,10 +56,10 @@ def createPaymentCreditCard(user, value, creditCard, store):
             "dueDate": datetime.now().strftime("%Y-%m-%d"),
             "creditCard": { 
                 "holderName": creditCard.OwnerName,
-                "number": creditCard.CardNumber,
+                "number": decrypt_aes(creditCard.CardNumber, os.environ['ENCRYPTION_KEY']),
                 "expiryMonth" :creditCard.ExpirationDate.strftime("%m"),
                 "expiryYear": creditCard.ExpirationDate.strftime("%Y"),
-                "ccv": creditCard.Cvv,
+                "ccv": cvv,
             },
             "creditCardHolderInfo": {
                 "name": creditCard.OwnerName,
@@ -65,7 +67,7 @@ def createPaymentCreditCard(user, value, creditCard, store):
                 "email": user.Email,
                 "postalCode": creditCard.Cep,
                 "addressNumber": creditCard.AddressNumber,
-                "phone": user.PhoneNumber
+                "phone": creditCard.PhoneNumber
             },
             "split": [
                 {

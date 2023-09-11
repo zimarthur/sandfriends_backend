@@ -24,7 +24,9 @@ from ..Models.store_court_model import StoreCourt
 from ..Models.store_court_sport_model import StoreCourtSport
 from ..Models.sport_model import Sport
 from ..Models.user_model import User
-
+from ..Models.notification_store_model import NotificationStore
+from ..emails import emailUserMatchConfirmed
+from ..routes.match_routes import queryConcurrentMatches
 from ..Asaas.Customer.update_customer import updateCpf
 from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard
 from ..Asaas.Payment.generate_qr_code import generateQrCode
@@ -186,7 +188,7 @@ def CourtReservation():
         idCreditCardReq =  None 
     else: 
         idCreditCardReq = request.json.get("IdCreditCard")
-    
+        cvvReq = request.json.get("Cvv")
 
     user = User.query.filter_by(AccessToken = accessTokenReq).first()
 
@@ -209,12 +211,8 @@ def CourtReservation():
         return "Ops, esse horário não está mais disponível", HttpCode.WARNING
 
     daysList = [datetime.strptime(day, '%d/%m/%Y') for day in currentMonthDatesReq]
-    concurrentMatches = Match.query.filter((Match.IdStoreCourt == int(idStoreCourtReq)) \
-                & (Match.Date.in_(daysList)) \
-                & (((Match.IdTimeBegin >= timeStartReq) & (Match.IdTimeBegin < timeEndReq))  | \
-                ((Match.IdTimeEnd > timeStartReq) & (Match.IdTimeEnd <= timeEndReq))      | \
-                ((Match.IdTimeBegin < timeStartReq) & (Match.IdTimeEnd > timeStartReq))   \
-                )).all()
+    
+    concurrentMatches = queryConcurrentMatches([int(idStoreCourtReq)], daysList, timeStartReq, timeEndReq)
 
     if len(concurrentMatches) > 0 :
         return "Ops, um dos horários não está mais disponível. Pesquise novamente", HttpCode.WARNING
@@ -256,6 +254,8 @@ def CourtReservation():
         if responsePixCode.status_code == 200:
             asaasPixCode = responsePixCode.json().get('payload')
 
+        validUntil = datetime.now() + timedelta(minutes = 30)
+
     elif paymentReq == 2:
         creditCard = db.session.query(UserCreditCard).filter(UserCreditCard.IdUserCreditCard == idCreditCardReq).first()
 
@@ -267,14 +267,27 @@ def CourtReservation():
             creditCard= creditCard,
             value= totalCostReq,
             store= store,
+            cvv= cvvReq,
         )
         
         if responsePayment.status_code != 200:
             return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
 
-        asaasPaymentId = responsePayment.json().get('id'),
-        asaasBillingType = responsePayment.json().get('billingType'),
-        asaasPaymentStatus = "PENDING",
+        asaasPaymentId = responsePayment.json().get('id')
+        asaasBillingType = responsePayment.json().get('billingType')
+        asaasPaymentStatus = "PENDING"
+
+        validUntil = datetime.now() + timedelta(minutes = 30)
+
+    #### PAGAMENTO NO LOCAL
+    elif paymentReq == 3:
+        asaasBillingType = "PAY_IN_STORE"
+        asaasPaymentStatus = "CONFIRMED"
+
+        if isRenovatingReq:
+            validUntil = getLastDayOfMonth(datetime(now.year, now.month+1, 1))
+        else:
+            validUntil = getLastDayOfMonth(now)
 
     else:
         return "Forma de pagamento inválida", HttpCode.WARNING
@@ -283,6 +296,7 @@ def CourtReservation():
     now = datetime.now()
 
     recurrentMatchId = None
+        
     if isRenovatingReq:
         recurrentMatch = db.session.query(RecurrentMatch)\
             .filter(RecurrentMatch.IdStoreCourt == int(idStoreCourtReq)) \
@@ -291,7 +305,7 @@ def CourtReservation():
             .filter((RecurrentMatch.IdTimeBegin == timeStartReq) & (RecurrentMatch.IdTimeEnd == timeEndReq)).first()
        
         recurrentMatch.LastPaymentDate = now.date()
-        recurrentMatch.ValidUntil = getLastDayOfMonth(datetime(now.year, now.month+1, 1))
+        recurrentMatch.ValidUntil = validUntil
         recurrentMatchId = recurrentMatch.IdRecurrentMatch
         db.session.commit()
     else:
@@ -305,7 +319,7 @@ def CourtReservation():
             IdTimeBegin = timeStartReq,
             IdTimeEnd = timeEndReq,
             LastPaymentDate = now.date(),
-            ValidUntil = getLastDayOfMonth(now)
+            ValidUntil = validUntil
         )
         db.session.add(newRecurrentMatch)
         db.session.commit()
@@ -348,8 +362,30 @@ def CourtReservation():
         )
         db.session.add(matchMember)
         db.session.commit()
-            
-    return "Seus horários mensalistas foram agendados!", HttpCode.ALERT
+    
+    #Se for pagamento no local, já envia notificação pra quadra sobre o agendamento
+    if paymentReq == 3:
+        if isRenovatingReq:
+            idNotification = 4
+        else:
+            idNotification = 3
+        #Notificação para a loja
+        newNotificationStore = NotificationStore(
+            IdUser = user.IdUser,
+            IdStore = store.IdStore,
+            IdMatch = newMatch.IdMatch,
+            IdNotificationStoreCategory = idNotification,
+            EventDatetime = datetime.now()
+        )
+        db.session.add(newNotificationStore)
+        db.session.commit()
+        emailUserMatchConfirmed(newMatch)
+
+    #PIX
+    if paymentReq == 1:
+        return jsonify({'Message':"Seu horário mensalista foi reservado!", "Pixcode": asaasPixCode}), HttpCode.ALERT
+    else:
+        return "Seus horários mensalistas foram agendados!", HttpCode.ALERT
 
 
 @bp_recurrent_match.route("/RecurrentMonthAvailableHours", methods=["POST"])
@@ -378,8 +414,9 @@ def RecurrentMonthAvailableHours():
                         ((RecurrentMatch.IdTimeEnd > timeStart) & (RecurrentMatch.IdTimeEnd <= timeEnd))      | \
                         ((RecurrentMatch.IdTimeBegin < timeStart) & (RecurrentMatch.IdTimeEnd > timeStart))   \
                         ).first()
-    
-    if (recurrentMatch is not None) and (isRenovating == False):
+
+
+    if (recurrentMatch is not None) and (isRenovating == False) and(recurrentMatch.isPaymentExpired == False):
         return "Ops, esse horário não está mais disponível", HttpCode.WARNING
 
     if isRenovating:
@@ -387,12 +424,8 @@ def RecurrentMonthAvailableHours():
         daysList = [day for day in daterange( nextMonth.date(), getLastDayOfMonth(nextMonth)) if day.weekday() == weekDay]
     else:
         daysList = [day for day in daterange(datetime.today().date(), getLastDayOfMonth(datetime.now())) if day.weekday() == weekDay]
-    matches = Match.query.filter((Match.IdStoreCourt == int(idStoreCourt)) \
-                & (Match.Date.in_(daysList)) \
-                & (((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin < timeEnd))  | \
-                ((Match.IdTimeEnd > timeStart) & (Match.IdTimeEnd <= timeEnd))      | \
-                ((Match.IdTimeBegin < timeStart) & (Match.IdTimeEnd > timeStart))   \
-                )).all()
+    
+    matches = queryConcurrentMatches([int(idStoreCourt)], daysList, timeStart, timeEnd)
 
     recurrentMonthAvailableHours = []
 
