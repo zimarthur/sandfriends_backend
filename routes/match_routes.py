@@ -32,7 +32,7 @@ from ..Models.notification_store_category_model import NotificationStoreCategory
 from ..access_token import EncodeToken, DecodeToken
 from ..emails import emailUserMatchConfirmed
 from ..Asaas.Customer.update_customer import updateCpf
-from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard
+from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard, getSplitPercentage
 from ..Asaas.Payment.refund_payment import refundPayment
 from ..Asaas.Payment.generate_qr_code import generateQrCode
 
@@ -318,7 +318,7 @@ def MatchReservation():
             responseCpf = updateCpf(user)
 
             if responseCpf.status_code != 200:
-                return "Não foi possível criar suas partida. Tente novamente", HttpCode.WARNING
+                return "Ops, verifique se seu CPF está correto.", HttpCode.WARNING
 
         #Gera a cobrança no Asaas
         responsePayment = createPaymentPix(user, costReq, store)

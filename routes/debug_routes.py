@@ -47,6 +47,7 @@ from ..access_token import EncodeToken, DecodeToken
 import json
 from ..Asaas.asaas_base_api import requestPost
 from .match_routes import GetAvailableCitiesList
+from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard, getSplitPercentage
 from ..emails import emailUserWelcomeConfirmationTest
 from ..encryption import encrypt_aes, decrypt_aes
 bp_debug = Blueprint('bp_debug', __name__)
@@ -97,6 +98,7 @@ def debug():
     #     )
     # db.session.add(newRecurrentMatch)
     # db.session.commit()
+    #ambiente = os.environ['SQLALCHEMY_DATABASE_URI']
     #ambiente = os.environ['SQLALCHEMY_DATABASE_URI']
 
     #return ambiente, 200
