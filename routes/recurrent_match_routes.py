@@ -235,7 +235,7 @@ def CourtReservation():
             responseCpf = updateCpf(user)
 
             if responseCpf.status_code != 200:
-                return "Não foi possível criar suas partida. Tente novamente", HttpCode.WARNING
+                return "Ops, verifique se seu CPF está correto.", HttpCode.WARNING
 
         responsePayment = createPaymentPix(
             user= user, 
