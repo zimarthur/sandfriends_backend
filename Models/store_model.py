@@ -34,7 +34,11 @@ class Store(db.Model):
     AsaasApiKey = db.Column(db.String(255))
 
     CompanyType = db.Column(db.String(45))
- 
+    
+    FeeSandfriendsHigh = db.Column(db.Integer)
+    FeeSandfriendsLow = db.Column(db.Integer)
+    FeeThreshold = db.Column(db.Integer)
+
     @property
     def IsAvailable(self):
         return self.ApprovalDate != None and self.Latitude != None and self.Longitude != None and self.Description != None and self.Logo != None and (len(self.Courts) > 0) and (len(self.Photos) > 1)
