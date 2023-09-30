@@ -19,7 +19,7 @@ def SendFeedback():
 
     user = User.query.filter_by(AccessToken = tokenReq).first()
     if user is None:
-        return 'token expirado', HttpCode.EXPIRED_TOKEN
+        return 'Token expirado', HttpCode.EXPIRED_TOKEN
 
     newFeedback = Feedback(
         IdUser = user.IdUser,

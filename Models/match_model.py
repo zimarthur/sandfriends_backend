@@ -58,7 +58,12 @@ class Match(db.Model):
         return datetime.strptime(self.Date.strftime("%Y-%m-%d ") + self.TimeBegin.HourString, "%Y-%m-%d %H:%M")
     
     def MatchDuration(self):
-        return (self.TimeEnd - self.TimeBegin)
+        begin = datetime.strptime(self.TimeBegin.HourString, "%H:%M")
+        end = datetime.strptime(self.TimeEnd.HourString, "%H:%M")
+        #Calcula o número de horas entre os dois intervalos
+        duration = (end - begin).total_seconds() / 3600
+        return int(duration)
+
     def matchCreator(self):
         return [user for user in self.Members if user.IsMatchCreator][0]
     

@@ -10,11 +10,14 @@ from ...encryption import encrypt_aes, decrypt_aes
 import os
 
 def getSplitPercentage(store, value, billingType):
-    #Número de quadras do estabelecimento
+    #Número de quadras do estabelecimento - não usando no momento
     numberOfCourts = db.session.query(StoreCourt)\
         .filter(StoreCourt.IdStore == store.IdStore).count()
     
     #Número de partidas neste mês no estabelecimento
+        #Partidas nesta quadra
+        #Partidas não canceladas        
+        #Partidas no mês
     currentMonthMatches = db.session.query(Match)\
         .filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in store.Courts]))\
         .filter(Match.Canceled == False)\
@@ -39,11 +42,11 @@ def getSplitPercentage(store, value, billingType):
     }
 
     #Taxa do Sandfriends (em %)
-    if (currentMonthMatchesHours/numberOfCourts) < 30:
-        feeSandfriends = 12
+    if (currentMonthMatchesHours) < store.FeeThreshold:
+        feeSandfriends = store.FeeSandfriendsHigh
     else:
-        feeSandfriends = 8
-
+        feeSandfriends = store.FeeSandfriendsLow
+        
     ####Ajuste do split
     #Asaas cobra as taxas deles sobre o valor total
     valorPosAsaas = value * (1 - feeAsaas[billingType]["percentage"]/100) - feeAsaas[billingType]["flat"]
