@@ -58,8 +58,7 @@ def getSplitPercentage(store, value, billingType):
     split = parcelaSandfriends / valorPosAsaas
 
     #Precisa retornar um valor de 0 a 100 - o valor é o quanto vai para a walled da loja
-    print(split)
-    return (1 - split) * 100
+    return round((1 - split) * 100,2)
     #return parcelaSandfriends
 
 def createPaymentPix(user, value, store):
@@ -79,8 +78,6 @@ def createPaymentPix(user, value, store):
         }
     )
     return response
-
-#getSplitPercentage(store, value, "PIX")
 
 def createPaymentCreditCard(user, value, creditCard, store, cvv):
     response = requestPost(

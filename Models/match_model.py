@@ -25,12 +25,13 @@ class Match(db.Model):
     IdSport = db.Column(db.Integer, db.ForeignKey('sport.IdSport'))
     Sport = db.relationship('Sport', foreign_keys = [IdSport])
 
+    #Horários da partida
     IdTimeBegin = db.Column(db.Integer, db.ForeignKey('available_hour.IdAvailableHour'))
     TimeBegin = db.relationship('AvailableHour', foreign_keys = [IdTimeBegin])
-
     IdTimeEnd = db.Column(db.Integer, db.ForeignKey('available_hour.IdAvailableHour'))
     TimeEnd = db.relationship('AvailableHour', foreign_keys = [IdTimeEnd])
 
+    #Dados do Pagamento
     AsaasPaymentId = db.Column(db.String(45))
     AsaasBillingType = db.Column(db.String(45))
     AsaasPaymentStatus = db.Column(db.String(45))
@@ -39,7 +40,11 @@ class Match(db.Model):
     IdUserCreditCard = db.Column(db.Integer, db.ForeignKey('user_credit_card.IdUserCreditCard'))
     UserCreditCard = db.relationship('UserCreditCard', foreign_keys = [IdUserCreditCard])
     
-    
+    CostFinal = db.Column(db.Numeric(precision=10, scale=2))
+    CostAsaasTax = db.Column(db.Numeric(precision=10, scale=2)) 
+    CostSandfriendsNetTax = db.Column(db.Numeric(precision=10, scale=2))
+    AsaasSplit = db.Column(db.Numeric(precision=10, scale=2))
+
     @hybrid_property
     def paymentExpiration(self):
         return self.CreationDate + timedelta(minutes = 30)
