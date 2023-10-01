@@ -43,7 +43,7 @@ class Match(db.Model):
     CostFinal = db.Column(db.Numeric(precision=10, scale=2))
     CostAsaasTax = db.Column(db.Numeric(precision=10, scale=2)) 
     CostSandfriendsNetTax = db.Column(db.Numeric(precision=10, scale=2))
-    AsaasSplit = db.Column(db.Numeric(precision=10, scale=4))
+    AsaasSplit = db.Column(db.Numeric(precision=10, scale=2))
 
     @hybrid_property
     def paymentExpiration(self):
