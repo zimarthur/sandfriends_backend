@@ -303,6 +303,10 @@ def MatchReservation():
     asaasBillingType = None
     asaasPaymentStatus = None
     asaasPixCode = None
+    costFinalReq = None
+    costAsaasTaxReq = None
+    costSandfriendsNetTaxReq = None
+    asaasSplitReq = None
 
     #busca a quadra que vai ser feita a cobrança
     store = db.session.query(Store)\
@@ -331,9 +335,20 @@ def MatchReservation():
         if responsePixCode.status_code == 200:
             asaasPixCode = responsePixCode.json().get('payload')
         
-        asaasPaymentId = responsePayment.json().get('id'),
-        asaasBillingType = responsePayment.json().get('billingType'),
-        asaasPaymentStatus = "PENDING",
+        #Dados que retornam do Asaas
+        asaasPaymentStatus = "PENDING"
+        asaasPaymentId = responsePayment.json().get('id')
+        asaasBillingType = responsePayment.json().get('billingType')
+        #Valor final, após Split - o que a quadra irá receber
+        costFinalReq = responsePayment.json().get('split')[0].get('totalValue')
+        #Valor da taxa do Asaas
+        costNetReq = responsePayment.json().get('netValue')
+        costReq = responsePayment.json().get('value')
+        costAsaasTaxReq = costReq - costNetReq
+        #Valor da remuneração do Sandfriends
+        costSandfriendsNetTaxReq = costReq - costAsaasTaxReq - costFinalReq
+        #Porcentagem do Split
+        asaasSplitReq = responsePayment.json().get('split')[0].get('percentualValue')
 
     #### CARTÃO DE CRÉDITO
     elif paymentReq == 2:
@@ -354,9 +369,20 @@ def MatchReservation():
         if responsePayment.status_code != 200:
             return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
 
-        asaasPaymentId = responsePayment.json().get('id'),
-        asaasBillingType = responsePayment.json().get('billingType'),
-        asaasPaymentStatus = "PENDING",
+        #Dados que retornam do Asaas
+        asaasPaymentStatus = "PENDING"
+        asaasPaymentId = responsePayment.json().get('id')
+        asaasBillingType = responsePayment.json().get('billingType')
+        #Valor final, após Split - o que a quadra irá receber
+        costFinalReq = responsePayment.json().get('split')[0].get('totalValue')
+        #Valor da taxa do Asaas
+        costNetReq = responsePayment.json().get('netValue')
+        costReq = responsePayment.json().get('value')
+        costAsaasTaxReq = costReq - costNetReq
+        #Valor da remuneração do Sandfriends
+        costSandfriendsNetTaxReq = costReq - costAsaasTaxReq - costFinalReq
+        #Porcentagem do Split
+        asaasSplitReq = responsePayment.json().get('split')[0].get('percentualValue')
 
     #### PAGAMENTO NO LOCAL
     elif paymentReq == 3:
@@ -386,6 +412,10 @@ def MatchReservation():
         AsaasPaymentStatus = asaasPaymentStatus,
         AsaasPixCode = asaasPixCode,
         IdUserCreditCard = idCreditCardReq,
+        CostFinal = costFinalReq,
+        CostAsaasTax = costAsaasTaxReq,
+        CostSandfriendsNetTax = costSandfriendsNetTaxReq,
+        AsaasSplit = asaasSplitReq
     )
     
     db.session.add(newMatch)
