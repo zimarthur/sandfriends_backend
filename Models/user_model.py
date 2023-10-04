@@ -40,6 +40,8 @@ class User(db.Model):
     AsaasCreationDate = db.Column(db.DateTime)
     Cpf = db.Column(db.String(11))
 
+    DateDisabled = db.Column(db.DateTime)
+
     def to_json(self):
         if self.Birthday == None:
             birthday = None
@@ -75,6 +77,11 @@ class User(db.Model):
         else:
             city = self.City.to_json()
 
+        if self.DateDisabled is not None:
+            dateDisabled = self.DateDisabled.strftime("%d/%m/%Y")
+        else:
+            dateDisabled = None
+
         return {
             'IdUser': self.IdUser,
             'FirstName': self.FirstName,
@@ -94,8 +101,9 @@ class User(db.Model):
             'EmailConfirmationDate': self.EmailConfirmationDate.strftime("%d/%m/%Y"),
             'EmailConfirmationToken': self.EmailConfirmationToken,
             'ThirdPartyLogin': self.ThirdPartyLogin,
-            'ResetPasswordToken':self.ResetPasswordToken,
-            'Cpf':self.Cpf,
+            'ResetPasswordToken': self.ResetPasswordToken,
+            'Cpf': self.Cpf,
+            'DateDisabled': dateDisabled,
         }
 
     def identification_to_json(self):
