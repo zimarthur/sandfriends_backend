@@ -435,7 +435,7 @@ def RemoveUser():
 
     db.session.commit()
         
-    return "O seu usuário foi excluído com sucesso", HttpCode.SUCCESS
+    return "O seu usuário foi excluído com sucesso", HttpCode.ALERT
 
 def initUserLoginData(user):
     sports = db.session.query(Sport).all()
