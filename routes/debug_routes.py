@@ -68,19 +68,29 @@ def getLastMonth():
 
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
-    idStoreReq = 1
-    #busca a quadra que vai ser feita a cobrança
-    store = db.session.query(Store)\
-            .filter(Store.IdStore == idStoreReq).first()
+    idMatchReq = 23
+    match = db.session.query(Match)\
+             .filter(Match.IdMatch == idMatchReq).first()
 
-    value = 80
-    billingType = "CREDIT_CARD"
+    json = match.to_json()
 
-    split = getSplitPercentage(store, value, billingType)
-    
-    retorno = str(split)
+    retorno = str(json['CostFinal']).replace('.', ',')
     
     return retorno, 200
+
+    # idStoreReq = 1
+    # #busca a quadra que vai ser feita a cobrança
+    # store = db.session.query(Store)\
+    #         .filter(Store.IdStore == idStoreReq).first()
+
+    # value = 80
+    # billingType = "CREDIT_CARD"
+
+    # split = getSplitPercentage(store, value, billingType)
+    
+    # retorno = str(split)
+    
+    # return retorno, 200
 
     # idMatch = 1
     # partida = db.session.query(Match)\
