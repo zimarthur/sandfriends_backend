@@ -17,7 +17,7 @@ USER_RECURRENT_MATCH_CONFIRMED = 4978838
 
 def emailUserMatchConfirmed(match):
     variables = {
-        "link": f"https://{os.environ['URL_QUADRAS']}/redirect/?ct=mtch&bd={match.MatchUrl}",
+        "link": f"https://{os.environ['URL_APP']}/redirect/?ct=mtch&bd={match.MatchUrl}",
         "store": match.StoreCourt.Store.Name,
         "date": match.Date.strftime("%d/%m/%Y"),
         "price": f"R$ {int(match.Cost)},00",
