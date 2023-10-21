@@ -227,6 +227,8 @@ def CourtReservation():
             .join(StoreCourt, StoreCourt.IdStore == Store.IdStore)\
             .filter(StoreCourt.IdStoreCourt == idStoreCourtReq).first()
     
+    now = datetime.now()
+
     #PIX
     if paymentReq == 1:
         if cpfReq != user.Cpf:
@@ -254,7 +256,7 @@ def CourtReservation():
         if responsePixCode.status_code == 200:
             asaasPixCode = responsePixCode.json().get('payload')
 
-        validUntil = datetime.now() + timedelta(minutes = 30)
+        validUntil = now + timedelta(minutes = 30)
 
     elif paymentReq == 2:
         creditCard = db.session.query(UserCreditCard).filter(UserCreditCard.IdUserCreditCard == idCreditCardReq).first()
@@ -277,7 +279,7 @@ def CourtReservation():
         asaasBillingType = responsePayment.json().get('billingType')
         asaasPaymentStatus = "PENDING"
 
-        validUntil = datetime.now() + timedelta(minutes = 30)
+        validUntil = now + timedelta(minutes = 30)
 
     #### PAGAMENTO NO LOCAL
     elif paymentReq == 3:
@@ -291,9 +293,6 @@ def CourtReservation():
 
     else:
         return "Forma de pagamento inválida", HttpCode.WARNING
-
-
-    now = datetime.now()
 
     recurrentMatchId = None
         
