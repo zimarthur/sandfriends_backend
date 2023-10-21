@@ -32,7 +32,7 @@ from ..Models.notification_store_category_model import NotificationStoreCategory
 from ..access_token import EncodeToken, DecodeToken
 from ..emails import emailUserMatchConfirmed
 from ..Asaas.Customer.update_customer import updateCpf
-from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard
+from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard, getSplitPercentage
 from ..Asaas.Payment.refund_payment import refundPayment
 from ..Asaas.Payment.generate_qr_code import generateQrCode
 
@@ -303,6 +303,10 @@ def MatchReservation():
     asaasBillingType = None
     asaasPaymentStatus = None
     asaasPixCode = None
+    costFinalReq = None
+    costAsaasTaxReq = None
+    costSandfriendsNetTaxReq = None
+    asaasSplitReq = None
 
     #busca a quadra que vai ser feita a cobrança
     store = db.session.query(Store)\
@@ -318,7 +322,7 @@ def MatchReservation():
             responseCpf = updateCpf(user)
 
             if responseCpf.status_code != 200:
-                return "Não foi possível criar suas partida. Tente novamente", HttpCode.WARNING
+                return "Ops, verifique se seu CPF está correto.", HttpCode.WARNING
 
         #Gera a cobrança no Asaas
         responsePayment = createPaymentPix(user, costReq, store)
@@ -331,9 +335,20 @@ def MatchReservation():
         if responsePixCode.status_code == 200:
             asaasPixCode = responsePixCode.json().get('payload')
         
-        asaasPaymentId = responsePayment.json().get('id'),
-        asaasBillingType = responsePayment.json().get('billingType'),
-        asaasPaymentStatus = "PENDING",
+        #Dados que retornam do Asaas
+        asaasPaymentStatus = "PENDING"
+        asaasPaymentId = responsePayment.json().get('id')
+        asaasBillingType = responsePayment.json().get('billingType')
+        #Valor final, após Split - o que a quadra irá receber
+        costFinalReq = responsePayment.json().get('split')[0].get('totalValue')
+        #Valor da taxa do Asaas
+        costNetReq = responsePayment.json().get('netValue')
+        costReq = responsePayment.json().get('value')
+        costAsaasTaxReq = costReq - costNetReq
+        #Valor da remuneração do Sandfriends
+        costSandfriendsNetTaxReq = costReq - costAsaasTaxReq - costFinalReq
+        #Porcentagem do Split
+        asaasSplitReq = responsePayment.json().get('split')[0].get('percentualValue')
 
     #### CARTÃO DE CRÉDITO
     elif paymentReq == 2:
@@ -354,9 +369,20 @@ def MatchReservation():
         if responsePayment.status_code != 200:
             return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
 
-        asaasPaymentId = responsePayment.json().get('id'),
-        asaasBillingType = responsePayment.json().get('billingType'),
-        asaasPaymentStatus = "PENDING",
+        #Dados que retornam do Asaas
+        asaasPaymentStatus = "PENDING"
+        asaasPaymentId = responsePayment.json().get('id')
+        asaasBillingType = responsePayment.json().get('billingType')
+        #Valor final, após Split - o que a quadra irá receber
+        costFinalReq = responsePayment.json().get('split')[0].get('totalValue')
+        #Valor da taxa do Asaas
+        costNetReq = responsePayment.json().get('netValue')
+        costReq = responsePayment.json().get('value')
+        costAsaasTaxReq = costReq - costNetReq
+        #Valor da remuneração do Sandfriends
+        costSandfriendsNetTaxReq = costReq - costAsaasTaxReq - costFinalReq
+        #Porcentagem do Split
+        asaasSplitReq = responsePayment.json().get('split')[0].get('percentualValue')
 
     #### PAGAMENTO NO LOCAL
     elif paymentReq == 3:
@@ -386,6 +412,10 @@ def MatchReservation():
         AsaasPaymentStatus = asaasPaymentStatus,
         AsaasPixCode = asaasPixCode,
         IdUserCreditCard = idCreditCardReq,
+        CostFinal = costFinalReq,
+        CostAsaasTax = costAsaasTaxReq,
+        CostSandfriendsNetTax = costSandfriendsNetTaxReq,
+        AsaasSplit = asaasSplitReq
     )
     
     db.session.add(newMatch)
@@ -421,7 +451,7 @@ def MatchReservation():
         emailUserMatchConfirmed(newMatch)
     #PIX
     if paymentReq == 1:
-        return "Sua partida foi reservada! Entre na partida para copiar o código pix", HttpCode.ALERT
+        return jsonify({'Message':"Sua partida foi reservada!", "Pixcode": asaasPixCode}), HttpCode.ALERT
     else:
         return "Sua partida foi agendada!", HttpCode.ALERT
     
@@ -1010,7 +1040,7 @@ def queryConcurrentMatches(listIdStoreCourt, listDate, timeStart, timeEnd):
             .filter(Match.IdStoreCourt.in_(listIdStoreCourt))\
             .filter(Match.Date.in_(listDate))\
             .filter(Match.Canceled == False) \
-            .filter(((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin <= timeEnd)) | \
+            .filter(((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin < timeEnd)) | \
                     ((Match.IdTimeEnd > timeStart) & (Match.IdTimeEnd <= timeEnd)) | \
                     ((Match.IdTimeBegin < timeStart) & (Match.IdTimeEnd > timeStart))).all()
     

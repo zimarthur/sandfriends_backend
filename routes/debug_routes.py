@@ -47,6 +47,9 @@ from ..access_token import EncodeToken, DecodeToken
 import json
 from ..Asaas.asaas_base_api import requestPost
 from .match_routes import GetAvailableCitiesList
+from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard, getSplitPercentage
+from ..emails import emailUserWelcomeConfirmationTest
+from ..encryption import encrypt_aes, decrypt_aes
 bp_debug = Blueprint('bp_debug', __name__)
 
 
@@ -65,7 +68,81 @@ def getLastMonth():
 
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
-    return jsonify({'Sports': "a",  "b":GetAvailableCitiesList()}), 200
+    idMatchReq = 23
+    match = db.session.query(Match)\
+             .filter(Match.IdMatch == idMatchReq).first()
+
+    json = match.to_json()
+
+    retorno = str(json['CostFinal']).replace('.', ',')
+    
+    return retorno, 200
+
+    # idStoreReq = 1
+    # #busca a quadra que vai ser feita a cobrança
+    # store = db.session.query(Store)\
+    #         .filter(Store.IdStore == idStoreReq).first()
+
+    # value = 80
+    # billingType = "CREDIT_CARD"
+
+    # split = getSplitPercentage(store, value, billingType)
+    
+    # retorno = str(split)
+    
+    # return retorno, 200
+
+    # idMatch = 1
+    # partida = db.session.query(Match)\
+    #         .filter(Match.IdMatch == idMatch).first()
+    
+    # inicio = datetime.strptime(partida.TimeBegin.HourString, "%H:%M")
+    # fim = datetime.strptime(partida.TimeEnd.HourString, "%H:%M")
+    # duration = (fim - inicio).total_seconds() / 3600
+
+    # retorno = str(int(duration))
+    
+    # idStoreCourtReq = 1
+    # #busca a quadra que vai ser feita a cobrança
+    # store = db.session.query(Store)\
+    #         .join(StoreCourt, StoreCourt.IdStore == Store.IdStore)\
+    #         .filter(StoreCourt.IdStoreCourt == idStoreCourtReq).first()
+    
+    # numberOfCourts = db.session.query(StoreCourt)\
+    #     .filter(StoreCourt.IdStore == store.IdStore).count()
+    
+    # currentMonthMatches = db.session.query(Match)\
+    #     .filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in store.Courts]))\
+    #     .filter(Match.Canceled == False)\
+    #     .filter((Match.CreationDate >= getFirstDayOfMonth(datetime.now())) & (Match.CreationDate >= getLastDayOfMonth(datetime.now())) ).all()        
+    
+    # currentMonthMatchesHours=0
+    # for match in currentMonthMatches:
+    #     if match.isPaymentExpired == False:
+    #         currentMonthMatchesHours += match.MatchDuration()
+
+    # retorno = str(currentMonthMatchesHours)
+
+    
+
+
+
+    # password = "YourSecretPassword"
+    # data_to_encrypt = "Senha"
+
+    # encrypted_data = encrypt_aes(data_to_encrypt, password)
+    # print(f"Encrypted: {encrypted_data}")
+
+    # decrypted_data = decrypt_aes(encrypted_data+1, password)
+    # print(f"Decrypted: {decrypted_data}")
+
+    # return f"Decrypted: {decrypted_data}, Encrypted: {encrypted_data}", 200
+    
+    # emailUserWelcomeConfirmationTest("pedromilano902@gmail.com", "https://" + os.environ['URL_APP'] + "/redirect/?ct=emcf&bd=123123123")
+    
+    # return "E-mail enviado", 200
+
+    #return jsonify({'Sports': "a",  "b":GetAvailableCitiesList()}), 200
     # newRecurrentMatch = RecurrentMatch(
     #         IdUser = 1,
     #         IdStoreCourt = 1,
@@ -80,9 +157,10 @@ def debug():
     #     )
     # db.session.add(newRecurrentMatch)
     # db.session.commit()
-    ambiente = os.environ['SQLALCHEMY_DATABASE_URI']
+    #ambiente = os.environ['SQLALCHEMY_DATABASE_URI']
+    #ambiente = os.environ['SQLALCHEMY_DATABASE_URI']
 
-    return ambiente, 200
+    #return ambiente, 200
     # newReward = RewardMonth(
     #     StartingDate = getFirstDayOfMonth(datetime.now()),
     #     EndingDate = getLastDayOfMonth(datetime.now()),

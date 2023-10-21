@@ -136,6 +136,9 @@ def ApproveStore():
     latitudeReq = request.json.get('Latitude')
     longitudeReq = request.json.get('Longitude')
     companyTypeReq = request.json.get('CompanyType')
+    feeSandfriendsHighReq = request.json.get('FeeSandfriendsHigh')
+    feeSandfriendsLowReq = request.json.get('FeeSandfriendsLow')
+    feeThresholdReq = request.json.get('FeeThreshold')
 
     store = db.session.query(Store).filter(Store.IdStore == idStoreReq).first()
 
@@ -150,13 +153,20 @@ def ApproveStore():
     if responseStore.status_code != 200:
         return "Erro Integração asaas" + responseStore.text, HttpCode.WARNING
 
+    #Informações do Asaas - obtidas diretamente do Asaas
     store.AsaasId = responseStore.json().get('id')
     store.AsaasApiKey = responseStore.json().get('apiKey')
     store.AsaasWalletId = responseStore.json().get('walletId')
 
+    #Informações extras
     store.Latitude = latitudeReq
     store.Longitude = longitudeReq
     store.CompanyType = companyTypeReq
+
+    #Dados das taxas do Sandfriends - negociados individualmente
+    store.FeeSandfriendsHigh = feeSandfriendsHighReq
+    store.FeeSandfriendsLow = feeSandfriendsLowReq
+    store.FeeThreshold = feeThresholdReq
 
     #Salva a data atual como ApprovalDate
     store.ApprovalDate = datetime.now()

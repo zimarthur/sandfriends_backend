@@ -8,6 +8,7 @@ from ..extensions import db
 from ..Models.match_model import Match
 from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.asaas_webhook_payments import AsaasWebhookPayments
+from ..utils import getLastDayOfMonth
 
 bp_webhook = Blueprint('bp_webhook', __name__)
 
@@ -44,6 +45,13 @@ def WebhookPayment():
                     sendMatchEmail = True
                 else:
                     sendRecurrentMatchEmail = True
+                    recurrentMatch = RecurrentMatch.query.get(match.IdRecurrentMatch)
+                    now = datetime.now()
+                    if recurrentMatch.LastPaymentDate != recurrentMatch.CreationDate:
+                        validUntil = getLastDayOfMonth(datetime(now.year, now.month+1, 1))
+                    else:
+                        validUntil = getLastDayOfMonth(now)
+                    recurrentMatch.ValidUntil = validUntil
                 #Caso tenha, altera o status de pagamento dela
                 match.AsaasPaymentStatus = "CONFIRMED"
                 db.session.commit()

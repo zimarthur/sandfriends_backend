@@ -181,6 +181,9 @@ def LoginUser():
     if not user:
         return 'E-mail não cadastrado', HttpCode.WARNING
     
+    if user.DateDisabled is not None:
+        return "Não foi possível fazer login pois sua conta já foi excluída", HttpCode.WARNING
+
     if user.ThirdPartyLogin:
         return "Este e-mail foi cadastrado com uma conta do Google - Realize o login através do Google", HttpCode.ALERT
 
@@ -387,8 +390,7 @@ def GetUserInfo():
                 .filter(RecurrentMatch.IsExpired == False)\
                 .filter(RecurrentMatch.Canceled == False).all()
 
-    for userRecurrentMatch in userRecurrentMatches:
-        userRecurrentMatchesList.append(userRecurrentMatch.to_json())
+    userRecurrentMatchesList = [recurrentMatch.to_json() for recurrentMatch in userRecurrentMatches if recurrentMatch.isPaymentExpired == False]
 
     notificationList = []
     notifications = db.session.query(NotificationUser).filter(NotificationUser.IdUser == user.IdUser).all()
@@ -408,6 +410,32 @@ def GetUserInfo():
 
 
     return  jsonify({'UserMatches': userMatchesList, 'UserRecurrentMatches':  userRecurrentMatchesList,'OpenMatches': openMatchesList, 'Notifications': notificationList, 'UserRewards': RewardStatus(user.IdUser), 'MatchCounter': matchCounterList, 'CreditCards': userCreditCardsList}), 200
+
+#Rota utilizada para excluir a conta do jogador
+@bp_user_login.route("/RemoveUser", methods=["POST"])
+def RemoveUser():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    tokenReq = request.json.get('AccessToken')
+
+    user = User.query.filter_by(AccessToken = tokenReq).first()
+    
+    #Verifica se o token é 0 ou null
+    tokenNullOrZero(tokenReq)
+
+    if user is None:
+        return 'Token inválido.', HttpCode.EXPIRED_TOKEN
+
+    #Exclui o usuário do banco de dados
+    user.AccessToken = None
+    email = user.Email
+    user.Email = user.Email + ".Deleted"
+    user.DateDisabled = datetime.now()
+
+    db.session.commit()
+        
+    return "O seu usuário foi excluído com sucesso", HttpCode.ALERT
 
 def initUserLoginData(user):
     sports = db.session.query(Sport).all()

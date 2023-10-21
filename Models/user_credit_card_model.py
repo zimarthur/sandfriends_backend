@@ -1,12 +1,14 @@
 from ..extensions import db
 from datetime import datetime
+from ..encryption import encrypt_aes, decrypt_aes
+import os
 
 
 class UserCreditCard(db.Model):
     __tablename__ = 'user_credit_card'
     IdUserCreditCard = db.Column(db.Integer, primary_key=True)
     Nickname = db.Column(db.String(45))
-    CardNumber = db.Column(db.String(16))
+    CardNumber = db.Column(db.String(255))
     ExpirationDate = db.Column(db.DateTime)
     OwnerName = db.Column(db.String(45))
     OwnerCpf = db.Column(db.String(11))
@@ -23,7 +25,7 @@ class UserCreditCard(db.Model):
     def to_json(self):
         return {
             'IdUserCreditCard': self.IdUserCreditCard,
-            'CardNumber': self.CardNumber[-4:],
+            'CardNumber': decrypt_aes(self.CardNumber, os.environ['ENCRYPTION_KEY'])[-4:],
             'Nickname': self.Nickname,
             'ExpirationDate': self.ExpirationDate.strftime("%d/%m/%Y"),
             'Issuer': self.Issuer,
