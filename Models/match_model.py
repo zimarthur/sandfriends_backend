@@ -25,12 +25,13 @@ class Match(db.Model):
     IdSport = db.Column(db.Integer, db.ForeignKey('sport.IdSport'))
     Sport = db.relationship('Sport', foreign_keys = [IdSport])
 
+    #Horários da partida
     IdTimeBegin = db.Column(db.Integer, db.ForeignKey('available_hour.IdAvailableHour'))
     TimeBegin = db.relationship('AvailableHour', foreign_keys = [IdTimeBegin])
-
     IdTimeEnd = db.Column(db.Integer, db.ForeignKey('available_hour.IdAvailableHour'))
     TimeEnd = db.relationship('AvailableHour', foreign_keys = [IdTimeEnd])
 
+    #Dados do Pagamento
     AsaasPaymentId = db.Column(db.String(45))
     AsaasBillingType = db.Column(db.String(45))
     AsaasPaymentStatus = db.Column(db.String(45))
@@ -39,7 +40,11 @@ class Match(db.Model):
     IdUserCreditCard = db.Column(db.Integer, db.ForeignKey('user_credit_card.IdUserCreditCard'))
     UserCreditCard = db.relationship('UserCreditCard', foreign_keys = [IdUserCreditCard])
     
-    
+    CostFinal = db.Column(db.Numeric(precision=10, scale=2))
+    CostAsaasTax = db.Column(db.Numeric(precision=10, scale=2)) 
+    CostSandfriendsNetTax = db.Column(db.Numeric(precision=10, scale=2))
+    AsaasSplit = db.Column(db.Numeric(precision=10, scale=2))
+
     @hybrid_property
     def paymentExpiration(self):
         return self.CreationDate + timedelta(minutes = 30)
@@ -58,7 +63,12 @@ class Match(db.Model):
         return datetime.strptime(self.Date.strftime("%Y-%m-%d ") + self.TimeBegin.HourString, "%Y-%m-%d %H:%M")
     
     def MatchDuration(self):
-        return (self.TimeEnd - self.TimeBegin)
+        begin = datetime.strptime(self.TimeBegin.HourString, "%H:%M")
+        end = datetime.strptime(self.TimeEnd.HourString, "%H:%M")
+        #Calcula o número de horas entre os dois intervalos
+        duration = (end - begin).total_seconds() / 3600
+        return int(duration)
+
     def matchCreator(self):
         return [user for user in self.Members if user.IsMatchCreator][0]
     
@@ -90,7 +100,8 @@ class Match(db.Model):
             'PixCode': self.AsaasPixCode,
             'CreditCard': creditCard,
             'PaymentExpirationDate': self.paymentExpiration.strftime("%Y-%m-%d %H:%M:%S"),
-            'IdRecurrentMatch':self.IdRecurrentMatch,
+            'IdRecurrentMatch': self.IdRecurrentMatch,
+            'CostFinal': self.CostFinal,
         }
 
     def to_json_open_match(self):
@@ -114,7 +125,7 @@ class Match(db.Model):
             'PaymentStatus': self.AsaasPaymentStatus,
             'PaymentType': self.AsaasBillingType,
             'PaymentExpirationDate': self.paymentExpiration.strftime("%Y-%m-%d %H:%M:%S"),
-            
+            'CostFinal': self.CostFinal,
         }
 
     def to_json_min(self):
@@ -151,5 +162,6 @@ class Match(db.Model):
             'PaymentStatus': self.AsaasPaymentStatus,
             'PaymentType': self.AsaasBillingType,
             'PaymentExpirationDate': self.paymentExpiration.strftime("%Y-%m-%d %H:%M:%S"),
+            'CostFinal': self.CostFinal,
         }
         

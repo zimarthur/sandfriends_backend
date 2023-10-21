@@ -68,16 +68,75 @@ def getLastMonth():
 
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
-    password = "YourSecretPassword"
-    data_to_encrypt = "Senha"
+    idMatchReq = 23
+    match = db.session.query(Match)\
+             .filter(Match.IdMatch == idMatchReq).first()
 
-    encrypted_data = encrypt_aes(data_to_encrypt, password)
-    print(f"Encrypted: {encrypted_data}")
+    json = match.to_json()
 
-    decrypted_data = decrypt_aes(encrypted_data+1, password)
-    print(f"Decrypted: {decrypted_data}")
+    retorno = str(json['CostFinal']).replace('.', ',')
+    
+    return retorno, 200
 
-    return f"Decrypted: {decrypted_data}, Encrypted: {encrypted_data}", 200
+    # idStoreReq = 1
+    # #busca a quadra que vai ser feita a cobrança
+    # store = db.session.query(Store)\
+    #         .filter(Store.IdStore == idStoreReq).first()
+
+    # value = 80
+    # billingType = "CREDIT_CARD"
+
+    # split = getSplitPercentage(store, value, billingType)
+    
+    # retorno = str(split)
+    
+    # return retorno, 200
+
+    # idMatch = 1
+    # partida = db.session.query(Match)\
+    #         .filter(Match.IdMatch == idMatch).first()
+    
+    # inicio = datetime.strptime(partida.TimeBegin.HourString, "%H:%M")
+    # fim = datetime.strptime(partida.TimeEnd.HourString, "%H:%M")
+    # duration = (fim - inicio).total_seconds() / 3600
+
+    # retorno = str(int(duration))
+    
+    # idStoreCourtReq = 1
+    # #busca a quadra que vai ser feita a cobrança
+    # store = db.session.query(Store)\
+    #         .join(StoreCourt, StoreCourt.IdStore == Store.IdStore)\
+    #         .filter(StoreCourt.IdStoreCourt == idStoreCourtReq).first()
+    
+    # numberOfCourts = db.session.query(StoreCourt)\
+    #     .filter(StoreCourt.IdStore == store.IdStore).count()
+    
+    # currentMonthMatches = db.session.query(Match)\
+    #     .filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in store.Courts]))\
+    #     .filter(Match.Canceled == False)\
+    #     .filter((Match.CreationDate >= getFirstDayOfMonth(datetime.now())) & (Match.CreationDate >= getLastDayOfMonth(datetime.now())) ).all()        
+    
+    # currentMonthMatchesHours=0
+    # for match in currentMonthMatches:
+    #     if match.isPaymentExpired == False:
+    #         currentMonthMatchesHours += match.MatchDuration()
+
+    # retorno = str(currentMonthMatchesHours)
+
+    
+
+
+
+    # password = "YourSecretPassword"
+    # data_to_encrypt = "Senha"
+
+    # encrypted_data = encrypt_aes(data_to_encrypt, password)
+    # print(f"Encrypted: {encrypted_data}")
+
+    # decrypted_data = decrypt_aes(encrypted_data+1, password)
+    # print(f"Decrypted: {decrypted_data}")
+
+    # return f"Decrypted: {decrypted_data}, Encrypted: {encrypted_data}", 200
     
     # emailUserWelcomeConfirmationTest("pedromilano902@gmail.com", "https://" + os.environ['URL_APP'] + "/redirect/?ct=emcf&bd=123123123")
     
