@@ -103,7 +103,10 @@ def sendEmail( email, name, templateId, variables):
         },
     ]
 
-    if os.environ['AMBIENTE'] == "prod" or os.environ['AMBIENTE'] == "demo":
+    #Para qual e-mail envia
+    #Alterei temporariamente para não enviar diretamente para o demo, para criar os usuários de teste
+    #if os.environ['AMBIENTE'] == "prod" or os.environ['AMBIENTE'] == "demo":
+    if os.environ['AMBIENTE'] == "prod":
         emailToSend = email_account
     else:
         emailToSend = emails_admin

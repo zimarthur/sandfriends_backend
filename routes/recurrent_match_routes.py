@@ -133,10 +133,12 @@ def SearchRecurrentCourts():
                                     ((match.IdTimeBegin == storeOperationHour.IdAvailableHour) or ((match.IdTimeBegin < storeOperationHour.IdAvailableHour) and (match.IdTimeEnd > storeOperationHour.IdAvailableHour)))\
                                     ]
                         if len(concurrentMatch) == 0:
-                            jsonAvailableCourts.append({
-                                'IdStoreCourt':filteredCourt.IdStoreCourt,
-                                'Price': [int(courtHour.RecurrentPrice) for courtHour in courtHours if (courtHour.IdStoreCourt == filteredCourt.IdStoreCourt) and (courtHour.Weekday == int(day)) and (courtHour.IdAvailableHour == storeOperationHour.IdAvailableHour)][0]
-                            })
+                            recurrentCourtHour = [courtHour for courtHour in courtHours if (courtHour.IdStoreCourt == filteredCourt.IdStoreCourt) and (courtHour.Weekday == int(day)) and (courtHour.IdAvailableHour == storeOperationHour.IdAvailableHour)][0]
+                            if recurrentCourtHour.RecurrentPrice is not None:
+                                jsonAvailableCourts.append({
+                                    'IdStoreCourt':filteredCourt.IdStoreCourt,
+                                    'Price': int(recurrentCourtHour.RecurrentPrice)
+                                })
 
 
                     if jsonAvailableCourts:
