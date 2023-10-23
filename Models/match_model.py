@@ -121,6 +121,7 @@ class Match(db.Model):
             'CreationDate': self.CreationDate.strftime("%Y-%m-%d"),
             'MatchUrl': self.MatchUrl,
             'CreatorNotes': self.CreatorNotes,
+            'IdRecurrentMatch': self.IdRecurrentMatch,
             'Members':members,
             'PaymentStatus': self.AsaasPaymentStatus,
             'PaymentType': self.AsaasBillingType,
@@ -162,6 +163,7 @@ class Match(db.Model):
             'PaymentStatus': self.AsaasPaymentStatus,
             'PaymentType': self.AsaasBillingType,
             'PaymentExpirationDate': self.paymentExpiration.strftime("%Y-%m-%d %H:%M:%S"),
+            'IdRecurrentMatch': self.IdRecurrentMatch,
             'CostFinal': self.CostFinal,
         }
         

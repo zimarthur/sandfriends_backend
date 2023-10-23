@@ -133,10 +133,12 @@ def SearchRecurrentCourts():
                                     ((match.IdTimeBegin == storeOperationHour.IdAvailableHour) or ((match.IdTimeBegin < storeOperationHour.IdAvailableHour) and (match.IdTimeEnd > storeOperationHour.IdAvailableHour)))\
                                     ]
                         if len(concurrentMatch) == 0:
-                            jsonAvailableCourts.append({
-                                'IdStoreCourt':filteredCourt.IdStoreCourt,
-                                'Price': [int(courtHour.RecurrentPrice) for courtHour in courtHours if (courtHour.IdStoreCourt == filteredCourt.IdStoreCourt) and (courtHour.Weekday == int(day)) and (courtHour.IdAvailableHour == storeOperationHour.IdAvailableHour)][0]
-                            })
+                            recurrentCourtHour = [courtHour for courtHour in courtHours if (courtHour.IdStoreCourt == filteredCourt.IdStoreCourt) and (courtHour.Weekday == int(day)) and (courtHour.IdAvailableHour == storeOperationHour.IdAvailableHour)][0]
+                            if recurrentCourtHour.RecurrentPrice is not None:
+                                jsonAvailableCourts.append({
+                                    'IdStoreCourt':filteredCourt.IdStoreCourt,
+                                    'Price': int(recurrentCourtHour.RecurrentPrice)
+                                })
 
 
                     if jsonAvailableCourts:
@@ -221,6 +223,10 @@ def CourtReservation():
     asaasBillingType = None
     asaasPaymentStatus = None
     asaasPixCode = None
+    costFinalReq = None
+    costAsaasTaxReq = None
+    costSandfriendsNetTaxReq = None
+    asaasSplitReq = None
 
     #busca a quadra que vai ser feita a cobrança
     store = db.session.query(Store)\
@@ -229,8 +235,9 @@ def CourtReservation():
     
     now = datetime.now()
 
-    #PIX
+    #### PIX
     if paymentReq == 1:
+        #Atualiza o CPF caso não tenha
         if cpfReq != user.Cpf:
             user.Cpf = cpfReq
             db.session.commit()
@@ -239,6 +246,7 @@ def CourtReservation():
             if responseCpf.status_code != 200:
                 return "Ops, verifique se seu CPF está correto.", HttpCode.WARNING
 
+        #Gera a cobrança no Asaas
         responsePayment = createPaymentPix(
             user= user, 
             value= totalCostReq,
@@ -247,23 +255,37 @@ def CourtReservation():
         if responsePayment.status_code != 200:
             return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
 
+        #Obtém o código para pagemento do Pix
         responsePixCode = generateQrCode(responsePayment.json().get('id'))
 
-        asaasPaymentId = responsePayment.json().get('id')
-        asaasBillingType = responsePayment.json().get('billingType')
-        asaasPaymentStatus = "PENDING",
-        
         if responsePixCode.status_code == 200:
             asaasPixCode = responsePixCode.json().get('payload')
 
+        #Dados que retornam do Asaas
+        asaasPaymentStatus = "PENDING"
+        asaasPaymentId = responsePayment.json().get('id')
+        asaasBillingType = responsePayment.json().get('billingType')
+        #Valor final, após Split - o que a quadra irá receber
+        costFinalReq = responsePayment.json().get('split')[0].get('totalValue')
+        #Valor da taxa do Asaas
+        costNetReq = responsePayment.json().get('netValue')
+        costReq = responsePayment.json().get('value')
+        costAsaasTaxReq = costReq - costNetReq
+        #Valor da remuneração do Sandfriends
+        costSandfriendsNetTaxReq = costReq - costAsaasTaxReq - costFinalReq
+        #Porcentagem do Split
+        asaasSplitReq = responsePayment.json().get('split')[0].get('percentualValue')
+
         validUntil = now + timedelta(minutes = 30)
 
+    #### CARTÃO DE CRÉDITO
     elif paymentReq == 2:
         creditCard = db.session.query(UserCreditCard).filter(UserCreditCard.IdUserCreditCard == idCreditCardReq).first()
 
         if creditCard is None:
             return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
         
+        #Gera a cobrança no Asaas
         responsePayment = createPaymentCreditCard(
             user= user, 
             creditCard= creditCard,
@@ -275,9 +297,20 @@ def CourtReservation():
         if responsePayment.status_code != 200:
             return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
 
+        #Dados que retornam do Asaas
         asaasPaymentId = responsePayment.json().get('id')
         asaasBillingType = responsePayment.json().get('billingType')
         asaasPaymentStatus = "PENDING"
+        #Valor final, após Split - o que a quadra irá receber
+        costFinalReq = responsePayment.json().get('split')[0].get('totalValue')
+        #Valor da taxa do Asaas
+        costNetReq = responsePayment.json().get('netValue')
+        costReq = responsePayment.json().get('value')
+        costAsaasTaxReq = costReq - costNetReq
+        #Valor da remuneração do Sandfriends
+        costSandfriendsNetTaxReq = costReq - costAsaasTaxReq - costFinalReq
+        #Porcentagem do Split
+        asaasSplitReq = responsePayment.json().get('split')[0].get('percentualValue')
 
         validUntil = now + timedelta(minutes = 30)
 
@@ -285,6 +318,11 @@ def CourtReservation():
     elif paymentReq == 3:
         asaasBillingType = "PAY_IN_STORE"
         asaasPaymentStatus = "CONFIRMED"
+
+        costFinalReq = costReq
+        costAsaasTaxReq = 0
+        costSandfriendsNetTaxReq = 0
+        asaasSplitReq = costReq
 
         if isRenovatingReq:
             validUntil = getLastDayOfMonth(datetime(now.year, now.month+1, 1))
@@ -325,7 +363,7 @@ def CourtReservation():
         db.session.refresh(newRecurrentMatch)
         recurrentMatchId = newRecurrentMatch.IdRecurrentMatch
     
-
+    #Cria as partidas na tabela Match
     for day in daysList:
         newMatch = Match(
             IdStoreCourt = idStoreCourtReq,
@@ -345,6 +383,10 @@ def CourtReservation():
             AsaasPaymentStatus = asaasPaymentStatus,
             AsaasPixCode = asaasPixCode,
             IdUserCreditCard = idCreditCardReq,
+            CostFinal = costFinalReq,
+            CostAsaasTax = costAsaasTaxReq,
+            CostSandfriendsNetTax = costSandfriendsNetTaxReq,
+            AsaasSplit = asaasSplitReq
         )
         db.session.add(newMatch)
         db.session.commit()

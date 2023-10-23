@@ -389,6 +389,10 @@ def MatchReservation():
         asaasBillingType = "PAY_IN_STORE"
         asaasPaymentStatus = "CONFIRMED"
 
+        costFinalReq = costReq
+        costAsaasTaxReq = 0
+        costSandfriendsNetTaxReq = 0
+        asaasSplitReq = costReq
     else:
         return "Forma de pagamento inválida", HttpCode.WARNING
     
