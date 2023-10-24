@@ -43,42 +43,45 @@ def daterange(start_date, end_date):
 def getHourIndex(hourString):
     return datetime.strptime(hourString, '%H:%M').hour
 
+#Retorna uma string com o horário (ex: 9 -> 09:00)
 def getHourString(hourIndex):
-    return f"{hourIndex}:00"#GAMBIARRA
+    #zfill - adiciona 0 no início se preciso
+    return f"{str(hourIndex).zfill(2)}:00"#GAMBIARRA
 
-
-@bp_recurrent_match.route('/UserRecurrentMatches', methods=['POST'])
-def UserRecurrentMatches():
+#A princípio não é utilizado - Comentei para ver se podemos excluir (23/10/2023)
+# @bp_recurrent_match.route('/UserRecurrentMatches', methods=['POST'])
+# def UserRecurrentMatches():
     
-    accessToken = request.json.get('AccessToken')
+#     accessToken = request.json.get('AccessToken')
 
-    user = User.query.filter_by(AccessToken = accessToken).first()
+#     user = User.query.filter_by(AccessToken = accessToken).first()
 
-    if user is None:
-        return '1', HttpCode.EXPIRED_TOKEN
+#     if user is None:
+#         return '1', HttpCode.EXPIRED_TOKEN
 
     
-    recurrentMatches = db.session.query(RecurrentMatch)\
-                        .filter(RecurrentMatch.IdUser == user.IdUser)\
-                        .filter(RecurrentMatch.Canceled == False)\
-                        .filter( RecurrentMatch.ValidUntil > datetime.now()).all()
+#     recurrentMatches = db.session.query(RecurrentMatch)\
+#                         .filter(RecurrentMatch.IdUser == user.IdUser)\
+#                         .filter(RecurrentMatch.Canceled == False)\
+#                         .filter( RecurrentMatch.ValidUntil > datetime.now()).all()
 
-    if recurrentMatches is None:
-        return "nada", 200
+#     if recurrentMatches is None:
+#         return "nada", 200
     
-    recurrentMatchesList =[]
-    for recurrentMatch in recurrentMatches:
-        recurrentMatchesList.append(recurrentMatch.to_json())
+#     recurrentMatchesList =[]
+#     for recurrentMatch in recurrentMatches:
+#         recurrentMatchesList.append(recurrentMatch.to_json())
     
-    return jsonify({'RecurrentMatches': recurrentMatchesList}), HttpCode.SUCCESS
+#     return jsonify({'RecurrentMatches': recurrentMatchesList}), HttpCode.SUCCESS
 
 
-
+#Busca horários mensalistas disponíveis - na área do mensalista
 @bp_recurrent_match.route("/SearchRecurrentCourts", methods=["POST"])
 def SearchRecurrentCourts():
     if not request.json:
         abort(HttpCode.ABORT)
     
+    #Recebidos da busca do app
     accessToken = request.json.get('AccessToken')
     sportId = int(request.json.get('IdSport'))
     cityId = request.json.get('IdCity')
@@ -86,13 +89,18 @@ def SearchRecurrentCourts():
     timeStart = request.json.get('TimeStart')
     timeEnd = request.json.get('TimeEnd')
 
+    #Verifica se o usuário é válido
     user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
-        return '1', HttpCode.EXPIRED_TOKEN
+        return 'Token inválido - Realize login novamente', HttpCode.EXPIRED_TOKEN
 
+    #Estabelecimentos na cidade e validados/aprovados
     stores = db.session.query(Store).filter(Store.IdCity == cityId)\
                                     .filter(Store.IdStore.in_([store.IdStore for store in getAvailableStores()])).all()
 
+    #Quadras disponíveis
+    #Unir tabela de quadras e a tabela com os esportes de cada quadra
+    #Filtra as quadras que possuem o esporte escolhido
     courts = db.session.query(StoreCourt)\
                     .join(StoreCourtSport, StoreCourtSport.IdStoreCourt == StoreCourt.IdStoreCourt)\
                     .join(Store, Store.IdStore == StoreCourt.IdStore)\
@@ -100,73 +108,117 @@ def SearchRecurrentCourts():
                     .filter(StoreCourtSport.IdSport == sportId)\
                     .filter(StoreCourt.IdStore.in_(store.IdStore for store in stores)).all()
 
+    #Destas quadras, os horários e preços disponíveis
     courtHours = db.session.query(StorePrice)\
                     .filter(StorePrice.IdStoreCourt.in_(court.IdStoreCourt for court in courts)).all()
     
+    #Partidas mensalistas já existente nas quadras buscadas, que ainda não estão expiradas
     recurrentMatches = db.session.query(RecurrentMatch)\
                         .filter(RecurrentMatch.Canceled == False)\
                         .filter(RecurrentMatch.IdStoreCourt.in_(court.IdStoreCourt for court in courts))\
                         .filter(RecurrentMatch.ValidUntil > datetime.now()).all()
 
+    #Rever, a princípio não faz nada, pois já é verificado na linha acima (ValidUntil)
     recurrentMatches = [recurrentMatch for recurrentMatch in recurrentMatches if recurrentMatch.isPaymentExpired == False]
 
     dayList = []
     IdStoresList = []
+    #Verifica os dias da semana em que o jogador buscou
     for day in days:
+        print("Dia: "+day)
         jsonStores = []
+        #Para cada estabelecimento disponível
         for store in stores:
+            #Pega as quadras que essa loja possui
+            print("Store: "+store.Name)
             filteredCourts = [court for court in courts if court.IdStore == store.IdStore]
-            
+
             if(len(filteredCourts) > 0):
+                #Horários de operação do estabelecimento
+                #Considera os horários de funcionamento da primeira quadra do estabelecimento (pois todas as quadras devem possuir o mesmo horário de funcionamento)
+                #Horário de operação apenas no dia do loop
+                #Horários do range que o jogador selecionou
                 storeOperationHours = [storeOperationHour for storeOperationHour in courtHours if \
                                     (storeOperationHour.IdStoreCourt == filteredCourts[0].IdStoreCourt) and\
                                     (storeOperationHour.Weekday == int(day)) and \
                                     ((storeOperationHour.IdAvailableHour >= getHourIndex(timeStart)) and (storeOperationHour.IdAvailableHour < getHourIndex(timeEnd)))]
 
                 jsonStoreOperationHours =[]
+                #Montar o json que ele vai retornar para o app
                 for storeOperationHour in storeOperationHours:
+                    print(" ")
+                    print("Horário: "+storeOperationHour.AvailableHour.HourString)
                     jsonAvailableCourts =[]
+                    #Para cada horário de operação da quadra
                     for filteredCourt in filteredCourts:
+                        print("Quadra: "+filteredCourt.Description)
+                        #Para cada quadra disponível nesse horário
+                        #Gera uma lista de partidas mensalistas que já existem nesta quadra neste horário
+                        #Partida existe ele verifica:
+                            #Horário de inicio == horário do loop 
+                            #Horário de início < horário do loop AND horário de fim > horário do loop
+                            #match.IdStoreCourt
                         concurrentMatch = [match for match in recurrentMatches if \
                                     (match.IdStoreCourt ==  filteredCourt.IdStoreCourt) and \
-                                    (match.Canceled == False) and \
+                                    (match.Weekday == int(day)) and \
                                     ((match.IdTimeBegin == storeOperationHour.IdAvailableHour) or ((match.IdTimeBegin < storeOperationHour.IdAvailableHour) and (match.IdTimeEnd > storeOperationHour.IdAvailableHour)))\
                                     ]
+                        
+                        print("Partidas Concorrentes: "+str(len(concurrentMatch)))
+                        print("IdStoreCourt: " +str(filteredCourt.IdStoreCourt))
+
+                        #Caso não exista partidas conflitantes            
                         if len(concurrentMatch) == 0:
-                            recurrentCourtHour = [courtHour for courtHour in courtHours if (courtHour.IdStoreCourt == filteredCourt.IdStoreCourt) and (courtHour.Weekday == int(day)) and (courtHour.IdAvailableHour == storeOperationHour.IdAvailableHour)][0]
+                            #Pega o horário e preço se
+                            #
+                            recurrentCourtHour = [courtHour for courtHour in courtHours if \
+                                    (courtHour.IdStoreCourt == filteredCourt.IdStoreCourt) and \
+                                    (courtHour.Weekday == int(day)) and \
+                                    (courtHour.IdAvailableHour == storeOperationHour.IdAvailableHour)\
+                                    ][0]
+                            #Se naõ tiver preço, quer dizer que o estabelecimento não aceita horário mensalista neste dia nesta quadra
                             if recurrentCourtHour.RecurrentPrice is not None:
+                                #Adiciona no json o horário e preço que está disponível para mensalista
                                 jsonAvailableCourts.append({
                                     'IdStoreCourt':filteredCourt.IdStoreCourt,
                                     'Price': int(recurrentCourtHour.RecurrentPrice)
                                 })
 
-
                     if jsonAvailableCourts:
+                        #Adiciona no json o horário dos preços que foram adicionados acima
                         jsonStoreOperationHours.append({
                             'Courts': jsonAvailableCourts, 
                             'TimeBegin':storeOperationHour.AvailableHour.HourString,
                             'TimeFinish':getHourString(storeOperationHour.IdAvailableHour + 1),
                             'TimeInteger': storeOperationHour.IdAvailableHour
                         })
+                
+                #Depois de verificar todos os horários
+                #Adiciona o horário de operação de cada quadra
                 if jsonStoreOperationHours:
                     jsonStores.append({
                         'IdStore':store.IdStore, 
                         'Hours':jsonStoreOperationHours
                     })
+                    #Gera a lista de quadras, para não repetir a loja
                     if store.IdStore not in IdStoresList:
                         IdStoresList.append(store.IdStore)
 
+        #Horários e preços dos agendamentos disponíveis de cada quadra
         if jsonStores:
             dayList.append({
                 'Date':day, 
                 'Stores':jsonStores
                 })
 
-    
+    jsonCompleto = jsonify({
+        #Horários e preços dos agendamentos disponíveis
+        'Dates':dayList, 
+        #Informações da quadra
+        'Stores': [store.to_json() for store in stores]
+        })
 
-    return jsonify({'Dates':dayList, 'Stores':[store.to_json() for store in stores]})
-
-   
+    return jsonCompleto, HttpCode.SUCCESS
 
 @bp_recurrent_match.route("/RecurrentMatchReservation", methods=["POST"])
 def CourtReservation():
