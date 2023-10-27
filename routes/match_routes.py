@@ -848,25 +848,6 @@ def RemoveMatchMember():
         db.session.commit()
         return "Jogador removido",HttpCode.ALERT
 
-@bp_match.route("/AddMatch", methods=["POST"])
-def AddMatch():
-    if not request.json:
-        abort(400)
-    match = Match(
-        IdStore = request.json.get('IdStore'),
-        Date = request.json.get('Date'),
-        IdTimeBegin = request.json.get('TimeBegin'),
-        IdTimeEnd = request.json.get('TimeEnd'),
-        Cost = request.json.get('Cost'),
-        OpenUsers = request.json.get('OpenUsers'),
-        MaxUsers = request.json.get('MaxUsers'),
-        Canceled = request.json.get('Canceled'),
-    )
-    db.session.add(match)
-    db.session.commit()
-    return jsonify(match.to_json()), HttpCode.SUCCESS
-    
-
 @bp_match.route("/GetOpenMatches", methods=["POST"])
 def GetOpenMatches():
     if not request.json:
@@ -981,6 +962,12 @@ def BlockUnblockHour():
             IdRecurrentMatch = 0,
             Blocked = blockedReq,
             BlockedReason = blockedReasonReq,
+            AsaasBillingType = "BLOCKED",
+            AsaasPaymentStatus = "BLOCKED",
+            CostFinal = 0,
+            CostAsaasTax = 0,
+            CostSandfriendsNetTax = 0,
+            AsaasSplit = 0
         )
         db.session.add(newMatch)
 
