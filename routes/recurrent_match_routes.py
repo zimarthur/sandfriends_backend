@@ -25,7 +25,7 @@ from ..Models.store_court_sport_model import StoreCourtSport
 from ..Models.sport_model import Sport
 from ..Models.user_model import User
 from ..Models.notification_store_model import NotificationStore
-from ..emails import emailUserMatchConfirmed
+from ..emails import emailUserMatchConfirmed, emailUserRecurrentMatchConfirmed
 from ..routes.match_routes import queryConcurrentMatches
 from ..Asaas.Customer.update_customer import updateCpf
 from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard
@@ -125,12 +125,10 @@ def SearchRecurrentCourts():
     IdStoresList = []
     #Verifica os dias da semana em que o jogador buscou
     for day in days:
-        print("Dia: "+day)
         jsonStores = []
         #Para cada estabelecimento disponível
         for store in stores:
             #Pega as quadras que essa loja possui
-            print("Store: "+store.Name)
             filteredCourts = [court for court in courts if court.IdStore == store.IdStore]
 
             if(len(filteredCourts) > 0):
@@ -146,12 +144,9 @@ def SearchRecurrentCourts():
                 jsonStoreOperationHours =[]
                 #Montar o json que ele vai retornar para o app
                 for storeOperationHour in storeOperationHours:
-                    print(" ")
-                    print("Horário: "+storeOperationHour.AvailableHour.HourString)
                     jsonAvailableCourts =[]
                     #Para cada horário de operação da quadra
                     for filteredCourt in filteredCourts:
-                        print("Quadra: "+filteredCourt.Description)
                         #Para cada quadra disponível nesse horário
                         #Gera uma lista de partidas mensalistas que já existem nesta quadra neste horário
                         #Partida existe ele verifica:
@@ -163,9 +158,6 @@ def SearchRecurrentCourts():
                                     (match.Weekday == int(day)) and \
                                     ((match.IdTimeBegin == storeOperationHour.IdAvailableHour) or ((match.IdTimeBegin < storeOperationHour.IdAvailableHour) and (match.IdTimeEnd > storeOperationHour.IdAvailableHour)))\
                                     ]
-                        
-                        print("Partidas Concorrentes: "+str(len(concurrentMatch)))
-                        print("IdStoreCourt: " +str(filteredCourt.IdStoreCourt))
 
                         #Caso não exista partidas conflitantes            
                         if len(concurrentMatch) == 0:
@@ -271,6 +263,9 @@ def CourtReservation():
     if len(concurrentMatches) > 0 :
         return "Ops, um dos horários não está mais disponível. Pesquise novamente", HttpCode.WARNING
     
+    if len(daysList) == 0:
+        return "Ops, esse mensalista não tem horários livres nesse mês. Pesquise outro horário", HttpCode.WARNING
+
     asaasPaymentId = None
     asaasBillingType = None
     asaasPaymentStatus = None
@@ -415,6 +410,8 @@ def CourtReservation():
         db.session.refresh(newRecurrentMatch)
         recurrentMatchId = newRecurrentMatch.IdRecurrentMatch
     
+    matchToNotify = None
+
     #Cria as partidas na tabela Match
     for day in daysList:
         newMatch = Match(
@@ -455,6 +452,9 @@ def CourtReservation():
         )
         db.session.add(matchMember)
         db.session.commit()
+
+        if matchToNotify is None:
+            matchToNotify = newMatch
     
     #Se for pagamento no local, já envia notificação pra quadra sobre o agendamento
     if paymentReq == 3:
@@ -466,13 +466,13 @@ def CourtReservation():
         newNotificationStore = NotificationStore(
             IdUser = user.IdUser,
             IdStore = store.IdStore,
-            IdMatch = newMatch.IdMatch,
+            IdMatch = matchToNotify.IdMatch,
             IdNotificationStoreCategory = idNotification,
             EventDatetime = datetime.now()
         )
         db.session.add(newNotificationStore)
         db.session.commit()
-        emailUserMatchConfirmed(newMatch)
+        emailUserRecurrentMatchConfirmed(matchToNotify)
 
     #PIX
     if paymentReq == 1:
