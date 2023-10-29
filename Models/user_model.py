@@ -35,6 +35,8 @@ class User(db.Model):
     EmailConfirmationToken = db.Column(db.String(300))
     ResetPasswordToken = db.Column(db.Integer)
     ThirdPartyLogin = db.Column(db.Boolean)
+    AllowNotifications = db.Column(db.Boolean)
+    NotificationsToken = db.Column(db.String(255))
 
     AsaasId = db.Column(db.String(300))
     AsaasCreationDate = db.Column(db.DateTime)

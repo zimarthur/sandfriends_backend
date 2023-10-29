@@ -129,7 +129,7 @@ def SearchCourts():
                     .filter(RecurrentMatch.IdStoreCourt.in_(court.IdStoreCourt for court in courts))\
                     .filter(RecurrentMatch.Weekday.in_(searchWeekdays))\
                     .filter(RecurrentMatch.Canceled == False)\
-                    .filter(((RecurrentMatch.IdTimeBegin >= timeStart) & (Match.IdTimeBegin <= timeEnd)) | \
+                    .filter(((RecurrentMatch.IdTimeBegin >= timeStart) & (Match.IdTimeBegin < timeEnd)) | \
                             ((RecurrentMatch.IdTimeEnd > timeStart) & (RecurrentMatch.IdTimeEnd <= timeEnd)) | \
                             ((RecurrentMatch.IdTimeBegin < timeStart) & (RecurrentMatch.IdTimeEnd > timeStart))).all()
 
@@ -148,7 +148,7 @@ def SearchCourts():
                     match.to_json_open_match(),
                 )
 
-    #horários livres
+    #Monta o retorno com os horários livres
     jsonDates =[]
     IdStoresList = []
     for validDate in daterange(dateStart.date(), dateEnd.date()):
@@ -172,6 +172,7 @@ def SearchCourts():
                 for storeOperationHour in storeOperationHours:
                     jsonAvailableCourts =[]
                     for filteredCourt in filteredCourts:
+                        #Indicadires de partidas já agendadas - conflito de horário
                         concurrentMatch = [match for match in matches if \
                                     (match.IdStoreCourt ==  filteredCourt.IdStoreCourt) and \
                                     (match.Canceled == False) and \
@@ -183,7 +184,8 @@ def SearchCourts():
                                     (recurrentMatch.IdStoreCourt ==  filteredCourt.IdStoreCourt) and \
                                     (recurrentMatch.Blocked == False) and \
                                     (recurrentMatch.Weekday == validDate.weekday()) and \
-                                    ((recurrentMatch.IdTimeBegin == storeOperationHour.IdAvailableHour) or ((recurrentMatch.IdTimeBegin < storeOperationHour.IdAvailableHour) and (recurrentMatch.IdTimeEnd > storeOperationHour.IdAvailableHour)))\
+                                    ((recurrentMatch.IdTimeBegin == storeOperationHour.IdAvailableHour) or \
+                                        ((recurrentMatch.IdTimeBegin < storeOperationHour.IdAvailableHour) and (recurrentMatch.IdTimeEnd > storeOperationHour.IdAvailableHour)))\
                                     ]
                         concurrentBlockedHour = [recurrentMatch for recurrentMatch in recurrentMatches if \
                                     (recurrentMatch.IdStoreCourt ==  filteredCourt.IdStoreCourt) and \
@@ -197,7 +199,10 @@ def SearchCourts():
                         #concurrentRecurrentMatch é pra verificar se tem partida recorrente, mas tem um truque aqui
                         # se tem uma partida recorrente, as partidas do mes jáforam marcadas, então vão aparecer no concurrentMatch
                         # se alguma delas foi cancelada, por ex, o horário ainda poderia ser agendado.
-                        if(not concurrentMatch) and (not concurrentBlockedHour) and (not(isCurrentMonth(validDate) == False and concurrentRecurrentMatch)):
+                        if(not concurrentMatch) and \
+                            (not concurrentBlockedHour) and \
+                            (not( not(isCurrentMonth(validDate)) and concurrentRecurrentMatch )):
+
                             jsonAvailableCourts.append({
                                 'IdStoreCourt':filteredCourt.IdStoreCourt,
                                 'Price': [int(courtHour.Price) for courtHour in courtHours if (courtHour.IdStoreCourt == filteredCourt.IdStoreCourt) and (courtHour.Weekday == validDate.weekday()) and (courtHour.IdAvailableHour == storeOperationHour.IdAvailableHour)][0]
@@ -1026,6 +1031,7 @@ def SearchCustomMatches():
 
     return {'Matches': matchList}, HttpCode.SUCCESS
 
+#Gera lista de partidas no mesmo horário selecionado
 def queryConcurrentMatches(listIdStoreCourt, listDate, timeStart, timeEnd):
     matches = db.session.query(Match)\
             .filter(Match.IdStoreCourt.in_(listIdStoreCourt))\

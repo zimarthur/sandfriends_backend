@@ -44,11 +44,13 @@ from ..Models.store_court_sport_model import StoreCourtSport
 from ..Models.sport_model import Sport
 from ..Models.reward_month_model import RewardMonth
 from ..access_token import EncodeToken, DecodeToken
+
 import json
 from ..Asaas.asaas_base_api import requestPost
 from .match_routes import GetAvailableCitiesList
 from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard, getSplitPercentage
 from ..emails import emailUserWelcomeConfirmationTest
+from ..push_notifications import sendMessage
 from ..encryption import encrypt_aes, decrypt_aes
 bp_debug = Blueprint('bp_debug', __name__)
 
@@ -68,15 +70,9 @@ def getLastMonth():
 
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
-    idMatchReq = 23
-    match = db.session.query(Match)\
-             .filter(Match.IdMatch == idMatchReq).first()
-
-    json = match.to_json()
-
-    retorno = str(json['CostFinal']).replace('.', ',')
+    sendMessage()
     
-    return retorno, 200
+    return "OK", 200
 
     # idStoreReq = 1
     # #busca a quadra que vai ser feita a cobrança
