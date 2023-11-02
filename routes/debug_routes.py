@@ -50,7 +50,6 @@ from ..Asaas.asaas_base_api import requestPost
 from .match_routes import GetAvailableCitiesList
 from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard, getSplitPercentage
 from ..emails import emailUserWelcomeConfirmationTest
-from ..push_notifications import sendMessage
 from ..encryption import encrypt_aes, decrypt_aes
 bp_debug = Blueprint('bp_debug', __name__)
 
@@ -70,7 +69,6 @@ def getLastMonth():
 
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
-    sendMessage()
     
     return "OK", 200
 

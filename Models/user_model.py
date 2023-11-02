@@ -44,6 +44,9 @@ class User(db.Model):
 
     DateDisabled = db.Column(db.DateTime)
 
+    def fullName(self):
+        return self.FirstName+' '+self.LastName
+
     def to_json(self):
         if self.Birthday == None:
             birthday = None
