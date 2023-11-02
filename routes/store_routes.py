@@ -13,7 +13,7 @@ from ..Models.match_model import Match
 from ..Models.employee_model import Employee
 from ..Models.available_hour_model import AvailableHour
 from ..Models.store_court_model import StoreCourt
-from ..emails import emailStoreWelcomeConfirmation, emailStoreApproved
+from ..emails import emailStoreWelcomeConfirmation, emailStoreApproved, emailStoreAwaitingApproval
 from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import func
 import base64
@@ -121,6 +121,9 @@ def AddStore():
     db.session.commit()
     emailStoreWelcomeConfirmation(employeeReq.Email, employeeReq.FirstName, "https://" + os.environ['URL_QUADRAS'] + "/emcf?str=1&tk="+employeeReq.EmailConfirmationToken)
     
+    #Enviar e-mail para nós avisando
+    emailStoreAwaitingApproval(storeReq, employeeReq, city)
+
     return webResponse("Você está quase lá!", \
     "Para concluir seu cadastro, é necessário que você valide seu e-mail.\nAcesse o link que enviamos e sua conta será criada.\n\nSe tiver qualquer dúvida, é só nos chamar, ok?"), HttpCode.ALERT
 
