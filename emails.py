@@ -11,6 +11,7 @@ STORE_WELCOME_CONFIRMATION = 4927876
 STORE_CHANGE_PASSWORD = 4954711
 STORE_ADD_EMPLOYEE = 4954715
 STORE_APPROVED = 4954730
+STORE_AWAITING_APPROVAL = 5237400
 
 USER_MATCH_CONFIRMED = 4954742
 USER_RECURRENT_MATCH_CONFIRMED = 4978838
@@ -77,8 +78,18 @@ def emailUserWelcomeConfirmationTest(email, link):
         "link":link,
     }
     sendEmail(email,"", USER_WELCOME_CONFIRMATION_TEST, variables)   
-    
-def sendEmail( email, name, templateId, variables):
+
+#Avisar sobre quadra nova - somente para nós 3
+def emailStoreAwaitingApproval(store, employee, city):
+    variables = {
+        "store": store.Name,
+        "city": city.City,
+        "email": employee.Email,
+        "fullname": f"{employee.FirstName} {employee.LastName}",
+    }
+    sendEmail("Admin","", STORE_AWAITING_APPROVAL, variables)
+
+def sendEmail(email, name, templateId, variables):
     #Emails nossos - Irá enviar apenas no ambiente de dev
     emails_admin = [
             {
@@ -109,6 +120,10 @@ def sendEmail( email, name, templateId, variables):
     if os.environ['AMBIENTE'] == "prod":
         emailToSend = email_account
     else:
+        emailToSend = emails_admin
+
+    #Caso deva ir para os admin de qualquer forma
+    if email == "Admin":
         emailToSend = emails_admin
 
     data = {

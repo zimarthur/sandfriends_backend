@@ -35,6 +35,7 @@ from ..Asaas.Customer.update_customer import updateCpf
 from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard, getSplitPercentage
 from ..Asaas.Payment.refund_payment import refundPayment
 from ..Asaas.Payment.generate_qr_code import generateQrCode
+from sandfriends_backend.push_notifications import sendMatchInvitationNotification, sendMatchInvitationRefusedNotification, sendMatchInvitationAcceptedNotification, sendMemberLeftMatchNotification, sendMatchCanceledFromCreatorNotification
 
 bp_match = Blueprint('bp_match', __name__)
 
@@ -129,7 +130,7 @@ def SearchCourts():
                     .filter(RecurrentMatch.IdStoreCourt.in_(court.IdStoreCourt for court in courts))\
                     .filter(RecurrentMatch.Weekday.in_(searchWeekdays))\
                     .filter(RecurrentMatch.Canceled == False)\
-                    .filter(((RecurrentMatch.IdTimeBegin >= timeStart) & (Match.IdTimeBegin < timeEnd)) | \
+                    .filter(((RecurrentMatch.IdTimeBegin >= timeStart) & (RecurrentMatch.IdTimeBegin < timeEnd)) | \
                             ((RecurrentMatch.IdTimeEnd > timeStart) & (RecurrentMatch.IdTimeEnd <= timeEnd)) | \
                             ((RecurrentMatch.IdTimeBegin < timeStart) & (RecurrentMatch.IdTimeEnd > timeStart))).all()
 
@@ -513,6 +514,7 @@ def InvitationResponse():
          return 'A partida já foi finalizada', HttpCode.WARNING
     else:
         matchMember = MatchMember.query.filter((MatchMember.IdMatch == idMatch) & (MatchMember.IdUser == idUser)).first()
+        matchCreator = MatchMember.query.filter((MatchMember.IdMatch == idMatch) & (MatchMember.IsMatchCreator == True)).first()
 
         matchMember.WaitingApproval = False
         matchMember.Quit = False
@@ -532,6 +534,10 @@ def InvitationResponse():
         db.session.add(newNotificationUser)
         db.session.commit()
         
+        if accepted:
+            sendMatchInvitationAcceptedNotification(matchCreator.User, matchMember.User, match)
+        else:
+            sendMatchInvitationRefusedNotification(matchCreator.User, matchMember.User, match)
         return "Ok",HttpCode.SUCCESS
 
 @bp_match.route("/LeaveMatch", methods=["POST"])
@@ -569,6 +575,8 @@ def LeaveMatch():
                 db.session.add(newNotificationUser)
                 break
         db.session.commit()
+
+        sendMemberLeftMatchNotification(match.matchCreator().User, matchMember.User, match)
         return "Você saiu da partida",HttpCode.ALERT
 
 @bp_match.route("/SaveCreatorNotes", methods=["POST"])
@@ -683,6 +691,8 @@ def JoinMatch():
         )
         db.session.add(newNotificationUser)
         db.session.commit()
+
+        sendMatchInvitationNotification(matchCreator.User, user, match)
         return "Solicitação enviada",HttpCode.ALERT
 
 @bp_match.route("/CancelMatch", methods=["POST"])
@@ -735,12 +745,13 @@ def CancelMatch():
             if matchMember.Refused == False:
                 newNotificationUser = NotificationUser(
                     IdUser = matchMember.IdUser,
-                    IdUserReplaceText = matchMember.IdUser,
+                    IdUserReplaceText = match.matchCreator().IdUser,
                     IdMatch = idMatch,
                     IdNotificationUserCategory = idNotificationUserCategory,
                     Seen = False
                 )
                 db.session.add(newNotificationUser)
+                sendMatchCanceledFromCreatorNotification(match.matchCreator().User,matchMember.User, match)
         db.session.commit()
         return "Partida cancelada",HttpCode.ALERT
 
