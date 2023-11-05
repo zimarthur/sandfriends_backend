@@ -111,6 +111,27 @@ class User(db.Model):
             'DateDisabled': dateDisabled,
         }
 
+    def to_json_web(self):
+        idRank = None
+        for rank in self.Ranks:
+            if rank.RankCategory.IdSport == self.IdSport:
+                idRank = rank.IdRankCategory
+
+        if self.Photo == None:
+            photo = None
+        else:
+            photo = f"/img/usr/{self.Photo}.png"
+        return {
+            'IdUser': self.IdUser,
+            'FirstName': self.FirstName,
+            'LastName': self.LastName,
+            'Photo': photo,
+            'PhoneNumber': self.PhoneNumber,
+            'IdGenderCategory': self.IdGenderCategory,
+            'IdSport': self.IdSport,
+            'IdRankCategory': idRank
+        }
+
     def identification_to_json(self):
         if self.Photo == None:
             photo = None

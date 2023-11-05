@@ -16,6 +16,7 @@ from .routes.feedback_routes import bp_feedback
 from .routes.debug_routes import bp_debug
 from .routes.reward_routes import bp_reward
 from .routes.employee_routes import bp_employee
+from .routes.store_player_routes import bp_store_player
 from .routes.user_credit_card_routes import bp_user_credit_card
 from .routes.webhook_routes import bp_webhook
 import os
@@ -48,6 +49,7 @@ def create_app():
     app.register_blueprint(bp_employee)
     app.register_blueprint(bp_user_credit_card)
     app.register_blueprint(bp_webhook)
+    app.register_blueprint(bp_store_player)
 
     firebase_admin.initialize_app()
 
