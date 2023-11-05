@@ -146,7 +146,10 @@ def getStorePlayers(store):
                     .filter(MatchMember.WaitingApproval == False)\
                     .filter(MatchMember.Refused == False).all()
     
+    addedIdUsers = []
     for matchMember in matchMembers:
-        matchMembersList.append(matchMember.User.to_json_web())
+        if matchMember.IdUser not in addedIdUsers:
+            addedIdUsers.append(matchMember.IdUser)
+            matchMembersList.append(matchMember.User.to_json_web())
 
     return  (storePlayersList,matchMembersList)

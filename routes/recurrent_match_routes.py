@@ -473,7 +473,7 @@ def CourtReservation():
         )
         db.session.add(newNotificationStore)
         db.session.commit()
-        emailUserRecurrentMatchConfirmed(matchToNotify)
+        emailUserRecurrentMatchConfirmed(matchToNotify,matchToNotify.Cost)
 
     #PIX
     if paymentReq == 1:
