@@ -403,7 +403,8 @@ def CourtReservation():
             IdTimeBegin = timeStartReq,
             IdTimeEnd = timeEndReq,
             LastPaymentDate = now.date(),
-            ValidUntil = validUntil
+            ValidUntil = validUntil,
+            Blocked = False
         )
         db.session.add(newRecurrentMatch)
         db.session.commit()

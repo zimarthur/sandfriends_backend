@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, abort, request, json
 
 from sandfriends_backend.Models.notification_store_model import NotificationStore
 from sandfriends_backend.emails import emailUserMatchConfirmed, emailUserRecurrentMatchConfirmed
+from sandfriends_backend.push_notifications import sendMatchPaymentAcceptedNotification
 from ..Models.http_codes import HttpCode
 from ..extensions import db
 from ..Models.match_model import Match
@@ -68,6 +69,7 @@ def WebhookPayment():
             db.session.add(newNotificationStore)
             db.session.commit()
             emailUserMatchConfirmed(matches[0])
+            sendMatchPaymentAcceptedNotification(matches[0].matchCreator().User, matches[0])
         if sendRecurrentMatchEmail:
             recurrentMatch = RecurrentMatch.query.get(matches[0].IdRecurrentMatch)
             if recurrentMatch.LastPaymentDate != recurrentMatch.CreationDate:

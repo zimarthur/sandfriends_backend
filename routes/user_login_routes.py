@@ -347,6 +347,15 @@ def GetUserInfo():
     if user is None:
         return 'Token inválido.', HttpCode.EXPIRED_TOKEN
 
+    updateNotificationsReq = request.json.get('UpdateNotifications')
+    allowNotificationsReq = request.json.get('AllowNotifications')
+    notificationsTokenReq = request.json.get('NotificationsToken')
+
+    if updateNotificationsReq:
+        user.AllowNotifications = allowNotificationsReq
+    if notificationsTokenReq != "":
+        user.NotificationsToken = notificationsTokenReq
+    
     matchCounterList = getMatchCounterList(user)
 
     #Sobre a query
@@ -398,6 +407,8 @@ def GetUserInfo():
     for notification in notifications:
         notificationList.append(notification.to_json())
         notification.Seen = True
+
+    #não remover esse commit, ta salvando as permissões de push notifications
     db.session.commit()
 
     creditCards = db.session.query(UserCreditCard)\

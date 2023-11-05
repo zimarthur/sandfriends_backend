@@ -35,6 +35,7 @@ from ..Asaas.Customer.update_customer import updateCpf
 from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard, getSplitPercentage
 from ..Asaas.Payment.refund_payment import refundPayment
 from ..Asaas.Payment.generate_qr_code import generateQrCode
+from sandfriends_backend.push_notifications import sendMatchInvitationNotification, sendMatchInvitationRefusedNotification, sendMatchInvitationAcceptedNotification, sendMemberLeftMatchNotification, sendMatchCanceledFromCreatorNotification
 
 bp_match = Blueprint('bp_match', __name__)
 
@@ -129,7 +130,7 @@ def SearchCourts():
                     .filter(RecurrentMatch.IdStoreCourt.in_(court.IdStoreCourt for court in courts))\
                     .filter(RecurrentMatch.Weekday.in_(searchWeekdays))\
                     .filter(RecurrentMatch.Canceled == False)\
-                    .filter(((RecurrentMatch.IdTimeBegin >= timeStart) & (Match.IdTimeBegin <= timeEnd)) | \
+                    .filter(((RecurrentMatch.IdTimeBegin >= timeStart) & (RecurrentMatch.IdTimeBegin < timeEnd)) | \
                             ((RecurrentMatch.IdTimeEnd > timeStart) & (RecurrentMatch.IdTimeEnd <= timeEnd)) | \
                             ((RecurrentMatch.IdTimeBegin < timeStart) & (RecurrentMatch.IdTimeEnd > timeStart))).all()
 
@@ -148,7 +149,7 @@ def SearchCourts():
                     match.to_json_open_match(),
                 )
 
-    #horários livres
+    #Monta o retorno com os horários livres
     jsonDates =[]
     IdStoresList = []
     for validDate in daterange(dateStart.date(), dateEnd.date()):
@@ -172,6 +173,7 @@ def SearchCourts():
                 for storeOperationHour in storeOperationHours:
                     jsonAvailableCourts =[]
                     for filteredCourt in filteredCourts:
+                        #Indicadires de partidas já agendadas - conflito de horário
                         concurrentMatch = [match for match in matches if \
                                     (match.IdStoreCourt ==  filteredCourt.IdStoreCourt) and \
                                     (match.Canceled == False) and \
@@ -183,7 +185,8 @@ def SearchCourts():
                                     (recurrentMatch.IdStoreCourt ==  filteredCourt.IdStoreCourt) and \
                                     (recurrentMatch.Blocked == False) and \
                                     (recurrentMatch.Weekday == validDate.weekday()) and \
-                                    ((recurrentMatch.IdTimeBegin == storeOperationHour.IdAvailableHour) or ((recurrentMatch.IdTimeBegin < storeOperationHour.IdAvailableHour) and (recurrentMatch.IdTimeEnd > storeOperationHour.IdAvailableHour)))\
+                                    ((recurrentMatch.IdTimeBegin == storeOperationHour.IdAvailableHour) or \
+                                        ((recurrentMatch.IdTimeBegin < storeOperationHour.IdAvailableHour) and (recurrentMatch.IdTimeEnd > storeOperationHour.IdAvailableHour)))\
                                     ]
                         concurrentBlockedHour = [recurrentMatch for recurrentMatch in recurrentMatches if \
                                     (recurrentMatch.IdStoreCourt ==  filteredCourt.IdStoreCourt) and \
@@ -197,7 +200,10 @@ def SearchCourts():
                         #concurrentRecurrentMatch é pra verificar se tem partida recorrente, mas tem um truque aqui
                         # se tem uma partida recorrente, as partidas do mes jáforam marcadas, então vão aparecer no concurrentMatch
                         # se alguma delas foi cancelada, por ex, o horário ainda poderia ser agendado.
-                        if(not concurrentMatch) and (not concurrentBlockedHour) and (not(isCurrentMonth(validDate) == False and concurrentRecurrentMatch)):
+                        if(not concurrentMatch) and \
+                            (not concurrentBlockedHour) and \
+                            (not( not(isCurrentMonth(validDate)) and concurrentRecurrentMatch )):
+
                             jsonAvailableCourts.append({
                                 'IdStoreCourt':filteredCourt.IdStoreCourt,
                                 'Price': [int(courtHour.Price) for courtHour in courtHours if (courtHour.IdStoreCourt == filteredCourt.IdStoreCourt) and (courtHour.Weekday == validDate.weekday()) and (courtHour.IdAvailableHour == storeOperationHour.IdAvailableHour)][0]
@@ -508,6 +514,7 @@ def InvitationResponse():
          return 'A partida já foi finalizada', HttpCode.WARNING
     else:
         matchMember = MatchMember.query.filter((MatchMember.IdMatch == idMatch) & (MatchMember.IdUser == idUser)).first()
+        matchCreator = MatchMember.query.filter((MatchMember.IdMatch == idMatch) & (MatchMember.IsMatchCreator == True)).first()
 
         matchMember.WaitingApproval = False
         matchMember.Quit = False
@@ -527,6 +534,10 @@ def InvitationResponse():
         db.session.add(newNotificationUser)
         db.session.commit()
         
+        if accepted:
+            sendMatchInvitationAcceptedNotification(matchCreator.User, matchMember.User, match)
+        else:
+            sendMatchInvitationRefusedNotification(matchCreator.User, matchMember.User, match)
         return "Ok",HttpCode.SUCCESS
 
 @bp_match.route("/LeaveMatch", methods=["POST"])
@@ -564,6 +575,8 @@ def LeaveMatch():
                 db.session.add(newNotificationUser)
                 break
         db.session.commit()
+
+        sendMemberLeftMatchNotification(match.matchCreator().User, matchMember.User, match)
         return "Você saiu da partida",HttpCode.ALERT
 
 @bp_match.route("/SaveCreatorNotes", methods=["POST"])
@@ -678,6 +691,8 @@ def JoinMatch():
         )
         db.session.add(newNotificationUser)
         db.session.commit()
+
+        sendMatchInvitationNotification(matchCreator.User, user, match)
         return "Solicitação enviada",HttpCode.ALERT
 
 @bp_match.route("/CancelMatch", methods=["POST"])
@@ -730,12 +745,13 @@ def CancelMatch():
             if matchMember.Refused == False:
                 newNotificationUser = NotificationUser(
                     IdUser = matchMember.IdUser,
-                    IdUserReplaceText = matchMember.IdUser,
+                    IdUserReplaceText = match.matchCreator().IdUser,
                     IdMatch = idMatch,
                     IdNotificationUserCategory = idNotificationUserCategory,
                     Seen = False
                 )
                 db.session.add(newNotificationUser)
+                sendMatchCanceledFromCreatorNotification(match.matchCreator().User,matchMember.User, match)
         db.session.commit()
         return "Partida cancelada",HttpCode.ALERT
 
@@ -1026,6 +1042,7 @@ def SearchCustomMatches():
 
     return {'Matches': matchList}, HttpCode.SUCCESS
 
+#Gera lista de partidas no mesmo horário selecionado
 def queryConcurrentMatches(listIdStoreCourt, listDate, timeStart, timeEnd):
     matches = db.session.query(Match)\
             .filter(Match.IdStoreCourt.in_(listIdStoreCourt))\
