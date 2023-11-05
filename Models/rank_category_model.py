@@ -20,3 +20,11 @@ class RankCategory(db.Model):
             'RankName': self.RankName,
             'RankColor': self.RankColor,
         }
+    def to_json_min(self):
+        return {
+            'IdRankCategory': self.IdRankCategory,
+            'IdSport': self.IdSport,
+            'RankSportLevel': self.RankSportLevel,
+            'RankName': self.RankName,
+            'RankColor': self.RankColor,
+        }

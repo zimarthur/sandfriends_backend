@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, abort, request
 from flask_cors import cross_origin
 from datetime import datetime, timedelta, date
 from ..Models.store_model import Store
+from ..Models.store_player_model import StorePlayer
 from ..extensions import db
 from ..utils import firstSundayOnNextMonth, lastSundayOnLastMonth, getFirstDayOfLastMonth
 from ..responses import webResponse
@@ -9,7 +10,10 @@ from ..Models.http_codes import HttpCode
 from ..Models.city_model import City
 from ..Models.state_model import State
 from ..Models.sport_model import Sport
+from ..Models.gender_category_model import GenderCategory
+from ..Models.rank_category_model import RankCategory
 from ..Models.match_model import Match
+from ..Models.match_member_model import MatchMember
 from ..Models.reward_user_model import RewardUser
 from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.employee_model import Employee
@@ -18,6 +22,7 @@ from ..Models.store_court_model import StoreCourt
 from ..Models.notification_store_model import NotificationStore
 from ..Models.notification_store_category_model import NotificationStoreCategory
 from ..emails import emailStoreChangePassword, emailStoreAddEmployee
+from ..routes.store_player_routes import getStorePlayers
 from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import func
 import bcrypt
@@ -396,6 +401,20 @@ def initStoreLoginData(employee):
 
     for hour in hours:
         hoursList.append(hour.to_json())
+    
+    #Lista com todos os generos
+    genders = db.session.query(GenderCategory).all()
+    gendersList = []
+
+    for gender in genders:
+        gendersList.append(gender.to_json())
+    
+    #Lista com todos as categorias
+    ranks = db.session.query(RankCategory).all()
+    ranksList = []
+
+    for rank in ranks:
+        ranksList.append(rank.to_json_min())
 
     #Lista com as quadras do estabelecimento(json da quadra, esportes e preço)
     courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == store.IdStore).all()
@@ -443,8 +462,25 @@ def initStoreLoginData(employee):
     for notification in notifications:
         notificationList.append(notification.to_json())
 
+    (storePlayersList, matchMembersList) = getStorePlayers(store)
 
-    return jsonify({'AccessToken':employee.AccessToken, 'LoggedEmail': employee.Email,'Sports' : sportsList, 'AvailableHours' : hoursList, 'Store' : store.to_json(), 'Courts' : courtsList, 'Matches':matchList, 'MatchesStartDate': startDate.strftime("%d/%m/%Y"), 'MatchesEndDate': endDate.strftime("%d/%m/%Y"), 'RecurrentMatches': recurrentMatchList, 'Rewards': rewardsList, 'Notifications': notificationList})
+    return jsonify({'AccessToken':employee.AccessToken,\
+                    'LoggedEmail': employee.Email,\
+                    'Sports' : sportsList, \
+                    'AvailableHours' : hoursList,\
+                    'Genders':gendersList,\
+                    'Ranks': ranksList,\
+                    'Store' : store.to_json(),\
+                    'Courts' : courtsList,\
+                    'Matches':matchList,\
+                    'MatchesStartDate': startDate.strftime("%d/%m/%Y"),\
+                    'MatchesEndDate': endDate.strftime("%d/%m/%Y"),\
+                    'RecurrentMatches': recurrentMatchList,\
+                    'Rewards': rewardsList,\
+                    'Notifications': notificationList,\
+                    'StorePlayers': storePlayersList,\
+                    'MatchMembers': matchMembersList\
+                    })
 
 def returnStoreEmployees(storeId):
     store = db.session.query(Store).filter(Store.IdStore == storeId).first()
