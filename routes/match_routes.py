@@ -417,6 +417,7 @@ def MatchReservation():
         CreatorNotes = "",
         IdRecurrentMatch = 0,
         Blocked = False,
+        BlockedReason = "",
         AsaasPaymentId = asaasPaymentId,
         AsaasBillingType = asaasBillingType,
         AsaasPaymentStatus = asaasPaymentStatus,
