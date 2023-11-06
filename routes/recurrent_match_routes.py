@@ -428,6 +428,8 @@ def CourtReservation():
             CreationDate = now,
             CreatorNotes = "",
             IdRecurrentMatch = recurrentMatchId,
+            Blocked = False,
+            BlockedReason = "",
             AsaasPaymentId = asaasPaymentId,
             AsaasBillingType = asaasBillingType,
             AsaasPaymentStatus = asaasPaymentStatus,
