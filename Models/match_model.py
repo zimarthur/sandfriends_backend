@@ -132,7 +132,8 @@ class Match(db.Model):
     def to_json_min(self):
         #Retorna uma versão mais simplificada
         #Menos texto para transmitir para o app ao carregar a página
-        MatchCreatorFirstName = "Não encontrado"
+        #cuidado, esses nomes tem q ser vazios (caso de partida bloqueada, q não tem criador)
+        MatchCreatorFirstName = ""
         MatchCreatorLastName = ""
         MatchCreatorPhoto = None
         for member in self.Members:
