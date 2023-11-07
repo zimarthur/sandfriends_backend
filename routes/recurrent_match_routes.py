@@ -403,7 +403,8 @@ def CourtReservation():
             IdTimeBegin = timeStartReq,
             IdTimeEnd = timeEndReq,
             LastPaymentDate = now.date(),
-            ValidUntil = validUntil
+            ValidUntil = validUntil,
+            Blocked = False
         )
         db.session.add(newRecurrentMatch)
         db.session.commit()
@@ -427,6 +428,8 @@ def CourtReservation():
             CreationDate = now,
             CreatorNotes = "",
             IdRecurrentMatch = recurrentMatchId,
+            Blocked = False,
+            BlockedReason = "",
             AsaasPaymentId = asaasPaymentId,
             AsaasBillingType = asaasBillingType,
             AsaasPaymentStatus = asaasPaymentStatus,
@@ -472,7 +475,7 @@ def CourtReservation():
         )
         db.session.add(newNotificationStore)
         db.session.commit()
-        emailUserRecurrentMatchConfirmed(matchToNotify)
+        emailUserRecurrentMatchConfirmed(matchToNotify,matchToNotify.Cost)
 
     #PIX
     if paymentReq == 1:

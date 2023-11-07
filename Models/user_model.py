@@ -35,12 +35,17 @@ class User(db.Model):
     EmailConfirmationToken = db.Column(db.String(300))
     ResetPasswordToken = db.Column(db.Integer)
     ThirdPartyLogin = db.Column(db.Boolean)
+    AllowNotifications = db.Column(db.Boolean)
+    NotificationsToken = db.Column(db.String(255))
 
     AsaasId = db.Column(db.String(300))
     AsaasCreationDate = db.Column(db.DateTime)
     Cpf = db.Column(db.String(11))
 
     DateDisabled = db.Column(db.DateTime)
+
+    def fullName(self):
+        return self.FirstName+' '+self.LastName
 
     def to_json(self):
         if self.Birthday == None:
@@ -104,6 +109,27 @@ class User(db.Model):
             'ResetPasswordToken': self.ResetPasswordToken,
             'Cpf': self.Cpf,
             'DateDisabled': dateDisabled,
+        }
+
+    def to_json_web(self):
+        idRank = None
+        for rank in self.Ranks:
+            if rank.RankCategory.IdSport == self.IdSport:
+                idRank = rank.IdRankCategory
+
+        if self.Photo == None:
+            photo = None
+        else:
+            photo = f"/img/usr/{self.Photo}.png"
+        return {
+            'IdUser': self.IdUser,
+            'FirstName': self.FirstName,
+            'LastName': self.LastName,
+            'Photo': photo,
+            'PhoneNumber': self.PhoneNumber,
+            'IdGenderCategory': self.IdGenderCategory,
+            'IdSport': self.IdSport,
+            'IdRankCategory': idRank
         }
 
     def identification_to_json(self):
