@@ -33,6 +33,8 @@ from ..access_token import EncodeToken, DecodeToken
 import bcrypt
 import json
 import os
+import string
+import random
 
 from ..Asaas.Customer.create_customer import createCustomer
 
@@ -75,7 +77,7 @@ def AddUser():
     #Com o IdUser já "calculado" já da pra criar o accessToken, que é feito no arquivo access_token.py, 
     #e criar o token pra confimação do email(que é enviado por email pela função emailUserWelcomeConfirmation())
     userNew.AccessToken = EncodeToken(userNew.IdUser)
-    userNew.EmailConfirmationToken = str(datetime.now().timestamp()) + userNew.AccessToken
+    userNew.EmailConfirmationToken = generateRandomString(16)
     #emcf=email confirmation(não sei se é legal ter uma url explicita), str(pra distinguir se é store=1 ou user = 0)
     #tk = token
     emailUserWelcomeConfirmation(userNew.Email, "https://" + os.environ['URL_APP'] + "/redirect/?ct=emcf&bd="+userNew.EmailConfirmationToken)
@@ -507,3 +509,9 @@ def getMatchCounterList(user):
 def tokenNullOrZero(token):
     if token == 0 or token is None:
         return "Token inválido", HttpCode.EXPIRED_TOKEN
+
+#Usado para gerar o token de confirmação do e-mail
+def generateRandomString(length):
+    characters = string.ascii_lowercase + string.digits
+    random_string = ''.join(random.choice(characters) for _ in range(length))
+    return random_string
