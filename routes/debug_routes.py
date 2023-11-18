@@ -43,7 +43,10 @@ from ..Models.store_court_model import StoreCourt
 from ..Models.store_court_sport_model import StoreCourtSport
 from ..Models.sport_model import Sport
 from ..Models.reward_month_model import RewardMonth
+from ..Models.employee_model import Employee
+from ..Models.employee_model import getEmployeeByToken
 from ..access_token import EncodeToken, DecodeToken
+from sqlalchemy import or_
 
 import json
 from ..Asaas.asaas_base_api import requestPost
@@ -70,7 +73,16 @@ def getLastMonth():
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
     
-    return "OK", 200
+    tokenReq = request.json.get('AccessToken')
+
+    #employee = db.session.query(Employee).filter(or_(Employee.AccessToken == tokenReq, Employee.AccessTokenApp == tokenReq)).first()
+
+    employee = getEmployeeByToken(tokenReq)
+
+    if employee is None:
+        return "Não localizado", 200
+
+    return employee.FirstName, 200
 
     # idStoreReq = 1
     # #busca a quadra que vai ser feita a cobrança
