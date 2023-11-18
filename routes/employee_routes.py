@@ -62,6 +62,15 @@ def EmployeeLogin():
         return webResponse("Estamos validando sua quadra, entraremos em contato em breve", None), HttpCode.ALERT
     #quadra já aprovada
 
+    updateNotificationsReq = request.json.get('UpdateNotifications')
+    allowNotificationsReq = request.json.get('AllowNotifications')
+    notificationsTokenReq = request.json.get('NotificationsToken')
+
+    if updateNotificationsReq:
+        employee.AllowNotifications = allowNotificationsReq
+    if notificationsTokenReq != "":
+        employee.NotificationsToken = notificationsTokenReq
+
     employee.AccessToken = EncodeToken(employee.IdEmployee)
     employee.LastAccessDate = datetime.now()
 

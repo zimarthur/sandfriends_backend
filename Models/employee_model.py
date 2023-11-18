@@ -19,6 +19,8 @@ class Employee(db.Model):
     DateDisabled = db.Column(db.DateTime)
     AccessToken = db.Column(db.String(225),)
     LastAccessDate = db.Column(db.DateTime,)
+    AllowNotifications = db.Column(db.Boolean)
+    NotificationsToken = db.Column(db.String(255))
 
     IdStore = db.Column(db.Integer, db.ForeignKey('store.IdStore'))
     #Store = db.relationship('Store', foreign_keys = [IdStore])

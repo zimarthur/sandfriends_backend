@@ -40,6 +40,7 @@ RUN pip3 --no-cache-dir install -r requirements.txt
 COPY ./config.json /etc/config.json
 COPY ./ ./sandfriends_backend
 COPY ./firebase_notifications.json ./firebase_notifications.json
+COPY ./firebase_notifications_quadras.json ./firebase_notifications_quadras.json
 
 #Variáveis do flask para poder rodar o app
 #Na linha de comando: export FLASK_APP=sandfriends_backend

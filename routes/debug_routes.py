@@ -1,5 +1,7 @@
 from flask import Blueprint, jsonify, abort, request
-
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import messaging
 from sandfriends_backend.utils import getFirstDayOfMonth, getLastDayOfMonth
 from ..Models.feedback_model import Feedback
 from ..Models.rank_category_model import RankCategory
@@ -69,7 +71,29 @@ def getLastMonth():
 
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
-    
+    messageUser = messaging.Message(
+        token= "fQ1nj4OSTcmHqLbAm_r-e2:APA91bGF0c45dnI6uN9ZPKq2nFvoWcP9388RjyyBuU9WzvvmK3mgsKYKXqFnfa0SGZ3bjFnr9UPSVHMsN6f2qTpMEdDQjAAyy_dTCCwIRb5YfWUr-ycrzd_Xo5okgXDetaanKP8t6Spi",
+        notification=messaging.Notification(
+            title='Pagamento aprovado!',
+            body='Tudo certo para sua partida do dia ',
+        ),
+        data={
+            "type": "match",
+        }
+    )
+    responseUser = messaging.send(messageUser)
+    # messageEmployees = messaging.MulticastMessage(
+    #     notification=messaging.Notification(
+    #         title='Pagamento aprovado!',
+    #         body='Tudo certo para sua partida do dia ',
+    #     ),
+     
+    #     tokens= [
+    #         "fQ1nj4OSTcmHqLbAm_r-e2:APA91bGF0c45dnI6uN9ZPKq2nFvoWcP9388RjyyBuU9WzvvmK3mgsKYKXqFnfa0SGZ3bjFnr9UPSVHMsN6f2qTpMEdDQjAAyy_dTCCwIRb5YfWUr-ycrzd_Xo5okgXDetaanKP8t6Spi"
+    #     ],
+    # )
+    # responseEmployees = messaging.send_multicast(messageEmployees)
+    print('Successfully sent message to employees:', responseEmployees)
     return "OK", 200
 
     # idStoreReq = 1
