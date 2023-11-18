@@ -1,13 +1,13 @@
 from ..extensions import db
 from datetime import datetime, timedelta, date
-
-
+from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
+from sqlalchemy import or_
 
 class Employee(db.Model):
     __tablename__ = 'employee'
     IdEmployee = db.Column(db.Integer, primary_key=True)
-    FirstName = db.Column(db.String(50))
-    LastName = db.Column(db.String(50))
+    FirstName = db.Column(db.String(45))
+    LastName = db.Column(db.String(45))
     Email = db.Column(db.String(255))
     Password = db.Column(db.String(255))
     Admin = db.Column(db.Boolean)
@@ -17,13 +17,13 @@ class Employee(db.Model):
     EmailConfirmationToken = db.Column(db.String(300))
     ResetPasswordToken = db.Column(db.String(300))
     DateDisabled = db.Column(db.DateTime)
-    AccessToken = db.Column(db.String(225),)
-    LastAccessDate = db.Column(db.DateTime,)
+    AccessToken = db.Column(db.String(255))
+    AccessTokenApp = db.Column(db.String(255))
+    LastAccessDate = db.Column(db.DateTime)
 
     IdStore = db.Column(db.Integer, db.ForeignKey('store.IdStore'))
     #Store = db.relationship('Store', foreign_keys = [IdStore])
     
-
     def to_json(self):
         if self.DateDisabled is not None:
             dateDisabled = self.DateDisabled.strftime("%d/%m/%Y")
@@ -63,3 +63,8 @@ class Employee(db.Model):
             return True
         #Token ok
         return False
+
+#Verifica se algum dos AccessTokens (do site ou do app do gestor) é válido
+def getEmployeeByToken(accessTokenReq):
+    return db.session.query(Employee).filter(or_(Employee.AccessToken == accessTokenReq, Employee.AccessTokenApp == accessTokenReq)).first()
+
