@@ -69,7 +69,8 @@ def WebhookPayment():
             db.session.add(newNotificationStore)
             db.session.commit()
             emailUserMatchConfirmed(matches[0])
-            sendMatchPaymentAcceptedNotification(matches[0].matchCreator().User, matches[0])
+            print("before on employees, len is  "+str(len(matches[0].StoreCourt.Store.Employees)))
+            sendMatchPaymentAcceptedNotification(matches[0].matchCreator().User, matches[0], matches[0].StoreCourt.Store.Employees)
         if sendRecurrentMatchEmail:
             recurrentMatch = RecurrentMatch.query.get(matches[0].IdRecurrentMatch)
             if recurrentMatch.LastPaymentDate != recurrentMatch.CreationDate:
