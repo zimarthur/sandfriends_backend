@@ -45,7 +45,10 @@ from ..Models.store_court_model import StoreCourt
 from ..Models.store_court_sport_model import StoreCourtSport
 from ..Models.sport_model import Sport
 from ..Models.reward_month_model import RewardMonth
+from ..Models.employee_model import Employee
+from ..Models.employee_model import getEmployeeByToken
 from ..access_token import EncodeToken, DecodeToken
+from sqlalchemy import or_
 
 import json
 from ..Asaas.asaas_base_api import requestPost

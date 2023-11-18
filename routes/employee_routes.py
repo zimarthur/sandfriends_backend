@@ -24,6 +24,7 @@ from ..Models.notification_store_category_model import NotificationStoreCategory
 from ..emails import emailStoreChangePassword, emailStoreAddEmployee
 from ..routes.store_player_routes import getStorePlayers
 from ..access_token import EncodeToken, DecodeToken
+from ..Models.employee_model import getEmployeeByToken
 from sqlalchemy import func
 import bcrypt
 import json
@@ -39,6 +40,7 @@ def EmployeeLogin():
 
     emailReq = request.json.get('Email')
     passwordReq = request.json.get('Password').encode('utf-8')
+    isRequestFromAppReq = request.json.get('IsRequestFromApp')
 
     employee = db.session.query(Employee).filter(Employee.Email == emailReq).first()
 
@@ -71,13 +73,18 @@ def EmployeeLogin():
     if notificationsTokenReq != "":
         employee.NotificationsToken = notificationsTokenReq
 
-    employee.AccessToken = EncodeToken(employee.IdEmployee)
+    #Define o novo AccessToken, com base em qual plataforma (app ou site) foi usada
+    if isRequestFromAppReq:
+        employee.AccessTokenApp = EncodeToken(employee.IdEmployee)
+    else:
+        employee.AccessToken = EncodeToken(employee.IdEmployee)
+
     employee.LastAccessDate = datetime.now()
 
     db.session.commit()
 
     #retorna as informações da quadra (esportes, horários, etc)
-    return initStoreLoginData(employee), HttpCode.SUCCESS
+    return initStoreLoginData(employee, isRequestFromAppReq), HttpCode.SUCCESS
 
 #Rota utilizada para validar o AccessToken que fica no computador do usuário - para evitar fazer login com senha
 @bp_employee.route('/ValidateEmployeeAccessToken', methods=['POST'])
@@ -86,8 +93,9 @@ def ValidateEmployeeAccessToken():
         abort(HttpCode.ABORT)
     
     accessTokenReq = request.json.get('AccessToken')
+    isRequestFromAppReq = request.json.get('IsRequestFromApp')
 
-    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employee = getEmployeeByToken(accessTokenReq)
 
     #Caso não encontrar Token
     if employee is None:
@@ -102,7 +110,7 @@ def ValidateEmployeeAccessToken():
     db.session.commit()
 
     #Token válido - retorna as informações da quadra (esportes, horários, etc)
-    return initStoreLoginData(employee), HttpCode.SUCCESS
+    return initStoreLoginData(employee, isRequestFromAppReq), HttpCode.SUCCESS
 
 #Rota utilizada por um admin para adicionar um novo funcionário
 @bp_employee.route("/AddEmployee", methods=["POST"])
@@ -113,7 +121,7 @@ def AddEmployee():
     accessTokenReq = request.json.get('AccessToken')
     emailReq = (request.json.get('Email')).lower()
     
-    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employee = getEmployeeByToken(accessTokenReq)
     
     #Verifica se o accessToken existe
     #Verifica se o accessToken do criador do usuário está expirado
@@ -222,7 +230,7 @@ def SetEmployeeAdmin():
     idEmployeeReq = request.json.get('IdEmployee')
     isAdminReq = request.json.get('IsAdmin')
     
-    employeeRequest = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employeeRequest = getEmployeeByToken(accessTokenReq)
     employeeChange = db.session.query(Employee).filter(Employee.IdEmployee == idEmployeeReq).first()
 
     #Verifica se o accessToken existe
@@ -249,7 +257,7 @@ def RenameEmployee():
     firstNameReq = request.json.get('FirstName')
     lastNameReq = request.json.get('LastName')
     
-    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employee = getEmployeeByToken(accessTokenReq)
 
     #Verifica se o accessToken existe
     #Verifica se o accessToken do criador do usuário está expirado
@@ -272,7 +280,7 @@ def RemoveEmployee():
     idEmployeeReq = request.json.get('IdEmployee')
     isAdminReq = request.json.get('IsAdmin')
     
-    employeeRequest = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employeeRequest = getEmployeeByToken(accessTokenReq)
     employeeChange = db.session.query(Employee).filter(Employee.IdEmployee == idEmployeeReq).first()
 
     #Verifica se o accessToken existe
@@ -367,7 +375,7 @@ def UpdateMatchesList():
     
     accessTokenReq = request.json.get('AccessToken')
 
-    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employee = getEmployeeByToken(accessTokenReq)
 
     #Caso não encontrar Token
     if employee is None:
@@ -394,7 +402,7 @@ def UpdateMatchesList():
 
     return jsonify({'Matches':matchList, 'MatchesStartDate': startDate.strftime("%d/%m/%Y"), 'MatchesEndDate': endDate.strftime("%d/%m/%Y")}), HttpCode.SUCCESS
 
-def initStoreLoginData(employee):
+def initStoreLoginData(employee, isRequestFromAppReq):
 
     store = employee.Store
     #Lista com todos esportes
@@ -473,7 +481,13 @@ def initStoreLoginData(employee):
 
     (storePlayersList, matchMembersList) = getStorePlayers(store)
 
-    return jsonify({'AccessToken':employee.AccessToken,\
+    #Define qual AccessToken mandar com base em qual plataforma (app ou site) foi usada
+    if isRequestFromAppReq:
+        accessTokenReturn = employee.AccessTokenApp
+    else:
+        accessTokenReturn = employee.AccessToken
+
+    return jsonify({'AccessToken': accessTokenReturn,\
                     'LoggedEmail': employee.Email,\
                     'Sports' : sportsList, \
                     'AvailableHours' : hoursList,\
