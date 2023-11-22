@@ -47,6 +47,7 @@ from ..Models.employee_model import Employee
 from ..Models.employee_model import getEmployeeByToken
 from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import or_
+from ..emails import emailStoreWelcomeConfirmation, emailStoreApproved, emailStoreAwaitingApproval
 
 import json
 from ..Asaas.asaas_base_api import requestPost
@@ -72,17 +73,35 @@ def getLastMonth():
 
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
-    
-    tokenReq = request.json.get('AccessToken')
 
-    #employee = db.session.query(Employee).filter(or_(Employee.AccessToken == tokenReq, Employee.AccessTokenApp == tokenReq)).first()
+    store = db.session.query(Store).filter(Store.IdStore == 1).first()
+    employee = db.session.query(Employee).filter(Employee.IdEmployee == 1).first()
+    city = db.session.query(City).filter(func.lower(City.City) == func.lower("Porto Alegre")).first()
+    emailStoreAwaitingApproval(store, employee, city)
 
-    employee = getEmployeeByToken(tokenReq)
+    variables = {
+        "store": store.Name,
+        "city": city.City,
+        "email": employee.Email,
+        "fullname": f"{employee.FirstName} {employee.LastName}",
+        "phone1": f"({store.PhoneNumber1[0:2]}) {store.PhoneNumber1[2:7]}-{store.PhoneNumber1[7:12]}",
+        "phone2": f"({store.PhoneNumber2[0:2]}) {store.PhoneNumber2[2:7]}-{store.PhoneNumber2[7:12]}",
+    }
 
-    if employee is None:
-        return "Não localizado", 200
+    printar = variables["phone2"]
 
-    return employee.FirstName, 200
+    return printar, 200
+
+    # tokenReq = request.json.get('AccessToken')
+
+    # #employee = db.session.query(Employee).filter(or_(Employee.AccessToken == tokenReq, Employee.AccessTokenApp == tokenReq)).first()
+
+    # employee = getEmployeeByToken(tokenReq)
+
+    # if employee is None:
+    #     return "Não localizado", 200
+
+    # return employee.FirstName, 200
 
     # idStoreReq = 1
     # #busca a quadra que vai ser feita a cobrança
