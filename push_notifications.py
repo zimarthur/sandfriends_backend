@@ -18,11 +18,13 @@ def sendMatchPaymentAcceptedNotification(user, match, employees):
     )
     responseUser = messaging.send(messageUser)
     print('Successfully sent message to user:', responseUser)
-    print("on employees, len is  "+str(len(employees)))
+    sendEmployeesNewMatchNotification(match, employees)
+
+def sendEmployeesNewMatchNotification(match, employees):
     messageEmployees = messaging.MulticastMessage(
         notification=messaging.Notification(
-            title='Pagamento aprovado!',
-            body='Tudo certo para sua partida do dia '+match.Date.strftime('%d/%m') + ' às '+match.TimeBegin.HourString+'. Toque para ver a partida.',
+            title='Nova partida agendada!',
+            body= 'Dia: '+match.Date.strftime('%d/%m')+ ' - ' +match.TimeBegin.HourString+' às '+match.TimeEnd.HourString+ ' (R$'+str(match.Cost).replace('.', ',')+')\nPor: '+match.matchCreator().User.fullName(),
         ),
         data={
             "type": "match",
@@ -116,28 +118,38 @@ def sendMatchCanceledFromStoreNotification(store, user, match ):
     response = messaging.send(message)
     print('Successfully sent message:', response)
 
-def sendMatchCanceledFromCreatorNotification(userCreator, user, match ):
-    if user.AllowNotifications != True:
-        return
+def sendMatchCanceledFromCreatorNotification(match ):
+    userNotificationTokensList =[]
+    for matchMember in match.Members:
+        print(matchMember.IdMatchMember)
+        print(matchMember.isInMatch())
+        print(matchMember.User.AllowNotifications == True)
 
-    message = messaging.Message(
-        token= user.NotificationsToken,
+        if matchMember.IsMatchCreator == True:
+            matchCreator = matchMember.User.fullName()
+        elif matchMember.isInMatch() and matchMember.User.AllowNotifications:
+            print("aaa")
+            userNotificationTokensList.append(matchMember.User.NotificationsToken)
+    
+    messageUsers = messaging.MulticastMessage(
         notification=messaging.Notification(
-            title= user.fullName()+' cancelou a partida :(',
-            body='Partida do dia '+match.Date.strftime('%d/%m') + ' às '+match.TimeBegin.HourString+'. Toque para ver a partida.',
+            title= matchCreator+' cancelou a partida :(',
+            body='Partida do dia '+match.Date.strftime('%d/%m') + ' às '+match.TimeBegin.HourString+'.',
         ),
         data={
             "type": "match",
             "matchUrl": match.MatchUrl,
-        }
+        },
+        tokens= userNotificationTokensList + availableEmployeesList(match.StoreCourt.Store.Employees),
     )
-    response = messaging.send(message)
-    print('Successfully sent message:', response)
+    responseUsers = messaging.send_multicast(messageUsers)
+    print('Successfully sent message to employees:', responseUsers)
+
 
 def availableEmployeesList(employees):
     employeesNotificationToken = []
     for employee in employees:
-        if employee.AllowNotifications == True:
+        if employee.AllowNotifications == True and employee.NotificationsToken is not None:
             employeesNotificationToken.append(employee.NotificationsToken)
             print("employee "+employee.NotificationsToken)
     return employeesNotificationToken

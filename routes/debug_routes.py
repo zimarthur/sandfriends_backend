@@ -49,7 +49,7 @@ from ..Models.employee_model import Employee
 from ..Models.employee_model import getEmployeeByToken
 from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import or_
-
+from ..push_notifications import sendMatchCanceledFromCreatorNotification
 import json
 from ..Asaas.asaas_base_api import requestPost
 from .match_routes import GetAvailableCitiesList
@@ -74,17 +74,8 @@ def getLastMonth():
 
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
-    messageUser = messaging.Message(
-        token= "fQ1nj4OSTcmHqLbAm_r-e2:APA91bGF0c45dnI6uN9ZPKq2nFvoWcP9388RjyyBuU9WzvvmK3mgsKYKXqFnfa0SGZ3bjFnr9UPSVHMsN6f2qTpMEdDQjAAyy_dTCCwIRb5YfWUr-ycrzd_Xo5okgXDetaanKP8t6Spi",
-        notification=messaging.Notification(
-            title='Pagamento aprovado!',
-            body='Tudo certo para sua partida do dia ',
-        ),
-        data={
-            "type": "match",
-        }
-    )
-    responseUser = messaging.send(messageUser)
+    match = db.session.query(Match).filter(Match.IdMatch == 2).first()
+    sendMatchCanceledFromCreatorNotification(match)
     # messageEmployees = messaging.MulticastMessage(
     #     notification=messaging.Notification(
     #         title='Pagamento aprovado!',
@@ -96,7 +87,7 @@ def debug():
     #     ],
     # )
     # responseEmployees = messaging.send_multicast(messageEmployees)
-    print('Successfully sent message to employees:', responseEmployees)
+    #print('Successfully sent message to employees:', responseEmployees)
     return "OK", 200
 
     # idStoreReq = 1

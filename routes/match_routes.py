@@ -35,7 +35,7 @@ from ..Asaas.Customer.update_customer import updateCpf
 from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard, getSplitPercentage
 from ..Asaas.Payment.refund_payment import refundPayment
 from ..Asaas.Payment.generate_qr_code import generateQrCode
-from sandfriends_backend.push_notifications import sendMatchInvitationNotification, sendMatchInvitationRefusedNotification, sendMatchInvitationAcceptedNotification, sendMemberLeftMatchNotification, sendMatchCanceledFromCreatorNotification
+from sandfriends_backend.push_notifications import sendMatchInvitationNotification, sendMatchInvitationRefusedNotification, sendMatchInvitationAcceptedNotification, sendMemberLeftMatchNotification, sendMatchCanceledFromCreatorNotification, sendEmployeesNewMatchNotification
 
 bp_match = Blueprint('bp_match', __name__)
 
@@ -459,7 +459,8 @@ def MatchReservation():
         )
         db.session.add(newNotificationStore)
         db.session.commit()
-        emailUserMatchConfirmed(newMatch)
+        emailUserMatchConfirmed(newMatch,)
+        sendEmployeesNewMatchNotification(newMatch, newMatch.StoreCourt.Store.Employees )
     #PIX
     if paymentReq == 1:
         return jsonify({'Message':"Sua partida foi reservada!", "Pixcode": asaasPixCode}), HttpCode.ALERT
@@ -752,7 +753,7 @@ def CancelMatch():
                     Seen = False
                 )
                 db.session.add(newNotificationUser)
-                sendMatchCanceledFromCreatorNotification(match.matchCreator().User,matchMember.User, match)
+        sendMatchCanceledFromCreatorNotification(match)
         db.session.commit()
         return "Partida cancelada",HttpCode.ALERT
 

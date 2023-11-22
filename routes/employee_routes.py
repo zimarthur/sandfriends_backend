@@ -48,7 +48,7 @@ def EmployeeLogin():
         return webResponse("Não encontramos nenhuma quadra com este e-mail", "Se você é um jogador, realize o login diretamente pelo app"), HttpCode.WARNING
 
     if employee.DateDisabled is not None:
-        return webResponse("Você não faz mais parte de nenhuma equipe",), HttpCode.WARNING
+        return webResponse("Você não faz mais parte de nenhuma equipe",None), HttpCode.WARNING
     
     #if employee.Password != passwordReq:
     if not bcrypt.checkpw(passwordReq, (employee.Password).encode('utf-8')):
@@ -288,15 +288,35 @@ def RemoveEmployee():
     if (employeeRequest is None) or employeeRequest.isAccessTokenExpired():
         return webResponse("Ocorreu um erro", "Tente novamente, caso o problema persista, entre em contato com o nosso suporte"), HttpCode.WARNING
 
-    #Verifica se quem está tentando criar um usuário é um Admin
+    #Verifica se quem está tentando remover um usuário é um Admin
     if not employeeRequest.Admin or employeeChange.StoreOwner:
-        return webResponse("Ops", "Você não tem permissões para criar usuários.\n\nApenas usuários administradores podem fazer isto."), HttpCode.WARNING
+        return webResponse("Ops", "Você não tem permissões para remover usuários.\n\nApenas usuários administradores podem fazer isto."), HttpCode.WARNING
 
     employeeChange.DateDisabled = datetime.now()
 
     db.session.commit()
 
     return returnStoreEmployees(employeeRequest.IdStore), HttpCode.SUCCESS
+
+@bp_employee.route("/DeleteAccountEmployee", methods=["POST"])
+def DeleteAccountEmployee():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    accessTokenReq = request.json.get('AccessToken')
+    
+    employee = getEmployeeByToken(accessTokenReq)
+
+    #Verifica se o accessToken existe
+    #Verifica se o accessToken do criador do usuário está expirado
+    if (employee is None) or employee.isAccessTokenExpired():
+        return webResponse("Ocorreu um erro", "Tente novamente, caso o problema persista, entre em contato com o nosso suporte"), HttpCode.WARNING
+
+    employee.DateDisabled = datetime.now()
+
+    db.session.commit()
+
+    return webResponse("Sua conta foi deletada", "Se você deletou por engano, entre em contato com o suporte."), HttpCode.SUCCESS
 
 #Rota utilizada quando um funcionário clica em "esqueci minha senha"
 @bp_employee.route('/ChangePasswordRequestEmployee', methods=['POST'])
@@ -401,6 +421,34 @@ def UpdateMatchesList():
         matchList.append(match.to_json_min())
 
     return jsonify({'Matches':matchList, 'MatchesStartDate': startDate.strftime("%d/%m/%Y"), 'MatchesEndDate': endDate.strftime("%d/%m/%Y")}), HttpCode.SUCCESS
+
+#Rota acessada para alterar permissão de notificações do app quadras
+@bp_employee.route('/AllowNotificationsEmployee', methods=['POST'])
+def AllowNotificationsEmployee():
+    if not request.json:
+        abort(HttpCode.ABORT)
+    
+    accessTokenReq = request.json.get('AccessToken')
+
+    employee = getEmployeeByToken(accessTokenReq)
+
+    #Caso não encontrar Token
+    if employee is None:
+        return webResponse("Token não encontrado", None), HttpCode.WARNING
+
+    #Verificar se o Token é válido
+    if employee.isAccessTokenExpired():
+        return webResponse("Token expirado", None), HttpCode.WARNING
+
+    allowNotificationsReq = request.json.get('AllowNotifications')
+    notificationsTokenReq = request.json.get('NotificationsToken')
+    
+    employee.AllowNotifications = allowNotificationsReq
+    employee.NotificationsToken = notificationsTokenReq
+
+    db.session.commit()
+
+    return jsonify({'AllowNotifications':allowNotificationsReq}), HttpCode.SUCCESS
 
 def initStoreLoginData(employee, isRequestFromAppReq):
 

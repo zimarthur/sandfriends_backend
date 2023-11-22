@@ -51,10 +51,7 @@ def create_app():
     app.register_blueprint(bp_webhook)
     app.register_blueprint(bp_store_player)
 
-    #firebase_admin.initialize_app()
-    firebase_admin.initialize_app(credentials.Certificate(os.environ['GOOGLE_APPLICATION_CREDENTIALS']))
-    firebase_admin.initialize_app(credentials.Certificate(os.environ['GOOGLE_APPLICATION_CREDENTIALS_QUADRAS']), name ='quadras')
-    #firebase_admin.initialize_app(os.environ['GOOGLE_APPLICATION_CREDENTIALS_QUADRAS'], name ='quadras')
+    firebase_sandfriends = firebase_admin.initialize_app(credentials.Certificate(os.environ['GOOGLE_APPLICATION_CREDENTIALS']))
 
     db.init_app(app)
     return app
