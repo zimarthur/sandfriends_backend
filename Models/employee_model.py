@@ -45,6 +45,7 @@ class Employee(db.Model):
             'StoreOwner': self.StoreOwner,
             'EmailConfirmationDate': emailConfirmationDate,
             'DateDisabled': dateDisabled,
+            'AllowNotifications':self.AllowNotifications,
         }
 
     #Para a criação de uma quadra nova

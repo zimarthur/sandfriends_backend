@@ -15,6 +15,8 @@ class MatchMember(db.Model):
 
     IdMatch = db.Column(db.Integer, db.ForeignKey('match.IdMatch'))
 
+    def isInMatch(self):
+        return self.WaitingApproval == False and self.Refused == False and self.Quit == False
 
     def to_json(self):
         return {
