@@ -275,6 +275,7 @@ def MatchReservation():
     costReq = request.json.get('Cost')
     paymentReq = request.json.get('Payment')
     cpfReq = request.json.get('Cpf')
+    couponReq = request.json.get('Coupon')
     
     if request.json.get("IdCreditCard")== "": 
         idCreditCardReq =  None 

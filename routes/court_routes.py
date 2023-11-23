@@ -242,3 +242,6 @@ def SaveCourtChanges():
 
     return jsonify({'Courts':courtsList}), HttpCode.SUCCESS
 
+#Verifica se um cupom de desconto é válido e usa ele
+#Precisa dos dados da store e match pra verificar se o cupom se aplica
+#def useCoupon(code, store, match):
