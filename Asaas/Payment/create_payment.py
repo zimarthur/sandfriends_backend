@@ -37,7 +37,7 @@ def getSplitPercentage(store, value, billingType):
         },
         "CREDIT_CARD": {
             "flat": 0.49,
-            "percentage": 2.99
+            "percentage": 1.99
         }
     }
 
@@ -46,7 +46,7 @@ def getSplitPercentage(store, value, billingType):
         feeSandfriends = store.FeeSandfriendsHigh
     else:
         feeSandfriends = store.FeeSandfriendsLow
-        
+
     ####Ajuste do split
     #Asaas cobra as taxas deles sobre o valor total
     valorPosAsaas = value * (1 - feeAsaas[billingType]["percentage"]/100) - feeAsaas[billingType]["flat"]
@@ -90,7 +90,7 @@ def createPaymentCreditCard(user, value, creditCard, store, cvv):
             "creditCard": { 
                 "holderName": creditCard.OwnerName,
                 "number": decrypt_aes(creditCard.CardNumber, os.environ['ENCRYPTION_KEY']),
-                "expiryMonth" :creditCard.ExpirationDate.strftime("%m"),
+                "expiryMonth" : creditCard.ExpirationDate.strftime("%m"),
                 "expiryYear": creditCard.ExpirationDate.strftime("%Y"),
                 "ccv": cvv,
             },
@@ -111,27 +111,6 @@ def createPaymentCreditCard(user, value, creditCard, store, cvv):
         }
     )
     return response
-
-#                "percentualValue": getSplitPercentage(store, value, "CREDIT_CARD"),
-
-# def createPaymentCreditCard(user, value, creditCard, store):
-#     response = requestPost(
-#         f"payments", 
-#         {
-#             "customer": user.AsaasId,
-#             "billingType": "CREDIT_CARD",
-#             "value": value,
-#             "dueDate": datetime.now().strftime("%Y-%m-%d"),
-#             "creditCardToken": creditCard.CreditCardToken,
-#             "split": [
-#                 {
-#                 "walletId":  store.AsaasWalletId,
-#                 "percentualValue": getSplitPercentage(store, value, billingType),
-#                 }
-#             ]
-#         }
-#     )
-#     return response
 
 def createPaymentPreAuthorization(user, holderName, holderCpf, cardNumber, expirationMonth, expirationYear, cvv, cep, addressNumber):
     response = requestPost(

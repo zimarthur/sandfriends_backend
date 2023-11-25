@@ -18,14 +18,22 @@ class Coupon(db.Model):
 
     def to_json(self):
         return {
-            'IdCoupon': self.IdRewardMonth,
-            'DiscountType': self.StartingDate.strftime("%Y-%m-%d"),
-            'Value': self.EndingDate.strftime("%Y-%m-%d"),
-            'Code': self.NTimesToReward,
-            'IsValid': self.RewardCategory.to_json(),
-            'IdTimeBeginValid': self.RewardCategory.to_json(),
-            'IdTimeEndValid': self.RewardCategory.to_json(),
-            'DateBeginValid': self.RewardCategory.to_json(),
-            'DateEndValid': self.RewardCategory.to_json(),
+            'IdCoupon': self.IdCoupon,
+            'DiscountType': self.DiscountType,
+            'Value': self.Value,
+            'Code': self.Code,
+            'IsValid': self.IsValid,
+            'IdStoreValid': self.IdStoreValid,
+            'IdTimeBeginValid': self.IdTimeBeginValid,
+            'IdTimeEndValid': self.IdTimeEndValid,
+            'DateBeginValid': self.DateBeginValid.strftime("%Y-%m-%d"),
+            'DateEndValid': self.DateEndValid.strftime("%Y-%m-%d"),
         }
-        
+
+    def to_json_min(self):
+        return {
+            'IdCoupon': self.IdCoupon,
+            'DiscountType': self.DiscountType,
+            'Value': self.Value,
+            'Code': self.Code,
+        }  
