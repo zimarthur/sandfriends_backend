@@ -37,7 +37,7 @@ def getSplitPercentage(store, value, billingType):
         },
         "CREDIT_CARD": {
             "flat": 0.49,
-            "percentage": 1.99
+            "percentage": 2.99
         }
     }
 
