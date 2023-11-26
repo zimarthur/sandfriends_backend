@@ -4,7 +4,7 @@ from ..Models.store_model import Store
 from ..Models.store_player_model import StorePlayer
 from ..Models.match_model import Match
 from ..Models.match_member_model import MatchMember
-from ..Models.employee_model import Employee
+from ..Models.employee_model import Employee, getEmployeeByToken
 from ..Models.http_codes import HttpCode
 from ..responses import webResponse
 
@@ -26,7 +26,7 @@ def AddStorePlayer():
     idSportReq = request.json.get('IdSport')
     idRankCategoryReq = request.json.get('IdRankCategory')
 
-    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employee = getEmployeeByToken(accessTokenReq)
 
     #Caso não encontrar Token
     if employee is None:
@@ -68,7 +68,7 @@ def EditStorePlayer():
     idSportReq = request.json.get('IdSport')
     idRankCategoryReq = request.json.get('IdRankCategory')
 
-    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employee = getEmployeeByToken(accessTokenReq)
 
     #Caso não encontrar Token
     if employee is None:
@@ -105,8 +105,8 @@ def DeleteStorePlayer():
 
     idStorePlayerReq = request.json.get('IdStorePlayer')
 
-    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
-
+    employee = getEmployeeByToken(accessTokenReq)
+    
     #Caso não encontrar Token
     if employee is None:
         return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
