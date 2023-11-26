@@ -10,7 +10,7 @@ from ..Models.http_codes import HttpCode
 from ..Models.match_model import Match
 from ..Models.user_model import User
 from ..Models.user_credit_card_model import UserCreditCard
-from ..Models.employee_model import Employee
+from ..Models.employee_model import Employee, getStoreByToken, getStoreCourtByToken
 from ..Models.user_rank_model import UserRank
 from ..Models.rank_category_model import RankCategory
 from ..Models.match_member_model import MatchMember
@@ -544,9 +544,7 @@ def CancelRecurrentMatchEmployee():
     cancelationReasonReq = request.json.get('CancelationReason')
 
     #busca a loja a partir do token do employee
-    storeCourt = db.session.query(StoreCourt).\
-            join(Employee, Employee.IdStore == StoreCourt.IdStore)\
-            .filter(Employee.AccessToken == accessTokenReq).first()
+    storeCourt = getStoreByToken(accessTokenReq)
     
     #Caso não encontrar Token
     if storeCourt is None:
@@ -584,10 +582,7 @@ def RecurrentBlockUnblockHour():
     idStoreCourtReq = request.json.get('IdStoreCourt')
 
     #busca a loja a partir do token do employee
-    storeCourt = db.session.query(StoreCourt).\
-            join(Employee, Employee.IdStore == StoreCourt.IdStore)\
-            .filter(Employee.AccessToken == accessTokenReq)\
-            .filter(StoreCourt.IdStoreCourt == idStoreCourtReq).first()
+    storeCourt = getStoreCourtByToken(accessTokenReq, idStoreCourtReq)
     
     #Caso não encontrar Token
     if storeCourt is None:

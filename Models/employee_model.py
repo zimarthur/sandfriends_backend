@@ -66,5 +66,18 @@ class Employee(db.Model):
 
 #Verifica se algum dos AccessTokens (do site ou do app do gestor) é válido
 def getEmployeeByToken(accessTokenReq):
-    return db.session.query(Employee).filter(or_(Employee.AccessToken == accessTokenReq, Employee.AccessTokenApp == accessTokenReq)).first()
+    return db.session.query(Employee)\
+        .filter(or_(Employee.AccessToken == accessTokenReq, Employee.AccessTokenApp == accessTokenReq)).first()
 
+#Busca a loja a partir do token do employee
+def getStoreByToken(accessTokenReq):
+    return db.session.query(Store)\
+        .join(Employee, Employee.IdStore == Store.IdStore)\
+        .filter(or_(Employee.AccessToken == accessTokenReq, Employee.AccessTokenApp == accessTokenReq)).first()
+
+#Busca a quadra a partir do token do employee
+def getStoreCourtByToken(accessTokenReq, idStoreCourtReq):
+    return db.session.query(StoreCourt)\
+        .join(Employee, Employee.IdStore == StoreCourt.IdStore)\
+        .filter(or_(Employee.AccessToken == accessTokenReq, Employee.AccessTokenApp == accessTokenReq))\
+        .filter(StoreCourt.IdStoreCourt == idStoreCourtReq).first()

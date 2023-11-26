@@ -14,6 +14,7 @@ from ..Models.available_hour_model import AvailableHour
 from ..Models.store_court_model import StoreCourt
 from ..Models.store_price_model import StorePrice
 from ..Models.store_court_sport_model import StoreCourtSport
+from ..Models.employee_model import getEmployeeByToken, getStoreByToken,getStoreCourtByToken
 from sqlalchemy import func
 import base64
 
@@ -27,9 +28,7 @@ def AddCourt():
     accessTokenReq = request.json.get('AccessToken')
 
     #busca a loja a partir do token do employee
-    store = db.session.query(Store).\
-            join(Employee, Employee.IdStore == Store.IdStore).\
-            filter(Employee.AccessToken == accessTokenReq).first()
+    store = getStoreByToken(accessTokenReq)
     
     #Caso não encontrar Token
     if store is None:
@@ -92,11 +91,7 @@ def RemoveCourt():
     idStoreCourtReq = request.json.get('IdStoreCourt')
 
     #busca a loja a partir do token do employee
-    court = db.session.query(StoreCourt).\
-            join(Employee, Employee.IdStore == StoreCourt.IdStore)\
-            .filter(Employee.AccessToken == accessTokenReq)\
-            .filter(StoreCourt.IdStoreCourt == idStoreCourtReq).first()
-    
+    court = getStoreCourtByToken(accessTokenReq, idStoreCourtReq)    
 
     #Caso não encontrar Token
     if court is None:
@@ -148,7 +143,7 @@ def SaveCourtChanges():
     #busca a loja a partir do token do employee
     accessTokenValid = db.session.query(StoreCourt).\
             join(Employee, Employee.IdStore == StoreCourt.IdStore)\
-            .filter(Employee.AccessToken == accessTokenReq)\
+            .filter(or_(Employee.AccessToken == accessTokenReq, Employee.AccessTokenApp == accessTokenReq))\
             .filter(StoreCourt.IdStoreCourt == courtsReq[0]["IdStoreCourt"]).first()
     
 

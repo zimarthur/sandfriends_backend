@@ -20,7 +20,7 @@ from ..Models.store_model import Store
 from ..Models.store_price_model import StorePrice
 from ..Models.store_photo_model import StorePhoto
 from ..Models.store_court_model import StoreCourt
-from ..Models.employee_model import Employee
+from ..Models.employee_model import Employee, getStoreCourtByToken, getEmployeeByToken
 from ..Models.store_court_sport_model import StoreCourtSport
 from ..Models.sport_model import Sport
 from ..Models.user_model import User
@@ -796,9 +796,9 @@ def CancelMatchEmployee():
     cancelationReasonReq = request.json.get('CancelationReason')
 
     #busca a loja a partir do token do employee
-    storeCourt = db.session.query(StoreCourt).\
-            join(Employee, Employee.IdStore == StoreCourt.IdStore)\
-            .filter(Employee.AccessToken == accessTokenReq).first()
+    storeCourt = db.session.query(StoreCourt)\
+            .join(Employee, Employee.IdStore == StoreCourt.IdStore)\
+            .filter(or_(Employee.AccessToken == accessTokenReq, Employee.AccessTokenApp == accessTokenReq)).first()
     
     #Caso não encontrar Token
     if storeCourt is None:
@@ -972,10 +972,7 @@ def BlockUnblockHour():
     idStoreCourtReq = request.json.get('IdStoreCourt')
 
     #busca a loja a partir do token do employee
-    storeCourt = db.session.query(StoreCourt).\
-            join(Employee, Employee.IdStore == StoreCourt.IdStore)\
-            .filter(Employee.AccessToken == accessTokenReq)\
-            .filter(StoreCourt.IdStoreCourt == idStoreCourtReq).first()
+    storeCourt = getStoreCourtByToken(accessTokenReq, idStoreCourtReq)
     
     #Caso não encontrar Token
     if storeCourt is None:
@@ -1056,7 +1053,7 @@ def SearchCustomMatches():
     dateStartReq = datetime.strptime(request.json.get('DateStart'), '%d/%m/%Y')
     dateEndReq = datetime.strptime(request.json.get('DateEnd'), '%d/%m/%Y')
 
-    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employee = getEmployeeByToken(accessTokenReq)
 
     if employee is None:
         return '1', HttpCode.EXPIRED_TOKEN
