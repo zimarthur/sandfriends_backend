@@ -47,7 +47,8 @@ class Match(db.Model):
     AsaasSplit = db.Column(db.Numeric(precision=10, scale=2))
 
     #Cupom
-    IdCoupon = db.Column(db.Integer)
+    IdCoupon = db.Column(db.Integer, db.ForeignKey('coupon.IdCoupon'))
+    Coupon = db.relationship('Coupon', foreign_keys = [IdCoupon])
     CostDiscount = db.Column(db.Numeric(precision=10, scale=2))
 
     @hybrid_property
@@ -85,6 +86,11 @@ class Match(db.Model):
             creditCard = None
         else:
             creditCard = self.UserCreditCard.to_json()
+        if self.IdCoupon is None:
+            coupon = None
+        else:
+            coupon = self.Coupon.to_json_min()
+        
         return {
             'IdMatch': self.IdMatch,
             'StoreCourt': self.StoreCourt.to_json_match(),
@@ -107,7 +113,8 @@ class Match(db.Model):
             'PaymentExpirationDate': self.paymentExpiration.strftime("%Y-%m-%d %H:%M:%S"),
             'IdRecurrentMatch': self.IdRecurrentMatch,
             'CostFinal': self.CostFinal,
-            'CostUser': self.CostUser 
+            'CostUser': self.CostUser ,
+            'Coupon': coupon,
         }
 
     def to_json_open_match(self):
