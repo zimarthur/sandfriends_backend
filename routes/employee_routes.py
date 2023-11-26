@@ -90,11 +90,11 @@ def ValidateEmployeeAccessToken():
 
     #Caso não encontrar Token
     if employee is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     #Verificar se o Token é válido
     if employee.isAccessTokenExpired():
-        return webResponse("Token expirado", None), HttpCode.WARNING
+        return webResponse("Token expirado", None), HttpCode.EXPIRED_TOKEN
 
     #Token está válido - atualizar o LastAccessDate
     employee.LastAccessDate = datetime.now()
@@ -370,11 +370,11 @@ def UpdateMatchesList():
 
     #Caso não encontrar Token
     if employee is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     #Verificar se o Token é válido
     if employee.isAccessTokenExpired():
-        return webResponse("Token expirado", None), HttpCode.WARNING
+        return webResponse("Token expirado", None), HttpCode.EXPIRED_TOKEN
 
     newDateReq = datetime.strptime(request.json.get('NewSelectedDate'), '%d/%m/%Y')
 

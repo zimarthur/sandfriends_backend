@@ -7,7 +7,7 @@ class Match(db.Model):
     __tablename__ = 'match'
     IdMatch = db.Column(db.Integer, primary_key=True)
     Date = db.Column(db.DateTime)
-    Cost = db.Column(db.Integer)
+    Cost = db.Column(db.Numeric(precision=10, scale=2))
     OpenUsers = db.Column(db.Boolean)
     MaxUsers = db.Column(db.Integer)
     Canceled = db.Column(db.Boolean)
@@ -39,11 +39,16 @@ class Match(db.Model):
 
     IdUserCreditCard = db.Column(db.Integer, db.ForeignKey('user_credit_card.IdUserCreditCard'))
     UserCreditCard = db.relationship('UserCreditCard', foreign_keys = [IdUserCreditCard])
-    
+
+    CostUser = db.Column(db.Numeric(precision=10, scale=2))
     CostFinal = db.Column(db.Numeric(precision=10, scale=2))
     CostAsaasTax = db.Column(db.Numeric(precision=10, scale=2)) 
     CostSandfriendsNetTax = db.Column(db.Numeric(precision=10, scale=2))
     AsaasSplit = db.Column(db.Numeric(precision=10, scale=2))
+
+    #Cupom
+    IdCoupon = db.Column(db.Integer)
+    CostDiscount = db.Column(db.Numeric(precision=10, scale=2))
 
     @hybrid_property
     def paymentExpiration(self):
@@ -87,7 +92,7 @@ class Match(db.Model):
             'Date': self.Date.strftime("%Y-%m-%d"),
             'TimeBegin': self.IdTimeBegin,
             'TimeEnd': self.IdTimeEnd,
-            'Cost': int(self.Cost),
+            'Cost': self.Cost,
             'OpenUsers': self.OpenUsers,
             'MaxUsers': self.MaxUsers,
             'Canceled': self.Canceled,
@@ -102,6 +107,7 @@ class Match(db.Model):
             'PaymentExpirationDate': self.paymentExpiration.strftime("%Y-%m-%d %H:%M:%S"),
             'IdRecurrentMatch': self.IdRecurrentMatch,
             'CostFinal': self.CostFinal,
+            'CostUser': self.CostUser 
         }
 
     def to_json_open_match(self):
@@ -114,7 +120,7 @@ class Match(db.Model):
             'Date': self.Date.strftime("%Y-%m-%d"),
             'TimeBegin': self.IdTimeBegin,
             'TimeEnd': self.IdTimeEnd,
-            'Cost': int(self.Cost),
+            'Cost': self.Cost,
             'OpenUsers': self.OpenUsers,
             'MaxUsers': self.MaxUsers,
             'Canceled': self.Canceled,
@@ -127,6 +133,7 @@ class Match(db.Model):
             'PaymentType': self.AsaasBillingType,
             'PaymentExpirationDate': self.paymentExpiration.strftime("%Y-%m-%d %H:%M:%S"),
             'CostFinal': self.CostFinal,
+            'CostUser': self.CostUser 
         }
 
     def to_json_min(self):
@@ -152,7 +159,7 @@ class Match(db.Model):
             'TimeBegin': self.IdTimeBegin,
             'TimeEnd': self.IdTimeEnd,
             'StoreCourt': self.StoreCourt.to_json_match(),
-            'Cost': int(self.Cost),
+            'Cost': self.Cost,
             'IdSport': self.IdSport,
             'CreatorNotes': self.CreatorNotes,
             'IdRecurrentMatch': self.IdRecurrentMatch,
@@ -166,5 +173,6 @@ class Match(db.Model):
             'PaymentExpirationDate': self.paymentExpiration.strftime("%Y-%m-%d %H:%M:%S"),
             'IdRecurrentMatch': self.IdRecurrentMatch,
             'CostFinal': self.CostFinal,
+            'CostUser': self.CostUser 
         }
         

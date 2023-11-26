@@ -550,7 +550,7 @@ def CancelRecurrentMatchEmployee():
     
     #Caso não encontrar Token
     if storeCourt is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     recurrentMatch = RecurrentMatch.query.get(idRecurrentMatchReq)
     if recurrentMatch is None:
@@ -591,7 +591,7 @@ def RecurrentBlockUnblockHour():
     
     #Caso não encontrar Token
     if storeCourt is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     idHourReq = request.json.get('IdHour')
     weekdayReq = request.json.get('Weekday')

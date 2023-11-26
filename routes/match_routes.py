@@ -29,6 +29,7 @@ from ..Models.notification_user_model import NotificationUser
 from ..Models.notification_user_category_model import NotificationUserCategory
 from ..Models.notification_store_model import NotificationStore
 from ..Models.notification_store_category_model import NotificationStoreCategory
+from ..Models.coupon_model import Coupon
 from ..access_token import EncodeToken, DecodeToken
 from ..emails import emailUserMatchConfirmed
 from ..Asaas.Customer.update_customer import updateCpf
@@ -275,6 +276,7 @@ def MatchReservation():
     costReq = request.json.get('Cost')
     paymentReq = request.json.get('Payment')
     cpfReq = request.json.get('Cpf')
+    idCouponReq = request.json.get('IdCoupon')
     
     if request.json.get("IdCreditCard")== "": 
         idCreditCardReq =  None 
@@ -314,11 +316,14 @@ def MatchReservation():
     costSandfriendsNetTaxReq = None
     asaasSplitReq = None
 
-    #busca a quadra que vai ser feita a cobrança
+    #Busca a quadra que vai ser feita a cobrança
     store = db.session.query(Store)\
             .join(StoreCourt, StoreCourt.IdStore == Store.IdStore)\
             .filter(StoreCourt.IdStoreCourt == idStoreCourtReq).first()
     
+    #Busca o cupom de desconto
+    coupon = db.session.query(Coupon).filter(Coupon.IdCoupon == idCouponReq).first()
+
     #### PIX
     if paymentReq == 1:
         if cpfReq != user.Cpf:
@@ -330,8 +335,18 @@ def MatchReservation():
             if responseCpf.status_code != 200:
                 return "Ops, verifique se seu CPF está correto.", HttpCode.WARNING
 
+        #Calcular o valor do desconto do cupom
+        discountValue = 0
+        if coupon is not None:
+            if coupon.DiscountType == "PERCENTAGE":
+                discountValue = (costReq * float(coupon.Value))/100
+            if coupon.DiscountType == "FIXED":
+                discountValue = coupon.Value
+
+        costUser = float(costReq - discountValue)
+
         #Gera a cobrança no Asaas
-        responsePayment = createPaymentPix(user, costReq, store)
+        responsePayment = createPaymentPix(user, costUser, store)
         if responsePayment.status_code != 200:
             return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
 
@@ -349,10 +364,10 @@ def MatchReservation():
         costFinalReq = responsePayment.json().get('split')[0].get('totalValue')
         #Valor da taxa do Asaas
         costNetReq = responsePayment.json().get('netValue')
-        costReq = responsePayment.json().get('value')
-        costAsaasTaxReq = costReq - costNetReq
+        costUserReq = responsePayment.json().get('value')
+        costAsaasTaxReq = costUserReq - costNetReq
         #Valor da remuneração do Sandfriends
-        costSandfriendsNetTaxReq = costReq - costAsaasTaxReq - costFinalReq
+        costSandfriendsNetTaxReq = costUserReq - costAsaasTaxReq - costFinalReq
         #Porcentagem do Split
         asaasSplitReq = responsePayment.json().get('split')[0].get('percentualValue')
 
@@ -363,13 +378,23 @@ def MatchReservation():
         if creditCard is None:
             return "Não foi possível processar seu pagamento. Tente novamente", HttpCode.WARNING
         
+        #Calcular o valor do desconto do cupom
+        discountValue = 0
+        if coupon is not None:
+            if coupon.DiscountType == "PERCENTAGE":
+                discountValue = (costReq * float(coupon.Value))/100
+            if coupon.DiscountType == "FIXED":
+                discountValue = coupon.Value
+
+        costUser = float(costReq - discountValue)
+
         #Gera a cobrança no Asaas
         responsePayment = createPaymentCreditCard(
-            user= user, 
-            creditCard= creditCard,
-            value= costReq,
-            store= store,
-            cvv= cvvReq,
+            user = user, 
+            creditCard = creditCard,
+            value = costUser,
+            store = store,
+            cvv = cvvReq
         )
         
         if responsePayment.status_code != 200:
@@ -383,10 +408,10 @@ def MatchReservation():
         costFinalReq = responsePayment.json().get('split')[0].get('totalValue')
         #Valor da taxa do Asaas
         costNetReq = responsePayment.json().get('netValue')
-        costReq = responsePayment.json().get('value')
-        costAsaasTaxReq = costReq - costNetReq
+        costUserReq = responsePayment.json().get('value')
+        costAsaasTaxReq = costUserReq - costNetReq
         #Valor da remuneração do Sandfriends
-        costSandfriendsNetTaxReq = costReq - costAsaasTaxReq - costFinalReq
+        costSandfriendsNetTaxReq = costUserReq - costAsaasTaxReq - costFinalReq
         #Porcentagem do Split
         asaasSplitReq = responsePayment.json().get('split')[0].get('percentualValue')
 
@@ -396,9 +421,11 @@ def MatchReservation():
         asaasPaymentStatus = "CONFIRMED"
 
         costFinalReq = costReq
+        costUserReq = costReq
         costAsaasTaxReq = 0
         costSandfriendsNetTaxReq = 0
-        asaasSplitReq = costReq
+        asaasSplitReq = 0
+        discountValue = 0
     else:
         return "Forma de pagamento inválida", HttpCode.WARNING
     
@@ -426,7 +453,10 @@ def MatchReservation():
         CostFinal = costFinalReq,
         CostAsaasTax = costAsaasTaxReq,
         CostSandfriendsNetTax = costSandfriendsNetTaxReq,
-        AsaasSplit = asaasSplitReq
+        AsaasSplit = asaasSplitReq,
+        IdCoupon  = idCouponReq,
+        CostDiscount = discountValue,
+        CostUser = costUserReq
     )
     
     db.session.add(newMatch)
@@ -772,7 +802,7 @@ def CancelMatchEmployee():
     
     #Caso não encontrar Token
     if storeCourt is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     match = Match.query.get(idMatchReq)
     if match is None:
@@ -781,7 +811,7 @@ def CancelMatchEmployee():
          return 'A partida já foi finalizada', HttpCode.WARNING
     else:
         
-        if match.IsPaymentConfirmed:
+        if match.IsPaymentConfirmed and match.AsaasBillingType != "PAY_IN_STORE":
             responseRefund = refundPayment(paymentId= match.AsaasPaymentId, description= f"Partida cancelada pelo estabelecimento/IdMatch {match.IdMatch}")
             if responseRefund.status_code != 200:
                 return "Não conseguimos processar o estorno. Tente novamente", HttpCode.WARNING
@@ -949,7 +979,7 @@ def BlockUnblockHour():
     
     #Caso não encontrar Token
     if storeCourt is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     idHourReq = request.json.get('IdHour')
     dateReq = datetime.strptime(request.json.get('Date'), '%d/%m/%Y')

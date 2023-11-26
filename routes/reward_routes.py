@@ -150,7 +150,7 @@ def UserRewardSelected():
     
     #Caso não encontrar Token
     if store is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     reward = db.session.query(RewardUser).filter(RewardUser.RewardClaimCode == rewardCodeReq).first()
 

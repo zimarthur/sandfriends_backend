@@ -33,7 +33,7 @@ def AddCourt():
     
     #Caso não encontrar Token
     if store is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     descriptionReq = request.json.get('Description')
     isIndoorReq = request.json.get('IsIndoor')
@@ -100,7 +100,7 @@ def RemoveCourt():
 
     #Caso não encontrar Token
     if court is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     matches = db.session.query(Match)\
         .filter((Match.Date > datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeBegin >= int(datetime.now().strftime("%H")))))\
@@ -154,7 +154,7 @@ def SaveCourtChanges():
 
     #Caso não encontrar Token
     if accessTokenValid is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     for courtReq in courtsReq:
         court = db.session.query(StoreCourt).filter(StoreCourt.IdStoreCourt == courtReq["IdStoreCourt"]).first()
@@ -242,3 +242,6 @@ def SaveCourtChanges():
 
     return jsonify({'Courts':courtsList}), HttpCode.SUCCESS
 
+#Verifica se um cupom de desconto é válido e usa ele
+#Precisa dos dados da store e match pra verificar se o cupom se aplica
+#def useCoupon(code, store, match):
