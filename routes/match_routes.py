@@ -998,6 +998,8 @@ def BlockUnblockHour():
             IdTimeBegin = idHourReq,
             IdTimeEnd = idHourReq+1,
             Cost = 0,
+            CostUser = 0,
+            CostDiscount = 0,
             OpenUsers = False,
             MaxUsers = 0,
             Canceled = False,

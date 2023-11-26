@@ -422,6 +422,8 @@ def CourtReservation():
             IdTimeBegin = timeStartReq,
             IdTimeEnd = timeEndReq,
             Cost = costReq,
+            CostUser = costReq,
+            CostDiscount = 0,
             OpenUsers = False,
             MaxUsers = 0,
             Canceled = False,
