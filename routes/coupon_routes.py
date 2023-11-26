@@ -30,7 +30,7 @@ def ValidateCoupon():
 
     #Cupom não encontrado
     if coupon is None:
-        return "Este cupom não é válido", HttpCode.WARNING
+        return "Cupom inválido", HttpCode.WARNING
 
     #Cupom ok
     return coupon.to_json_min(), HttpCode.SUCCESS

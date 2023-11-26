@@ -107,6 +107,7 @@ class Match(db.Model):
             'PaymentExpirationDate': self.paymentExpiration.strftime("%Y-%m-%d %H:%M:%S"),
             'IdRecurrentMatch': self.IdRecurrentMatch,
             'CostFinal': self.CostFinal,
+            'CostUser': self.CostUser 
         }
 
     def to_json_open_match(self):
@@ -132,6 +133,7 @@ class Match(db.Model):
             'PaymentType': self.AsaasBillingType,
             'PaymentExpirationDate': self.paymentExpiration.strftime("%Y-%m-%d %H:%M:%S"),
             'CostFinal': self.CostFinal,
+            'CostUser': self.CostUser 
         }
 
     def to_json_min(self):
@@ -171,5 +173,6 @@ class Match(db.Model):
             'PaymentExpirationDate': self.paymentExpiration.strftime("%Y-%m-%d %H:%M:%S"),
             'IdRecurrentMatch': self.IdRecurrentMatch,
             'CostFinal': self.CostFinal,
+            'CostUser': self.CostUser 
         }
         

@@ -802,7 +802,7 @@ def CancelMatchEmployee():
     
     #Caso não encontrar Token
     if storeCourt is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     match = Match.query.get(idMatchReq)
     if match is None:
@@ -811,7 +811,7 @@ def CancelMatchEmployee():
          return 'A partida já foi finalizada', HttpCode.WARNING
     else:
         
-        if match.IsPaymentConfirmed:
+        if match.IsPaymentConfirmed and match.AsaasBillingType != "PAY_IN_STORE":
             responseRefund = refundPayment(paymentId= match.AsaasPaymentId, description= f"Partida cancelada pelo estabelecimento/IdMatch {match.IdMatch}")
             if responseRefund.status_code != 200:
                 return "Não conseguimos processar o estorno. Tente novamente", HttpCode.WARNING
@@ -979,7 +979,7 @@ def BlockUnblockHour():
     
     #Caso não encontrar Token
     if storeCourt is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     idHourReq = request.json.get('IdHour')
     dateReq = datetime.strptime(request.json.get('Date'), '%d/%m/%Y')
