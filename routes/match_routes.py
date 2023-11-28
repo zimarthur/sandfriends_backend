@@ -989,11 +989,12 @@ def BlockUnblockHour():
 
     blockedReq = request.json.get('Blocked')
     blockedReasonReq = request.json.get('BlockedReason')
+    idSportReq = request.json.get('IdSport')
 
     if match is None:
         newMatch = Match(
             IdStoreCourt = idStoreCourtReq,
-            IdSport = None,
+            IdSport = idSportReq,
             Date = dateReq,
             IdTimeBegin = idHourReq,
             IdTimeEnd = idHourReq+1,
