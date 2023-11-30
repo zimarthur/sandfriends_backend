@@ -53,7 +53,7 @@ def create_app():
     app.register_blueprint(bp_store_player)
     app.register_blueprint(bp_coupon)
 
-    firebase_admin.initialize_app()
+    firebase_sandfriends = firebase_admin.initialize_app(credentials.Certificate(os.environ['GOOGLE_APPLICATION_CREDENTIALS']))
 
     db.init_app(app)
     return app
