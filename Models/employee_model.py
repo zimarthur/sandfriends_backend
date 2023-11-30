@@ -21,6 +21,8 @@ class Employee(db.Model):
     AccessToken = db.Column(db.String(255))
     AccessTokenApp = db.Column(db.String(255))
     LastAccessDate = db.Column(db.DateTime)
+    AllowNotifications = db.Column(db.Boolean)
+    NotificationsToken = db.Column(db.String(255))
 
     IdStore = db.Column(db.Integer, db.ForeignKey('store.IdStore'))
     #Store = db.relationship('Store', foreign_keys = [IdStore])
@@ -44,6 +46,7 @@ class Employee(db.Model):
             'StoreOwner': self.StoreOwner,
             'EmailConfirmationDate': emailConfirmationDate,
             'DateDisabled': dateDisabled,
+            'AllowNotifications':self.AllowNotifications,
         }
 
     #Para a criação de uma quadra nova

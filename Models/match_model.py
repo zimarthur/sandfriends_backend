@@ -86,7 +86,7 @@ class Match(db.Model):
             creditCard = None
         else:
             creditCard = self.UserCreditCard.to_json()
-        if self.IdCoupon is None:
+        if self.Coupon is None:
             coupon = None
         else:
             coupon = self.Coupon.to_json_min()
