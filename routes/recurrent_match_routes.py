@@ -253,6 +253,7 @@ def CourtReservation():
     
     recurrentMatches = [recurrentMatch for recurrentMatch in recurrentMatches if recurrentMatch.isPaymentExpired == False]
 
+    #Caso o horário não esteja disponível
     if (len(recurrentMatches) > 0) and (isRenovatingReq == False):
         return "Ops, esse horário não está mais disponível", HttpCode.WARNING
 
@@ -281,6 +282,9 @@ def CourtReservation():
             .filter(StoreCourt.IdStoreCourt == idStoreCourtReq).first()
     
     now = datetime.now()
+
+    #Número de dias com partida
+    nMatches = int(totalCostReq / costReq)
 
     #### PIX
     if paymentReq == 1:
@@ -313,10 +317,10 @@ def CourtReservation():
         asaasPaymentId = responsePayment.json().get('id')
         asaasBillingType = responsePayment.json().get('billingType')
         #Valor final, após Split - o que a quadra irá receber
-        costFinalReq = responsePayment.json().get('split')[0].get('totalValue')
+        costFinalReq = responsePayment.json().get('split')[0].get('totalValue') / nMatches
         #Valor da taxa do Asaas
-        costNetReq = responsePayment.json().get('netValue')
-        costReq = responsePayment.json().get('value')
+        costNetReq = responsePayment.json().get('netValue') / nMatches
+        costReq = responsePayment.json().get('value') / nMatches
         costAsaasTaxReq = costReq - costNetReq
         #Valor da remuneração do Sandfriends
         costSandfriendsNetTaxReq = costReq - costAsaasTaxReq - costFinalReq
@@ -349,10 +353,10 @@ def CourtReservation():
         asaasBillingType = responsePayment.json().get('billingType')
         asaasPaymentStatus = "PENDING"
         #Valor final, após Split - o que a quadra irá receber
-        costFinalReq = responsePayment.json().get('split')[0].get('totalValue')
+        costFinalReq = responsePayment.json().get('split')[0].get('totalValue') / nMatches
         #Valor da taxa do Asaas
-        costNetReq = responsePayment.json().get('netValue')
-        costReq = responsePayment.json().get('value')
+        costNetReq = responsePayment.json().get('netValue') / nMatches
+        costReq = responsePayment.json().get('value') / nMatches
         costAsaasTaxReq = costReq - costNetReq
         #Valor da remuneração do Sandfriends
         costSandfriendsNetTaxReq = costReq - costAsaasTaxReq - costFinalReq
@@ -372,7 +376,15 @@ def CourtReservation():
         asaasSplitReq = costReq
 
         if isRenovatingReq:
-            validUntil = getLastDayOfMonth(datetime(now.year, now.month+1, 1))
+
+            #Ajuste para não dar problema em dezembro
+            year = now.year
+            if now.month < 12:
+                month = now.month
+            else:
+                month = 1
+
+            validUntil = getLastDayOfMonth(datetime(year, month, 1))
         else:
             validUntil = getLastDayOfMonth(now)
 
