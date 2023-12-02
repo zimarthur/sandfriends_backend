@@ -7,7 +7,6 @@ from ..Models.http_codes import HttpCode
 from ..Models.user_credit_card_model import UserCreditCard
 
 from ..Asaas.Payment.create_payment import createPaymentPreAuthorization
-from ..Asaas.Payment.refund_payment import refundPayment
 from ..encryption import encrypt_aes, decrypt_aes
 import os
 
@@ -36,41 +35,6 @@ def AddUserCreditCard():
     user = User.query.filter_by(AccessToken = accessTokenReq).first()
     if user is None:
         return '1', HttpCode.INVALID_ACCESS_TOKEN
-    
-    # #Caso o cartão já tenha sido cadastrado
-    # userCreditCards = db.session.query(UserCreditCard)\
-    #     .filter(UserCreditCard.IdUser == user.IdUser)\
-    #     .filter(UserCreditCard.CardNumber == cardNumberReq)\
-    #     .filter(UserCreditCard.ExpirationDate == datetime.strptime(expirationDateReq, '%m/%Y'))\
-    #     .filter(UserCreditCard.Issuer == issuerReq)\
-    #     .filter(UserCreditCard.Deleted == False).first()
-    
-    # #Caso os últimos 4 dígitos e a data de validade sejam iguais, verifica as hashes
-    # if userCreditCards is not None:
-    #     return "Este cartão já foi cadastrado anteriormente",HttpCode.ALERT
-
-    # #Pré autorização no asaas
-    # #Realiza uma cobrança de R$5 (mínimo do Asaas) pra ver se o cartão está válido e gerar o Token
-    # authorizationResponse = createPaymentPreAuthorization(
-    #     user= user,
-    #     holderName= ownerNameReq,
-    #     holderCpf= ownerCpfReq,
-    #     cardNumber= cardNumberReq,
-    #     cvv= cvvReq,
-    #     expirationMonth= expirationDate.strftime("%m"),
-    #     expirationYear= expirationDate.strftime("%Y"),
-    #     addressNumber=addressNumberReq,
-    #     cep=cepReq,
-    # )
-    
-    # if authorizationResponse.status_code != 200:
-    #     return "Não foi possível cadastrar seu cartão. Verifique se as informações estão corretas", HttpCode.WARNING
-
-    # #Realiza o reembolso dos R$5 da validação do cartão
-    # refundPayment(
-    #     paymentId= authorizationResponse.json().get('id'),
-    #     description= "Credit Card Authorization",
-    # )
 
     #Cadastra um cartão novo
     newUserCreditCard = UserCreditCard(
