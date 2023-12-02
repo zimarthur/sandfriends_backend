@@ -49,7 +49,14 @@ def WebhookPayment():
                     recurrentMatch = RecurrentMatch.query.get(match.IdRecurrentMatch)
                     now = datetime.now()
                     if recurrentMatch.LastPaymentDate != recurrentMatch.CreationDate:
-                        validUntil = getLastDayOfMonth(datetime(now.year, now.month+1, 1))
+                        #Ajuste para não dar problema em dezembro
+                        year = now.year
+                        if now.month < 12:
+                            month = now.month
+                        else:
+                            month = 1
+
+                        validUntil = getLastDayOfMonth(datetime(year, month, 1))
                     else:
                         validUntil = getLastDayOfMonth(now)
                     recurrentMatch.ValidUntil = validUntil
