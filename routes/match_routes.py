@@ -37,6 +37,7 @@ from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCredit
 from ..Asaas.Payment.refund_payment import refundPayment
 from ..Asaas.Payment.generate_qr_code import generateQrCode
 from sandfriends_backend.push_notifications import sendMatchInvitationNotification, sendMatchInvitationRefusedNotification, sendMatchInvitationAcceptedNotification, sendMemberLeftMatchNotification, sendMatchCanceledFromCreatorNotification, sendEmployeesNewMatchNotification
+from sqlalchemy import or_
 
 bp_match = Blueprint('bp_match', __name__)
 
