@@ -86,8 +86,12 @@ def emailStoreAwaitingApproval(store, employee, city):
         "city": city.City,
         "email": employee.Email,
         "fullname": f"{employee.FirstName} {employee.LastName}",
+        "phone1": f"({store.PhoneNumber1[0:2]}) {store.PhoneNumber1[2:7]}-{store.PhoneNumber1[7:12]}",
+        "phone2": f"({store.PhoneNumber2[0:2]}) {store.PhoneNumber2[2:7]}-{store.PhoneNumber2[7:12]}",
     }
     sendEmail("Admin","", STORE_AWAITING_APPROVAL, variables)
+
+
 
 def sendEmail(email, name, templateId, variables):
     #Emails nossos - Irá enviar apenas no ambiente de dev

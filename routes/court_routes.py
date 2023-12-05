@@ -14,6 +14,7 @@ from ..Models.available_hour_model import AvailableHour
 from ..Models.store_court_model import StoreCourt
 from ..Models.store_price_model import StorePrice
 from ..Models.store_court_sport_model import StoreCourtSport
+from ..Models.employee_model import getEmployeeByToken, getStoreByToken,getStoreCourtByToken
 from sqlalchemy import func
 import base64
 
@@ -27,13 +28,11 @@ def AddCourt():
     accessTokenReq = request.json.get('AccessToken')
 
     #busca a loja a partir do token do employee
-    store = db.session.query(Store).\
-            join(Employee, Employee.IdStore == Store.IdStore).\
-            filter(Employee.AccessToken == accessTokenReq).first()
+    store = getStoreByToken(accessTokenReq)
     
     #Caso não encontrar Token
     if store is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     descriptionReq = request.json.get('Description')
     isIndoorReq = request.json.get('IsIndoor')
@@ -92,15 +91,11 @@ def RemoveCourt():
     idStoreCourtReq = request.json.get('IdStoreCourt')
 
     #busca a loja a partir do token do employee
-    court = db.session.query(StoreCourt).\
-            join(Employee, Employee.IdStore == StoreCourt.IdStore)\
-            .filter(Employee.AccessToken == accessTokenReq)\
-            .filter(StoreCourt.IdStoreCourt == idStoreCourtReq).first()
-    
+    court = getStoreCourtByToken(accessTokenReq, idStoreCourtReq)    
 
     #Caso não encontrar Token
     if court is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     matches = db.session.query(Match)\
         .filter((Match.Date > datetime.today().date()) | ((Match.Date == datetime.today().date()) & (Match.IdTimeBegin >= int(datetime.now().strftime("%H")))))\
@@ -148,13 +143,13 @@ def SaveCourtChanges():
     #busca a loja a partir do token do employee
     accessTokenValid = db.session.query(StoreCourt).\
             join(Employee, Employee.IdStore == StoreCourt.IdStore)\
-            .filter(Employee.AccessToken == accessTokenReq)\
+            .filter(or_(Employee.AccessToken == accessTokenReq, Employee.AccessTokenApp == accessTokenReq))\
             .filter(StoreCourt.IdStoreCourt == courtsReq[0]["IdStoreCourt"]).first()
     
 
     #Caso não encontrar Token
     if accessTokenValid is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     for courtReq in courtsReq:
         court = db.session.query(StoreCourt).filter(StoreCourt.IdStoreCourt == courtReq["IdStoreCourt"]).first()
@@ -242,3 +237,6 @@ def SaveCourtChanges():
 
     return jsonify({'Courts':courtsList}), HttpCode.SUCCESS
 
+#Verifica se um cupom de desconto é válido e usa ele
+#Precisa dos dados da store e match pra verificar se o cupom se aplica
+#def useCoupon(code, store, match):

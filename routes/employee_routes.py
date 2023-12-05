@@ -24,6 +24,7 @@ from ..Models.notification_store_category_model import NotificationStoreCategory
 from ..emails import emailStoreChangePassword, emailStoreAddEmployee
 from ..routes.store_player_routes import getStorePlayers
 from ..access_token import EncodeToken, DecodeToken
+from ..Models.employee_model import getEmployeeByToken
 from sqlalchemy import func
 import bcrypt
 import json
@@ -39,6 +40,7 @@ def EmployeeLogin():
 
     emailReq = request.json.get('Email')
     passwordReq = request.json.get('Password').encode('utf-8')
+    isRequestFromAppReq = request.json.get('IsRequestFromApp')
 
     employee = db.session.query(Employee).filter(Employee.Email == emailReq).first()
 
@@ -46,7 +48,7 @@ def EmployeeLogin():
         return webResponse("Não encontramos nenhuma quadra com este e-mail", "Se você é um jogador, realize o login diretamente pelo app"), HttpCode.WARNING
 
     if employee.DateDisabled is not None:
-        return webResponse("Você não faz mais parte de nenhuma equipe",), HttpCode.WARNING
+        return webResponse("Você não faz mais parte de nenhuma equipe",None), HttpCode.WARNING
     
     #if employee.Password != passwordReq:
     if not bcrypt.checkpw(passwordReq, (employee.Password).encode('utf-8')):
@@ -62,13 +64,27 @@ def EmployeeLogin():
         return webResponse("Estamos validando sua quadra, entraremos em contato em breve", None), HttpCode.ALERT
     #quadra já aprovada
 
-    employee.AccessToken = EncodeToken(employee.IdEmployee)
+    updateNotificationsReq = request.json.get('UpdateNotifications')
+    allowNotificationsReq = request.json.get('AllowNotifications')
+    notificationsTokenReq = request.json.get('NotificationsToken')
+
+    if updateNotificationsReq:
+        employee.AllowNotifications = allowNotificationsReq
+    if notificationsTokenReq != "":
+        employee.NotificationsToken = notificationsTokenReq
+
+    #Define o novo AccessToken, com base em qual plataforma (app ou site) foi usada
+    if isRequestFromAppReq:
+        employee.AccessTokenApp = EncodeToken(employee.IdEmployee)
+    else:
+        employee.AccessToken = EncodeToken(employee.IdEmployee)
+
     employee.LastAccessDate = datetime.now()
 
     db.session.commit()
 
     #retorna as informações da quadra (esportes, horários, etc)
-    return initStoreLoginData(employee), HttpCode.SUCCESS
+    return initStoreLoginData(employee, isRequestFromAppReq), HttpCode.SUCCESS
 
 #Rota utilizada para validar o AccessToken que fica no computador do usuário - para evitar fazer login com senha
 @bp_employee.route('/ValidateEmployeeAccessToken', methods=['POST'])
@@ -77,23 +93,24 @@ def ValidateEmployeeAccessToken():
         abort(HttpCode.ABORT)
     
     accessTokenReq = request.json.get('AccessToken')
+    isRequestFromAppReq = request.json.get('IsRequestFromApp')
 
-    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employee = getEmployeeByToken(accessTokenReq)
 
     #Caso não encontrar Token
     if employee is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     #Verificar se o Token é válido
     if employee.isAccessTokenExpired():
-        return webResponse("Token expirado", None), HttpCode.WARNING
+        return webResponse("Token expirado", None), HttpCode.EXPIRED_TOKEN
 
     #Token está válido - atualizar o LastAccessDate
     employee.LastAccessDate = datetime.now()
     db.session.commit()
 
     #Token válido - retorna as informações da quadra (esportes, horários, etc)
-    return initStoreLoginData(employee), HttpCode.SUCCESS
+    return initStoreLoginData(employee, isRequestFromAppReq), HttpCode.SUCCESS
 
 #Rota utilizada por um admin para adicionar um novo funcionário
 @bp_employee.route("/AddEmployee", methods=["POST"])
@@ -104,7 +121,7 @@ def AddEmployee():
     accessTokenReq = request.json.get('AccessToken')
     emailReq = (request.json.get('Email')).lower()
     
-    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employee = getEmployeeByToken(accessTokenReq)
     
     #Verifica se o accessToken existe
     #Verifica se o accessToken do criador do usuário está expirado
@@ -213,7 +230,7 @@ def SetEmployeeAdmin():
     idEmployeeReq = request.json.get('IdEmployee')
     isAdminReq = request.json.get('IsAdmin')
     
-    employeeRequest = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employeeRequest = getEmployeeByToken(accessTokenReq)
     employeeChange = db.session.query(Employee).filter(Employee.IdEmployee == idEmployeeReq).first()
 
     #Verifica se o accessToken existe
@@ -240,7 +257,7 @@ def RenameEmployee():
     firstNameReq = request.json.get('FirstName')
     lastNameReq = request.json.get('LastName')
     
-    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employee = getEmployeeByToken(accessTokenReq)
 
     #Verifica se o accessToken existe
     #Verifica se o accessToken do criador do usuário está expirado
@@ -263,7 +280,7 @@ def RemoveEmployee():
     idEmployeeReq = request.json.get('IdEmployee')
     isAdminReq = request.json.get('IsAdmin')
     
-    employeeRequest = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employeeRequest = getEmployeeByToken(accessTokenReq)
     employeeChange = db.session.query(Employee).filter(Employee.IdEmployee == idEmployeeReq).first()
 
     #Verifica se o accessToken existe
@@ -271,15 +288,35 @@ def RemoveEmployee():
     if (employeeRequest is None) or employeeRequest.isAccessTokenExpired():
         return webResponse("Ocorreu um erro", "Tente novamente, caso o problema persista, entre em contato com o nosso suporte"), HttpCode.WARNING
 
-    #Verifica se quem está tentando criar um usuário é um Admin
+    #Verifica se quem está tentando remover um usuário é um Admin
     if not employeeRequest.Admin or employeeChange.StoreOwner:
-        return webResponse("Ops", "Você não tem permissões para criar usuários.\n\nApenas usuários administradores podem fazer isto."), HttpCode.WARNING
+        return webResponse("Ops", "Você não tem permissões para remover usuários.\n\nApenas usuários administradores podem fazer isto."), HttpCode.WARNING
 
     employeeChange.DateDisabled = datetime.now()
 
     db.session.commit()
 
     return returnStoreEmployees(employeeRequest.IdStore), HttpCode.SUCCESS
+
+@bp_employee.route("/DeleteAccountEmployee", methods=["POST"])
+def DeleteAccountEmployee():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    accessTokenReq = request.json.get('AccessToken')
+    
+    employee = getEmployeeByToken(accessTokenReq)
+
+    #Verifica se o accessToken existe
+    #Verifica se o accessToken do criador do usuário está expirado
+    if (employee is None) or employee.isAccessTokenExpired():
+        return webResponse("Ocorreu um erro", "Tente novamente, caso o problema persista, entre em contato com o nosso suporte"), HttpCode.WARNING
+
+    employee.DateDisabled = datetime.now()
+
+    db.session.commit()
+
+    return webResponse("Sua conta foi deletada", "Se você deletou por engano, entre em contato com o suporte."), HttpCode.SUCCESS
 
 #Rota utilizada quando um funcionário clica em "esqueci minha senha"
 @bp_employee.route('/ChangePasswordRequestEmployee', methods=['POST'])
@@ -358,15 +395,15 @@ def UpdateMatchesList():
     
     accessTokenReq = request.json.get('AccessToken')
 
-    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employee = getEmployeeByToken(accessTokenReq)
 
     #Caso não encontrar Token
     if employee is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     #Verificar se o Token é válido
     if employee.isAccessTokenExpired():
-        return webResponse("Token expirado", None), HttpCode.WARNING
+        return webResponse("Token expirado", None), HttpCode.EXPIRED_TOKEN
 
     newDateReq = datetime.strptime(request.json.get('NewSelectedDate'), '%d/%m/%Y')
 
@@ -385,7 +422,35 @@ def UpdateMatchesList():
 
     return jsonify({'Matches':matchList, 'MatchesStartDate': startDate.strftime("%d/%m/%Y"), 'MatchesEndDate': endDate.strftime("%d/%m/%Y")}), HttpCode.SUCCESS
 
-def initStoreLoginData(employee):
+#Rota acessada para alterar permissão de notificações do app quadras
+@bp_employee.route('/AllowNotificationsEmployee', methods=['POST'])
+def AllowNotificationsEmployee():
+    if not request.json:
+        abort(HttpCode.ABORT)
+    
+    accessTokenReq = request.json.get('AccessToken')
+
+    employee = getEmployeeByToken(accessTokenReq)
+
+    #Caso não encontrar Token
+    if employee is None:
+        return webResponse("Token não encontrado", None), HttpCode.WARNING
+
+    #Verificar se o Token é válido
+    if employee.isAccessTokenExpired():
+        return webResponse("Token expirado", None), HttpCode.WARNING
+
+    allowNotificationsReq = request.json.get('AllowNotifications')
+    notificationsTokenReq = request.json.get('NotificationsToken')
+    
+    employee.AllowNotifications = allowNotificationsReq
+    employee.NotificationsToken = notificationsTokenReq
+
+    db.session.commit()
+
+    return jsonify({'AllowNotifications':allowNotificationsReq}), HttpCode.SUCCESS
+
+def initStoreLoginData(employee, isRequestFromAppReq):
 
     store = employee.Store
     #Lista com todos esportes
@@ -464,7 +529,13 @@ def initStoreLoginData(employee):
 
     (storePlayersList, matchMembersList) = getStorePlayers(store)
 
-    return jsonify({'AccessToken':employee.AccessToken,\
+    #Define qual AccessToken mandar com base em qual plataforma (app ou site) foi usada
+    if isRequestFromAppReq:
+        accessTokenReturn = employee.AccessTokenApp
+    else:
+        accessTokenReturn = employee.AccessToken
+
+    return jsonify({'AccessToken': accessTokenReturn,\
                     'LoggedEmail': employee.Email,\
                     'Sports' : sportsList, \
                     'AvailableHours' : hoursList,\

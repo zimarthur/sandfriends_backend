@@ -8,7 +8,7 @@ import string
 from ..Models.match_model import Match
 from ..Models.user_model import User
 from ..Models.store_model import Store
-from ..Models.employee_model import Employee
+from ..Models.employee_model import Employee, getEmployeeByToken, getStoreByToken
 from ..Models.match_member_model import MatchMember
 from ..Models.reward_month_model import RewardMonth
 from ..Models.reward_category_model import RewardCategory
@@ -100,7 +100,7 @@ def SearchCustomRewards():
     dateStartReq = datetime.strptime(request.json.get('DateStart'), '%d/%m/%Y')
     dateEndReq = datetime.strptime(request.json.get('DateEnd'), '%d/%m/%Y')
 
-    employee = db.session.query(Employee).filter(Employee.AccessToken == accessTokenReq).first()
+    employee = getEmployeeByToken(accessTokenReq)
 
     if employee is None:
         return '1', HttpCode.EXPIRED_TOKEN
@@ -144,13 +144,11 @@ def UserRewardSelected():
     rewardItemReq = request.json.get('RewardItem')
 
     #busca a loja a partir do token do employee
-    store = db.session.query(Store).\
-            join(Employee, Employee.IdStore == Store.IdStore).\
-            filter(Employee.AccessToken == accessTokenReq).first()
+    store = getStoreByToken(accessTokenReq)
     
     #Caso não encontrar Token
     if store is None:
-        return webResponse("Token não encontrado", None), HttpCode.WARNING
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
     reward = db.session.query(RewardUser).filter(RewardUser.RewardClaimCode == rewardCodeReq).first()
 
