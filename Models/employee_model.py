@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, date
 from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy import or_
 from ..Models.store_court_model import StoreCourt
+from ..Models.store_model import Store
 
 class Employee(db.Model):
     __tablename__ = 'employee'
