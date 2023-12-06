@@ -37,6 +37,7 @@ from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCredit
 from ..Asaas.Payment.refund_payment import refundPayment
 from ..Asaas.Payment.generate_qr_code import generateQrCode
 from sandfriends_backend.push_notifications import sendMatchInvitationNotification, sendMatchInvitationRefusedNotification, sendMatchInvitationAcceptedNotification, sendMemberLeftMatchNotification, sendMatchCanceledFromCreatorNotification, sendEmployeesNewMatchNotification
+from sqlalchemy import or_
 
 bp_match = Blueprint('bp_match', __name__)
 
@@ -727,6 +728,7 @@ def JoinMatch():
         sendMatchInvitationNotification(matchCreator.User, user, match)
         return "Solicitação enviada",HttpCode.ALERT
 
+#Usuário solicita para cancelar a partida pelo app
 @bp_match.route("/CancelMatch", methods=["POST"])
 def CancelMatch():
     if not request.json:
@@ -735,57 +737,65 @@ def CancelMatch():
     accessToken = request.json.get('AccessToken')
     idMatch = request.json.get('IdMatch')
 
+    #Busca o usuário que solicitou o cancelamento
     user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
         return 'Token inválido', HttpCode.WARNING
 
+    #Busca a partida que será cancelada
     match = Match.query.get(idMatch) 
     if match is None:
         return 'Partida não encontrada', HttpCode.WARNING
-    elif (match.IsFinished()):
+    if match.IsFinished():
          return 'A partida já foi finalizada', HttpCode.WARNING
-    else:
+    
+    #Se for uma partida válida
+    if match.IsPaymentConfirmed and match.AsaasBillingType != "PAY_IN_STORE":
 
-        if match.IsPaymentConfirmed and match.AsaasBillingType != "PAY_IN_STORE":
-            responseRefund = refundPayment(paymentId= match.AsaasPaymentId, description= f"Partida cancelada/IdMatch {match.IdMatch}")
-            if responseRefund.status_code != 200:
-                return "Não conseguimos processar o estorno. Tente novamente", HttpCode.WARNING
-            match.AsaasPaymentStatus = "REFUNDED"
+        #Realiza o estorno do Asaas
+        valueToRefund = float(match.CostUser)
+        responseRefund = refundPayment(paymentId= match.AsaasPaymentId, cost= valueToRefund, description= f"Partida cancelada/IdMatch {match.IdMatch}")
+        
+        if responseRefund.status_code != 200:
+            return "Não conseguimos processar o estorno. Tente novamente", HttpCode.WARNING
+        match.AsaasPaymentStatus = "REFUNDED"
 
-        match.Canceled = True
+    match.Canceled = True
 
-        matchMembers = MatchMember.query.filter(MatchMember.IdMatch == idMatch)\
-                                .filter(MatchMember.WaitingApproval == False)\
-                                .filter(MatchMember.Refused == False)\
-                                .filter(MatchMember.Quit == False).all()
-        for matchMember in matchMembers:
-            matchMember.Quit=True
-            matchMember.QuitDate=datetime.now()
-            if matchMember.IsMatchCreator == True:
-                idNotificationUserCategory = 6
-                #notificação para a loja
-                newNotificationStore = NotificationStore(
-                    IdUser = matchMember.IdUser,
-                    IdStore = match.StoreCourt.IdStore,
-                    IdMatch = idMatch,
-                    IdNotificationStoreCategory = 2,
-                    EventDatetime = datetime.now()
-                )
-                db.session.add(newNotificationStore)
-            else:
-                idNotificationUserCategory = 7
-            if matchMember.Refused == False:
-                newNotificationUser = NotificationUser(
-                    IdUser = matchMember.IdUser,
-                    IdUserReplaceText = match.matchCreator().IdUser,
-                    IdMatch = idMatch,
-                    IdNotificationUserCategory = idNotificationUserCategory,
-                    Seen = False
-                )
-                db.session.add(newNotificationUser)
-        sendMatchCanceledFromCreatorNotification(match)
-        db.session.commit()
-        return "Partida cancelada",HttpCode.ALERT
+    #Exclui os jogadores da partida
+    matchMembers = MatchMember.query.filter(MatchMember.IdMatch == idMatch)\
+                            .filter(MatchMember.WaitingApproval == False)\
+                            .filter(MatchMember.Refused == False)\
+                            .filter(MatchMember.Quit == False).all()
+    for matchMember in matchMembers:
+        matchMember.Quit=True
+        matchMember.QuitDate=datetime.now()
+        if matchMember.IsMatchCreator == True:
+            #Envia notificação para a loja
+            idNotificationUserCategory = 6
+            newNotificationStore = NotificationStore(
+                IdUser = matchMember.IdUser,
+                IdStore = match.StoreCourt.IdStore,
+                IdMatch = idMatch,
+                IdNotificationStoreCategory = 2,
+                EventDatetime = datetime.now()
+            )
+            db.session.add(newNotificationStore)
+        else:
+            idNotificationUserCategory = 7
+        if matchMember.Refused == False:
+            #Envia notificação para os jogadores que haviam entrado na partida
+            newNotificationUser = NotificationUser(
+                IdUser = matchMember.IdUser,
+                IdUserReplaceText = match.matchCreator().IdUser,
+                IdMatch = idMatch,
+                IdNotificationUserCategory = idNotificationUserCategory,
+                Seen = False
+            )
+            db.session.add(newNotificationUser)
+    sendMatchCanceledFromCreatorNotification(match)
+    db.session.commit()
+    return "Partida cancelada",HttpCode.ALERT
 
 @bp_match.route("/CancelMatchEmployee", methods=["POST"])
 def CancelMatchEmployee():
@@ -813,7 +823,8 @@ def CancelMatchEmployee():
     else:
         
         if match.IsPaymentConfirmed and match.AsaasBillingType != "PAY_IN_STORE":
-            responseRefund = refundPayment(paymentId= match.AsaasPaymentId, description= f"Partida cancelada pelo estabelecimento/IdMatch {match.IdMatch}")
+            valueToRefund = float(match.CostUser)
+            responseRefund = refundPayment(paymentId= match.AsaasPaymentId, cost= valueToRefund, description= f"Partida cancelada pelo estabelecimento/IdMatch {match.IdMatch}")
             if responseRefund.status_code != 200:
                 return "Não conseguimos processar o estorno. Tente novamente", HttpCode.WARNING
             match.AsaasPaymentStatus = "REFUNDED"
