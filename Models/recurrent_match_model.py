@@ -31,6 +31,9 @@ class RecurrentMatch(db.Model):
     IdUser = db.Column(db.Integer, db.ForeignKey('user.IdUser'))
     User = db.relationship('User', foreign_keys = [IdUser])
 
+    IdStorePlayer = db.Column(db.Integer, db.ForeignKey('store_player.IdStorePlayer'))
+    StorePlayer = db.relationship('StorePlayer', foreign_keys = [IdStorePlayer])
+
     Matches = db.relationship('Match', backref="RecurrentMatch")
     
     IsExpired = ((LastPaymentDate == CreationDate) & (datetime.today().replace(day=1).date() > CreationDate)) | \
@@ -89,6 +92,9 @@ class RecurrentMatch(db.Model):
                 photo = None
             else:
                 photo = f"/img/usr/{self.User.Photo}.png"
+        elif self.StorePlayer is not None:
+            firstName = self.StorePlayer.FirstName
+            lastName = self.StorePlayer.LastName
 
         return {
             'IdRecurrentMatch': self.IdRecurrentMatch,
