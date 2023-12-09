@@ -1005,6 +1005,7 @@ def BlockUnblockHour():
     blockedReq = request.json.get('Blocked')
     blockedReasonReq = request.json.get('BlockedReason')
     idSportReq = request.json.get('IdSport')
+    idStorePlayerReq = request.json.get('IdStorePlayer')
 
     #Bloquear horário:
     #Se formos bloquear um horário, irá criar uma partida nova no horário e deixar ela como "Blocked"
@@ -1035,6 +1036,21 @@ def BlockUnblockHour():
                 AsaasSplit = 0
             )
             db.session.add(newMatch)
+            db.session.commit()
+            
+            newMatchMember = matchMember = MatchMember(
+                IdUser = None,
+                IsMatchCreator = True,
+                WaitingApproval = False,
+                Refused = False,
+                IdMatch = newMatch.IdMatch,
+                Quit = False,
+                EntryDate = datetime.now(),
+                IdStorePlayer = idStorePlayerReq,
+            )
+            db.session.add(newMatchMember)
+            db.session.commit()
+
         #Se tinha alguma partida com custo != 0 quer dizer q alguem agendou uma partida nesse meio tempo, ai não pode mais bloquear o horário
         else:
             if match.Cost != 0:
@@ -1044,6 +1060,9 @@ def BlockUnblockHour():
     if not blockedReq:
         #Verifica se existe uma partida "Blocked" no horário
         if match is not None:
+            #apaga os membros da partida
+            for member in match.Members:
+                db.session.delete(member)
             #Deleta o match que está como "Blocked"
             db.session.delete(match)
         
