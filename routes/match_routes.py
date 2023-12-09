@@ -797,6 +797,7 @@ def CancelMatch():
     db.session.commit()
     return "Partida cancelada",HttpCode.ALERT
 
+#Loja cancela o horário de um jogador
 @bp_match.route("/CancelMatchEmployee", methods=["POST"])
 def CancelMatchEmployee():
     if not request.json:
@@ -806,7 +807,7 @@ def CancelMatchEmployee():
     idMatchReq = request.json.get('IdMatch')
     cancelationReasonReq = request.json.get('CancelationReason')
 
-    #busca a loja a partir do token do employee
+    #Busca a loja a partir do token do employee
     storeCourt = db.session.query(StoreCourt)\
             .join(Employee, Employee.IdStore == StoreCourt.IdStore)\
             .filter(or_(Employee.AccessToken == accessTokenReq, Employee.AccessTokenApp == accessTokenReq)).first()
@@ -974,7 +975,7 @@ def GetOpenMatches():
 
     # return jsonify({'OpenMatches': jsonOpenMatches, 'Stores':distinctStores}), HttpCode.SUCCESS
 
-
+#Bloqueia ou desbloqueia um horário
 @bp_match.route('/BlockUnblockHour', methods=['POST'])
 def BlockUnblockHour():
     if not request.json:
@@ -983,74 +984,120 @@ def BlockUnblockHour():
     accessTokenReq = request.json.get('AccessToken')
     idStoreCourtReq = request.json.get('IdStoreCourt')
 
-    #busca a loja a partir do token do employee
+    #Busca a loja a partir do token do employee
     storeCourt = getStoreCourtByToken(accessTokenReq, idStoreCourtReq)
     
     #Caso não encontrar Token
     if storeCourt is None:
         return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
+    #Dia e horário 
     idHourReq = request.json.get('IdHour')
     dateReq = datetime.strptime(request.json.get('Date'), '%d/%m/%Y')
 
+    #Busca a partida
     match = db.session.query(Match)\
                 .filter(Match.Date == dateReq)\
                 .filter((Match.IdTimeBegin == idHourReq) | ((Match.IdTimeBegin < idHourReq) & (Match.IdTimeEnd > idHourReq)))\
                 .filter(Match.IdStoreCourt == idStoreCourtReq).first()
 
-
+    #Motivo e esporte bloqueado
     blockedReq = request.json.get('Blocked')
     blockedReasonReq = request.json.get('BlockedReason')
     idSportReq = request.json.get('IdSport')
 
-    if match is None:
-        newMatch = Match(
-            IdStoreCourt = idStoreCourtReq,
-            IdSport = idSportReq,
-            Date = dateReq,
-            IdTimeBegin = idHourReq,
-            IdTimeEnd = idHourReq+1,
-            Cost = 0,
-            CostUser = 0,
-            CostDiscount = 0,
-            OpenUsers = False,
-            MaxUsers = 0,
-            Canceled = False,
-            CreationDate = datetime.now(),
-            CreatorNotes = "",
-            IdRecurrentMatch = 0,
-            Blocked = blockedReq,
-            BlockedReason = blockedReasonReq,
-            AsaasBillingType = "BLOCKED",
-            AsaasPaymentStatus = "BLOCKED",
-            CostFinal = 0,
-            CostAsaasTax = 0,
-            CostSandfriendsNetTax = 0,
-            AsaasSplit = 0
-        )
-        db.session.add(newMatch)
+    #Bloquear horário:
+    #Se formos bloquear um horário, irá criar uma partida nova no horário e deixar ela como "Blocked"
+    if blockedReq:
+        if match is None:
+            newMatch = Match(
+                IdStoreCourt = idStoreCourtReq,
+                IdSport = idSportReq,
+                Date = dateReq,
+                IdTimeBegin = idHourReq,
+                IdTimeEnd = idHourReq+1,
+                Cost = 0,
+                CostUser = 0,
+                CostDiscount = 0,
+                OpenUsers = False,
+                MaxUsers = 0,
+                Canceled = False,
+                CreationDate = datetime.now(),
+                CreatorNotes = "",
+                IdRecurrentMatch = 0,
+                Blocked = blockedReq,
+                BlockedReason = blockedReasonReq,
+                AsaasBillingType = "BLOCKED",
+                AsaasPaymentStatus = "BLOCKED",
+                CostFinal = 0,
+                CostAsaasTax = 0,
+                CostSandfriendsNetTax = 0,
+                AsaasSplit = 0
+            )
+            db.session.add(newMatch)
+        #Se tinha alguma partida com custo != 0 quer dizer q alguem agendou uma partida nesse meio tempo, ai não pode mais bloquear o horário
+        else:
+            if match.Cost != 0:
+                return webResponse("Ops", "Não foi possível bloquear o horário. Uma partida já foi ou está sendo marcada"), HttpCode.WARNING
 
-    else:
-        #se tinha alguma partida com custo != 0 quer dizer q alguem agendou uma partida nesse meio tempo, ai não pode mais bloear o horario
-        if match.Cost != 0:
-            return webResponse("Ops", "Não foi possível bloquear o horário. Uma partida já foi ou está sendo marcada"), HttpCode.WARNING
-        
-        #em teoria se chegou aqui é para desbloquear um horário, coloquei esse if só pra ter certeza
-        if blockedReq == False:
+    #Desbloquear horário
+    if not blockedReq:
+        #Verifica se existe uma partida "Blocked" no horário
+        if match is not None:
+            #Deleta o match que está como "Blocked"
             db.session.delete(match)
+        
+        #Caso não tenha partida, verifica se existe um bloqueio mensalista nesse horário
+        else:
+            recurrentMatch = db.session.query(RecurrentMatch)\
+                .filter(RecurrentMatch.Blocked == 1)\
+                .filter(RecurrentMatch.Weekday == dateReq.weekday())\
+                .filter((RecurrentMatch.IdTimeBegin == idHourReq) | ((RecurrentMatch.IdTimeBegin < idHourReq) & (RecurrentMatch.IdTimeEnd > idHourReq)))\
+                .filter(RecurrentMatch.IdStoreCourt == idStoreCourtReq).first()
+
+            #Se existir um bloqueio mensalista, cria uma partida como "Cancelled" - Frontend vai entender que uma partida foi cancelada e o horário liberou
+            if recurrentMatch is not None:
+                newMatch = Match(
+                    IdStoreCourt = idStoreCourtReq,
+                    IdSport = idSportReq,
+                    Date = dateReq,
+                    IdTimeBegin = idHourReq,
+                    IdTimeEnd = idHourReq+1,
+                    Cost = 0,
+                    CostUser = 0,
+                    CostDiscount = 0,
+                    OpenUsers = False,
+                    MaxUsers = 0,
+                    Canceled = True,
+                    CreationDate = datetime.now(),
+                    CreatorNotes = "",
+                    IdRecurrentMatch = 0,
+                    Blocked = 0,
+                    BlockedReason = "",
+                    AsaasBillingType = "UNBLOCKED",
+                    AsaasPaymentStatus = "UNBLOCKED",
+                    CostFinal = 0,
+                    CostAsaasTax = 0,
+                    CostSandfriendsNetTax = 0,
+                    AsaasSplit = 0
+                )
+                db.session.add(newMatch)
     
     db.session.commit()
 
+    #Monta a lista de partidas que terá no mês para atualizar o calendário
+    #Dias do mês
     startDate = lastSundayOnLastMonth(dateReq)
     endDate = firstSundayOnNextMonth(dateReq)
 
     courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == storeCourt.IdStore).all()
 
+    #Retorna a lista de partidas
     matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
-    .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
-    .filter(Match.Canceled == False).all()
+        .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
+        .filter(Match.Canceled == False).all()
     
-    matchList =[]
+    matchList = []
     for match in matches:
         matchList.append(match.to_json_min())
 
