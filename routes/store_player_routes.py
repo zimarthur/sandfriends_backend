@@ -148,7 +148,7 @@ def getStorePlayers(store):
     
     addedIdUsers = []
     for matchMember in matchMembers:
-        if matchMember.IdUser not in addedIdUsers:
+        if matchMember.IdUser not in addedIdUsers and matchMember.IdUser is not None:
             addedIdUsers.append(matchMember.IdUser)
             matchMembersList.append(matchMember.User.to_json_web())
 

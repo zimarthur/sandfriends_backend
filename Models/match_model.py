@@ -147,17 +147,21 @@ class Match(db.Model):
         #Retorna uma versão mais simplificada
         #Menos texto para transmitir para o app ao carregar a página
         #cuidado, esses nomes tem q ser vazios (caso de partida bloqueada, q não tem criador)
-        MatchCreatorFirstName = ""
-        MatchCreatorLastName = ""
-        MatchCreatorPhoto = None
+        matchCreatorFirstName = ""
+        matchCreatorLastName = ""
+        matchCreatorPhoto = None
         for member in self.Members:
             if member.IsMatchCreator == 1:
-                MatchCreatorFirstName = member.User.FirstName
-                MatchCreatorLastName = member.User.LastName
-                if member.User.Photo is None:
-                    MatchCreatorPhoto = None
+                if member.StorePlayer is not None:
+                    matchCreatorFirstName = member.StorePlayer.FirstName
+                    matchCreatorLastName = member.StorePlayer.LastName
                 else:
-                    MatchCreatorPhoto = f"/img/usr/{member.User.Photo}.png"
+                    matchCreatorFirstName = member.User.FirstName
+                    matchCreatorLastName = member.User.LastName
+                    if member.User.Photo is None:
+                        matchCreatorPhoto = None
+                    else:
+                        matchCreatorPhoto = f"/img/usr/{member.User.Photo}.png"
 
         return {
             'IdMatch': self.IdMatch,            
@@ -170,9 +174,9 @@ class Match(db.Model):
             'IdSport': self.IdSport,
             'CreatorNotes': self.CreatorNotes,
             'IdRecurrentMatch': self.IdRecurrentMatch,
-            'MatchCreatorFirstName': MatchCreatorFirstName,
-            'MatchCreatorLastName': MatchCreatorLastName,
-            'MatchCreatorPhoto': MatchCreatorPhoto,
+            'MatchCreatorFirstName': matchCreatorFirstName,
+            'MatchCreatorLastName': matchCreatorLastName,
+            'MatchCreatorPhoto': matchCreatorPhoto,
             'Blocked':self.Blocked,
             'BlockedReason':self.BlockedReason,
             'PaymentStatus': self.AsaasPaymentStatus,

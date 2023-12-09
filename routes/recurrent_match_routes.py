@@ -612,6 +612,7 @@ def RecurrentBlockUnblockHour():
 
 
     blockedReq = request.json.get('Blocked')
+    idStorePlayerReq = request.json.get('IdStorePlayer')
     blockedReasonReq = request.json.get('BlockedReason')
     idSportReq = request.json.get('IdSport')
 
@@ -628,6 +629,7 @@ def RecurrentBlockUnblockHour():
             Canceled = False,
             Blocked = blockedReq,
             BlockedReason = blockedReasonReq,
+            IdStorePlayer = idStorePlayerReq,
         )
         db.session.add(newRecurrentMatch)
 
