@@ -57,11 +57,15 @@ class RecurrentMatch(db.Model):
 
         return recurrentMatchesCounter
     
-    def getNextRecurrentMatches(self):
+    def getNextRecurrentMatches(self, isPlayerApp):
         recurrentMatchesList=[]
         for match in self.Matches:
             if datetime.today().replace(day=1).date() <= match.Date:
-                recurrentMatchesList.append(match.to_json())
+                if isPlayerApp:
+                    recurrentMatchesList.append(match.to_json())
+                else:
+                    recurrentMatchesList.append(match.to_json_min())
+
         return recurrentMatchesList
 
     def to_json(self):
@@ -77,7 +81,7 @@ class RecurrentMatch(db.Model):
             'StoreCourt': self.StoreCourt.to_json_match(),
             'User': self.User.to_json(),
             'RecurrentMatchCounter':self.getMatchCounter(),
-            'NextRecurrentMatches': self.getNextRecurrentMatches(),
+            'NextRecurrentMatches': self.getNextRecurrentMatches(True),
             'ValidUntil': self.ValidUntil.strftime("%d/%m/%Y"),
         }
 
@@ -112,5 +116,6 @@ class RecurrentMatch(db.Model):
             'Canceled': self.Canceled,
             'Blocked':self.Blocked,
             'BlockedReason':self.BlockedReason,
-            'CurrentMonthMatches': self.getCurrentMonthMatches(),
+            'NextRecurrentMatches': self.getNextRecurrentMatches(False),
+            'ValidUntil': self.ValidUntil.strftime("%d/%m/%Y"),
         }

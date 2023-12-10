@@ -1129,7 +1129,7 @@ def SearchCustomMatches():
     matches = db.session.query(Match)\
                     .filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in employee.Store.Courts]))\
                     .filter((Match.Date >= dateStartReq) & (Match.Date <= dateEndReq))\
-                    .filter(Match.Canceled == False)\
+                    .filter((Match.Canceled == False) | ((Match.Canceled == True) & (Match.IsFromRecurrentMatch)))\
                     .filter(Match.Blocked != True).all()
 
     matchList = []

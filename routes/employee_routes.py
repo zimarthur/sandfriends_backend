@@ -496,7 +496,7 @@ def initStoreLoginData(employee, isRequestFromAppReq):
     matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
         .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
         .filter(Match.IsPaymentConfirmed | Match.Blocked == True)\
-        .filter(Match.Canceled == False).all()
+        .filter((Match.Canceled == False) | ((Match.Canceled == True) & (Match.IsFromRecurrentMatch))).all()
     
     matchList =[]
     for match in matches:

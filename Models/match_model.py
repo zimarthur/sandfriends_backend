@@ -65,6 +65,10 @@ class Match(db.Model):
     def IsPaymentConfirmed(self):
         return self.AsaasPaymentStatus == "CONFIRMED"
 
+    @hybrid_property
+    def IsFromRecurrentMatch(self):
+        return self.IdRecurrentMatch != 0
+
     def MatchDatetime(self):
         return datetime.strptime(self.Date.strftime("%Y-%m-%d ") + self.TimeBegin.HourString, "%Y-%m-%d %H:%M")
     
