@@ -970,7 +970,7 @@ def BlockUnblockHour():
 
     accessTokenReq = request.json.get('AccessToken')
     idStoreCourtReq = request.json.get('IdStoreCourt')
-
+    idMatchReq = request.json.get('IdMatch')
     #Busca a loja a partir do token do employee
     storeCourt = getStoreCourtByToken(accessTokenReq, idStoreCourtReq)
     
@@ -982,22 +982,20 @@ def BlockUnblockHour():
     idHourReq = request.json.get('IdHour')
     dateReq = datetime.strptime(request.json.get('Date'), '%d/%m/%Y')
 
-    #Busca a partida
-    match = db.session.query(Match)\
-                .filter(Match.Date == dateReq)\
-                .filter((Match.IdTimeBegin == idHourReq) | ((Match.IdTimeBegin < idHourReq) & (Match.IdTimeEnd > idHourReq)))\
-                .filter(Match.IdStoreCourt == idStoreCourtReq).first()
-
     #Motivo e esporte bloqueado
     blockedReq = request.json.get('Blocked')
     blockedReasonReq = request.json.get('BlockedReason')
     idSportReq = request.json.get('IdSport')
     idStorePlayerReq = request.json.get('IdStorePlayer')
+    
+    #Verifica se já tem uma partida agendada no mesmo horário
+    concurrentMatch = queryConcurrentMatches([idStoreCourtReq],[dateReq], idHourReq, idHourReq+1)
+    concurrentRecurrentMatches = queryConcurrentRecurrentMatches([idStoreCourtReq], [dateReq], idHourReq, idHourReq+1)
 
     #Bloquear horário:
     #Se formos bloquear um horário, irá criar uma partida nova no horário e deixar ela como "Blocked"
     if blockedReq:
-        if match is None:
+        if isHourAvailableForMatch(concurrentMatch, concurrentRecurrentMatches, idStoreCourtReq, dateReq, idHourReq):
             newMatch = Match(
                 IdStoreCourt = idStoreCourtReq,
                 IdSport = idSportReq,
@@ -1038,13 +1036,14 @@ def BlockUnblockHour():
             db.session.add(newMatchMember)
             db.session.commit()
 
-        #Se tinha alguma partida com custo != 0 quer dizer q alguem agendou uma partida nesse meio tempo, ai não pode mais bloquear o horário
         else:
-            if match.Cost != 0:
-                return webResponse("Ops", "Não foi possível bloquear o horário. Uma partida já foi ou está sendo marcada"), HttpCode.WARNING
+            return webResponse("Ops", "Não foi possível bloquear o horário. Uma partida já foi ou está sendo marcada"), HttpCode.WARNING
 
     #Desbloquear horário
     if not blockedReq:
+        match = db.session.query(Match)\
+                .filter(Match.IdMatch == idMatchReq).first()
+
         #Verifica se existe uma partida "Blocked" no horário
         if match is not None:
             #apaga os membros da partida
@@ -1192,7 +1191,7 @@ def isHourAvailableForMatch(matches, recurrentMatches, idStoreCourt, date, hour)
             #caso tenha um mensalista q foi bloqueado pela quadra. 
             #Esse caso tem q cuidar porque a quadra pode cancelar uma partida avulsa desse mensalista
             if recurrentMatch.Blocked == False:
-                if date >= recurrentMatch.ValidUntil:
+                if date >= recurrentMatch.ValidUntil.date():
                     print("CAIU 3")
                     return False
             

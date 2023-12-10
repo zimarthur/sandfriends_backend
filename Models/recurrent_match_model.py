@@ -99,7 +99,11 @@ class RecurrentMatch(db.Model):
         elif self.StorePlayer is not None:
             firstName = self.StorePlayer.FirstName
             lastName = self.StorePlayer.LastName
-
+        #pq os mensalistas bloqueados não tem validUntil (null)
+        if self.ValidUntil is not None:
+            validUntil = self.ValidUntil.strftime("%d/%m/%Y")
+        else:
+            validUntil = None
         return {
             'IdRecurrentMatch': self.IdRecurrentMatch,
             'CreationDate': self.CreationDate.strftime("%d/%m/%Y"),
@@ -117,5 +121,5 @@ class RecurrentMatch(db.Model):
             'Blocked':self.Blocked,
             'BlockedReason':self.BlockedReason,
             'NextRecurrentMatches': self.getNextRecurrentMatches(False),
-            'ValidUntil': self.ValidUntil.strftime("%d/%m/%Y"),
+            'ValidUntil': validUntil,
         }
