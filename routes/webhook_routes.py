@@ -29,8 +29,6 @@ def WebhookPayment():
     db.session.add(newAsaasWebhookPayment)
     db.session.commit()
 
-    #TODO: verificar o token da requisição para ser o access_token dos webhooks - fazer isso por segurança
-
     #se o evento
     if (eventReq == "PAYMENT_CONFIRMED") or (eventReq == "PAYMENT_RECEIVED"):
         #Verifica se existe uma partida com este payment_id
@@ -62,6 +60,12 @@ def WebhookPayment():
                     recurrentMatch.ValidUntil = validUntil
                 #Caso tenha, altera o status de pagamento dela
                 match.AsaasPaymentStatus = "CONFIRMED"
+                #Verifica se foi usado um cupom de uso único
+                if match.IdCoupon != 0:
+                    if match.Coupon.IsUniqueUse:
+                        #Desabilita o cupom, já que ele já foi utilizado
+                        match.Coupon.IsValid = False
+
                 db.session.commit()
 
         if sendMatchEmail:

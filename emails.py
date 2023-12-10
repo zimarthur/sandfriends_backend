@@ -15,6 +15,7 @@ STORE_AWAITING_APPROVAL = 5237400
 
 USER_MATCH_CONFIRMED = 4954742
 USER_RECURRENT_MATCH_CONFIRMED = 4978838
+USER_RECEIVE_COUPON = 5428798
 
 def emailUserMatchConfirmed(match):
     variables = {
@@ -91,7 +92,14 @@ def emailStoreAwaitingApproval(store, employee, city):
     }
     sendEmail("Admin","", STORE_AWAITING_APPROVAL, variables)
 
-
+#Cupom de desconto para o usuário
+def emailUserReceiveCoupon(email, coupon):
+    variables = {
+        "couponcode": coupon.Code,
+        "store": coupon.StoreValid.Name,
+        "value": f"R$ {coupon.Value}",
+    }
+    sendEmail(email,"", USER_RECEIVE_COUPON, variables)
 
 def sendEmail(email, name, templateId, variables):
     #Emails nossos - Irá enviar apenas no ambiente de dev

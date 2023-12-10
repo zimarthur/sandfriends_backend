@@ -12,7 +12,7 @@ from ..Models.state_model import State
 from ..Models.sport_model import Sport
 from ..Models.gender_category_model import GenderCategory
 from ..Models.rank_category_model import RankCategory
-from ..Models.match_model import Match
+from ..Models.match_model import Match, queryMatchesForCourts
 from ..Models.match_member_model import MatchMember
 from ..Models.reward_user_model import RewardUser
 from ..Models.recurrent_match_model import RecurrentMatch
@@ -412,9 +412,7 @@ def UpdateMatchesList():
 
     courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == employee.Store.IdStore).all()
 
-    matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
-    .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
-    .filter(Match.Canceled == False).all()
+    matches = queryMatchesForCourts([court.IdStoreCourt for court in courts], startDate, endDate)
     
     matchList =[]
     for match in matches:
@@ -493,11 +491,8 @@ def initStoreLoginData(employee, isRequestFromAppReq):
     startDate = lastSundayOnLastMonth(datetime.today())
     endDate = firstSundayOnNextMonth(datetime.today())
 
-    matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
-        .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
-        .filter(Match.IsPaymentConfirmed | Match.Blocked == True)\
-        .filter(Match.Canceled == False).all()
-    
+    matches = queryMatchesForCourts([court.IdStoreCourt for court in courts], startDate, endDate)
+
     matchList =[]
     for match in matches:
         matchList.append(match.to_json_min())

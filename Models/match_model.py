@@ -65,6 +65,10 @@ class Match(db.Model):
     def IsPaymentConfirmed(self):
         return self.AsaasPaymentStatus == "CONFIRMED"
 
+    @hybrid_property
+    def IsFromRecurrentMatch(self):
+        return self.IdRecurrentMatch != 0
+
     def MatchDatetime(self):
         return datetime.strptime(self.Date.strftime("%Y-%m-%d ") + self.TimeBegin.HourString, "%Y-%m-%d %H:%M")
     
@@ -177,6 +181,7 @@ class Match(db.Model):
             'MatchCreatorFirstName': matchCreatorFirstName,
             'MatchCreatorLastName': matchCreatorLastName,
             'MatchCreatorPhoto': matchCreatorPhoto,
+            'Canceled': self.Canceled,
             'Blocked':self.Blocked,
             'BlockedReason':self.BlockedReason,
             'PaymentStatus': self.AsaasPaymentStatus,
@@ -187,3 +192,9 @@ class Match(db.Model):
             'CostUser': self.CostUser 
         }
         
+def queryMatchesForCourts(courts, startDate, endDate):
+    return db.session.query(Match).filter(Match.IdStoreCourt.in_(courts))\
+        .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
+        .filter(Match.IsPaymentConfirmed | Match.Blocked == True)\
+        .filter((Match.Canceled == False) | ((Match.Canceled == True) & (Match.IsFromRecurrentMatch))).all()
+    
