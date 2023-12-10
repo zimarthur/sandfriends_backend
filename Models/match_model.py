@@ -177,6 +177,7 @@ class Match(db.Model):
             'MatchCreatorFirstName': matchCreatorFirstName,
             'MatchCreatorLastName': matchCreatorLastName,
             'MatchCreatorPhoto': matchCreatorPhoto,
+            'Canceled': self.Canceled,
             'Blocked':self.Blocked,
             'BlockedReason':self.BlockedReason,
             'PaymentStatus': self.AsaasPaymentStatus,
