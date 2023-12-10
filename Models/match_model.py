@@ -192,3 +192,9 @@ class Match(db.Model):
             'CostUser': self.CostUser 
         }
         
+def queryMatchesForCourts(courts, startDate, endDate):
+    return db.session.query(Match).filter(Match.IdStoreCourt.in_(courts))\
+        .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
+        .filter(Match.IsPaymentConfirmed | Match.Blocked == True)\
+        .filter((Match.Canceled == False) | ((Match.Canceled == True) & (Match.IsFromRecurrentMatch))).all()
+    

@@ -7,7 +7,7 @@ from ..responses import webResponse
 from ..utils import firstSundayOnNextMonth, lastSundayOnLastMonth, isCurrentMonth
 from ..routes.store_routes import getAvailableStores
 from ..Models.http_codes import HttpCode
-from ..Models.match_model import Match
+from ..Models.match_model import Match, queryMatchesForCourts
 from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.user_model import User
 from ..Models.user_rank_model import UserRank
@@ -31,13 +31,14 @@ from ..Models.notification_store_model import NotificationStore
 from ..Models.notification_store_category_model import NotificationStoreCategory
 from ..Models.coupon_model import Coupon
 from ..access_token import EncodeToken, DecodeToken
-from ..emails import emailUserMatchConfirmed
+from ..emails import emailUserMatchConfirmed, emailUserReceiveCoupon
 from ..Asaas.Customer.update_customer import updateCpf
 from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard, getSplitPercentage
 from ..Asaas.Payment.refund_payment import refundPayment
 from ..Asaas.Payment.generate_qr_code import generateQrCode
 from sandfriends_backend.push_notifications import sendMatchInvitationNotification, sendMatchInvitationRefusedNotification, sendMatchInvitationAcceptedNotification, sendMemberLeftMatchNotification, sendMatchCanceledFromCreatorNotification, sendEmployeesNewMatchNotification
 from sqlalchemy import or_
+from ..routes.coupon_routes import generateRandomCouponCode
 
 bp_match = Blueprint('bp_match', __name__)
 
@@ -130,7 +131,6 @@ def SearchCourts():
     idStoreCourts = [court.IdStoreCourt for court in courts]
     matches = queryConcurrentMatches(idStoreCourts, daterange(dateStart.date(), dateEnd.date()), timeStart, timeEnd)
     recurrentMatches = queryConcurrentRecurrentMatches(idStoreCourts, searchWeekdays, timeStart, timeEnd)
-    print("AAA len "+str(len(recurrentMatches)))
 
     #partidas abertas
     jsonOpenMatches = []
@@ -329,9 +329,13 @@ def MatchReservation():
             if coupon.DiscountType == "PERCENTAGE":
                 discountValue = (costReq * float(coupon.Value))/100
             if coupon.DiscountType == "FIXED":
-                discountValue = coupon.Value
+                discountValue = float(coupon.Value)
 
         costUser = float(costReq - discountValue)
+
+        #Verifica se ficou negativo
+        if costUser <= 0:
+            costUser = 0    
 
         #Gera a cobrança no Asaas
         responsePayment = createPaymentPix(user, costUser, store)
@@ -372,9 +376,13 @@ def MatchReservation():
             if coupon.DiscountType == "PERCENTAGE":
                 discountValue = (costReq * float(coupon.Value))/100
             if coupon.DiscountType == "FIXED":
-                discountValue = coupon.Value
+                discountValue = float(coupon.Value)
 
         costUser = float(costReq - discountValue)
+
+        #Verifica se ficou negativo
+        if costUser < 0:
+            costUser = 0
 
         #Gera a cobrança no Asaas
         responsePayment = createPaymentCreditCard(
@@ -739,12 +747,33 @@ def CancelMatch():
     #Se for uma partida válida
     if match.IsPaymentConfirmed and match.AsaasBillingType != "PAY_IN_STORE":
 
+        #Gera o cupom de desconto
+        #Gerar o código primeiro
+        couponCode = generateRandomCouponCode(6)
+
+        newCoupon = Coupon(
+            DiscountType = "FIXED",
+            Value = match.CostUser,
+            Code = couponCode,
+            IsValid = True,
+            IdStoreValid = match.StoreCourt.IdStore,
+            IdTimeBeginValid = 1,
+            IdTimeEndValid = 24,
+            DateBeginValid = datetime.now(),
+            DateEndValid = datetime.now() + timedelta(days=365),
+            IsUniqueUse = True,
+        )
+        db.session.add(newCoupon)
+        db.session.commit()
+
+        #Envia o cupom de desconto por e-mail ao jogador
+        emailUserReceiveCoupon(user.Email, newCoupon)
+
         #Realiza o estorno do Asaas
-        valueToRefund = float(match.CostUser)
-        responseRefund = refundPayment(paymentId= match.AsaasPaymentId, cost= valueToRefund, description= f"Partida cancelada/IdMatch {match.IdMatch}")
-        
-        if responseRefund.status_code != 200:
-            return "Não conseguimos processar o estorno. Tente novamente", HttpCode.WARNING
+        #valueToRefund = float(match.CostUser)
+        #responseRefund = refundPayment(paymentId= match.AsaasPaymentId, cost= valueToRefund, description= f"Partida cancelada/IdMatch {match.IdMatch}")
+        #if responseRefund.status_code != 200:
+        #    return "Não conseguimos processar o estorno. Tente novamente", HttpCode.WARNING
         match.AsaasPaymentStatus = "REFUNDED"
 
     match.Canceled = True
@@ -846,9 +875,8 @@ def CancelMatchEmployee():
 
         courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == storeCourt.IdStore).all()
 
-        matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
-        .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
-        .filter(Match.Canceled == False).all()
+        matches = queryMatchesForCourts([court.IdStoreCourt for court in courts], startDate, endDate)
+
         
         matchList =[]
         for match in matches:
@@ -988,13 +1016,14 @@ def BlockUnblockHour():
     idSportReq = request.json.get('IdSport')
     idStorePlayerReq = request.json.get('IdStorePlayer')
     
-    #Verifica se já tem uma partida agendada no mesmo horário
-    concurrentMatch = queryConcurrentMatches([idStoreCourtReq],[dateReq], idHourReq, idHourReq+1)
-    concurrentRecurrentMatches = queryConcurrentRecurrentMatches([idStoreCourtReq], [dateReq], idHourReq, idHourReq+1)
-
+    
     #Bloquear horário:
     #Se formos bloquear um horário, irá criar uma partida nova no horário e deixar ela como "Blocked"
     if blockedReq:
+        #Verifica se já tem uma partida agendada no mesmo horário
+        concurrentMatch = queryConcurrentMatches([idStoreCourtReq],[dateReq], idHourReq, idHourReq+1)
+        concurrentRecurrentMatches = queryConcurrentRecurrentMatches([idStoreCourtReq], [dateReq], idHourReq, idHourReq+1)
+
         if isHourAvailableForMatch(concurrentMatch, concurrentRecurrentMatches, idStoreCourtReq, dateReq, idHourReq):
             newMatch = Match(
                 IdStoreCourt = idStoreCourtReq,
@@ -1098,9 +1127,7 @@ def BlockUnblockHour():
     courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == storeCourt.IdStore).all()
 
     #Retorna a lista de partidas
-    matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
-        .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
-        .filter(Match.Canceled == False).all()
+    matches = queryMatchesForCourts([court.IdStoreCourt for court in courts], startDate, endDate)
     
     matchList = []
     for match in matches:
@@ -1125,16 +1152,15 @@ def SearchCustomMatches():
     if employee is None:
         return '1', HttpCode.EXPIRED_TOKEN
     
-    matches = db.session.query(Match)\
+    matches =  db.session.query(Match)\
                     .filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in employee.Store.Courts]))\
                     .filter((Match.Date >= dateStartReq) & (Match.Date <= dateEndReq))\
                     .filter((Match.Canceled == False) | ((Match.Canceled == True) & (Match.IsFromRecurrentMatch)))\
                     .filter(Match.Blocked != True).all()
-
+    
     matchList = []
     for match in matches:
         matchList.append(match.to_json_min())
-
     return {'Matches': matchList}, HttpCode.SUCCESS
 
 #Gera lista de partidas no mesmo horário selecionado
@@ -1164,7 +1190,6 @@ def queryConcurrentRecurrentMatches(listIdStoreCourt, weekdays, timeStart, timeE
 
 
 def isHourAvailableForMatch(matches, recurrentMatches, idStoreCourt, date, hour):
-    print("LEN "+str(len(recurrentMatches)))
     #Verifica se não tem nenhuma partida no mesmo horario, dia e quadra
     if len([match for match in matches if \
                 (match.IdStoreCourt ==  idStoreCourt) and \
@@ -1173,7 +1198,6 @@ def isHourAvailableForMatch(matches, recurrentMatches, idStoreCourt, date, hour)
                 ((match.IdTimeBegin == hour) or \
                 ((match.IdTimeBegin < hour) and (match.IdTimeEnd > hour)))\
         ]) > 0:
-        print("CAIU 1")
         return False
     else:
         concurrentRecurrentMatch = [recurrentMatch for recurrentMatch in recurrentMatches if \
@@ -1183,7 +1207,6 @@ def isHourAvailableForMatch(matches, recurrentMatches, idStoreCourt, date, hour)
                         ((recurrentMatch.IdTimeBegin < hour) and (recurrentMatch.IdTimeEnd > hour)))\
         ]
         if len(concurrentRecurrentMatch) == 0:
-            print("CAIU 2")
             return True
         
         #na teoria, se tem um concurrentRecurrentMatch deveria ter 1 ocorrencia só, mas como ele é uma lista fiz o for loop
@@ -1192,7 +1215,6 @@ def isHourAvailableForMatch(matches, recurrentMatches, idStoreCourt, date, hour)
             #Esse caso tem q cuidar porque a quadra pode cancelar uma partida avulsa desse mensalista
             if recurrentMatch.Blocked == False:
                 if date >= recurrentMatch.ValidUntil.date():
-                    print("CAIU 3")
                     return False
             
             if len([match for match in matches if \
@@ -1204,10 +1226,8 @@ def isHourAvailableForMatch(matches, recurrentMatches, idStoreCourt, date, hour)
                 ((match.IdTimeBegin < hour) and (match.IdTimeEnd > hour)))\
             ]) > 0:
                 #Quer dizer q o horário é de um mensalista, mas nesse dia foi cancelado
-                print("CAIU 4")
                 return True
             else:
-                print("CAIU 5")
                 return False
            
 

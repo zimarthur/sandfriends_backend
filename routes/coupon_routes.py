@@ -3,6 +3,8 @@ from ..Models.coupon_model import Coupon
 from ..extensions import db
 from ..Models.http_codes import HttpCode
 from datetime import datetime, timedelta
+import string
+import random
 
 bp_coupon = Blueprint('bp_coupon', __name__)
 
@@ -34,3 +36,19 @@ def ValidateCoupon():
 
     #Cupom ok
     return coupon.to_json_min(), HttpCode.SUCCESS
+
+def generateRandomCouponCode(length):
+    #Gera uma série aleatória de caracteres
+    characters = string.ascii_uppercase + string.digits
+    random_string = ''.join(random.choice(characters) for _ in range(length))
+    
+    #Verifica se ela já não existe
+    coupon = Coupon.query.filter_by(Code = random_string).first()
+
+    #Se o cupom for único
+    if coupon is None:
+        return random_string
+    #Se já existir um cupom com esse código, roda de novo
+    else:
+        gerenateRandomCoupon(length)
+

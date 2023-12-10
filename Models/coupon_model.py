@@ -10,11 +10,14 @@ class Coupon(db.Model):
     IsValid = db.Column(db.Boolean)
 
     IdStoreValid = db.Column(db.Integer, db.ForeignKey('store.IdStore'))
+    StoreValid = db.relationship('Store', foreign_keys = [IdStoreValid])
 
     IdTimeBeginValid = db.Column(db.Integer)
     IdTimeEndValid = db.Column(db.Integer)
     DateBeginValid = db.Column(db.DateTime)
     DateEndValid = db.Column(db.DateTime)
+
+    IsUniqueUse = db.Column(db.Boolean)
 
     def to_json(self):
         return {
