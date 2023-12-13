@@ -19,8 +19,8 @@ def AddStorePlayer():
     
     accessTokenReq = request.json.get('AccessToken')
 
-    firstNameReq = request.json.get('FirstName')
-    lastNameReq = request.json.get('LastName')
+    firstNameReq = request.json.get('FirstName').title()
+    lastNameReq = request.json.get('LastName').title()
     phoneNumberReq = request.json.get('PhoneNumber')
     idGenderCategoryReq = request.json.get('IdGenderCategory')
     idSportReq = request.json.get('IdSport')
@@ -61,8 +61,8 @@ def EditStorePlayer():
     accessTokenReq = request.json.get('AccessToken')
 
     idStorePlayerReq = request.json.get('IdStorePlayer')
-    firstNameReq = request.json.get('FirstName')
-    lastNameReq = request.json.get('LastName')
+    firstNameReq = request.json.get('FirstName').title()
+    lastNameReq = request.json.get('LastName').title()
     phoneNumberReq = request.json.get('PhoneNumber')
     idGenderCategoryReq = request.json.get('IdGenderCategory')
     idSportReq = request.json.get('IdSport')
