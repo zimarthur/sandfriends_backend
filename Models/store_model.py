@@ -35,9 +35,17 @@ class Store(db.Model):
 
     CompanyType = db.Column(db.String(45))
     
+    ### Taxas do Sandfriends
     FeeSandfriendsHigh = db.Column(db.Integer)
     FeeSandfriendsLow = db.Column(db.Integer)
+    #Número de horas agendadas no mês para alterar da taxa alta para a baixa
     FeeThreshold = db.Column(db.Integer)
+
+    #Forma como cobramos das quadras
+    #PercentageFeesIncluded - Taxa do Sandfriends já inclui as taxas do Asaas
+    #PercentageFeesNotIncluded - Taxa do Sandfriends não inclui taxas do Asaas
+    #FixedPrice - Cobramos uma mensalidade fixa da quadra
+    BillingMethod = db.Column(db.String(45))
 
     @property
     def IsAvailable(self):

@@ -9,11 +9,7 @@ from ...Models.match_model import Match
 from ...encryption import encrypt_aes, decrypt_aes
 import os
 
-def getSplitPercentage(store, value, billingType):
-    #Número de quadras do estabelecimento - não usando no momento
-    numberOfCourts = db.session.query(StoreCourt)\
-        .filter(StoreCourt.IdStore == store.IdStore).count()
-    
+def getSplitPercentage(store, value, billingType):  
     #Número de partidas neste mês no estabelecimento
         #Partidas nesta quadra
         #Partidas não canceladas        
@@ -24,7 +20,7 @@ def getSplitPercentage(store, value, billingType):
         .filter((Match.CreationDate >= getFirstDayOfMonth(datetime.now())) & (Match.CreationDate >= getLastDayOfMonth(datetime.now())) ).all()        
     
     #Quantas horas de partida no mês
-    currentMonthMatchesHours=0
+    currentMonthMatchesHours = 0
     for match in currentMonthMatches:
         if match.isPaymentExpired == False:
             currentMonthMatchesHours += match.MatchDuration()
@@ -48,18 +44,39 @@ def getSplitPercentage(store, value, billingType):
         feeSandfriends = store.FeeSandfriendsLow
 
     ####Ajuste do split
-    #Asaas cobra as taxas deles sobre o valor total
-    valorPosAsaas = value * (1 - feeAsaas[billingType]["percentage"]/100) - feeAsaas[billingType]["flat"]
-    #Valor que cobraremos do valor total (Contém a taxa do Sandfriends + taxa do Asaas)
-    valorPosSandfriends = value * (1 - feeSandfriends/100)
-    #Quanto o Sandfriends receberia pela partida
-    parcelaSandfriends = valorPosAsaas - valorPosSandfriends
-    #Percentual de split para considerar no Asaas
-    split = parcelaSandfriends / valorPosAsaas
 
-    #Precisa retornar um valor de 0 a 100 - o valor é o quanto vai para a walled da loja
-    return round((1 - split) * 100,2)
-    #return parcelaSandfriends
+    ### Taxa do Sandfriends já inclui as taxas do Asaas
+    if store.BillingMethod == "PercentageFeesIncluded":
+        #Asaas cobra as taxas deles sobre o valor total
+        valorPosAsaas = value * (1 - feeAsaas[billingType]["percentage"]/100) - feeAsaas[billingType]["flat"]
+        #Valor que cobraremos do valor total (Contém a taxa do Sandfriends + taxa do Asaas)
+        valorPosSandfriends = value * (1 - feeSandfriends/100)
+        #Quanto o Sandfriends receberia pela partida
+        parcelaSandfriends = valorPosAsaas - valorPosSandfriends
+        #Percentual de split para considerar no Asaas
+        split = parcelaSandfriends / valorPosAsaas
+        #Precisa retornar um valor de 0 a 100 - o valor é o quanto vai para a wallet da loja
+        split = round((1 - split) * 100,2)
+    
+    ### Taxa do Sandfriends não inclui taxas do Asaas - Estas são cobradas a parte
+    if store.BillingMethod == "PercentageFeesNotIncluded":
+        #Asaas cobra as taxas deles sobre o valor total
+        valorPosAsaas = value * (1 - feeAsaas[billingType]["percentage"]/100) - feeAsaas[billingType]["flat"]
+        #Taxa do Sandfriends
+        parcelaSandfriends = value * feeSandfriends/100
+        #Valor líquido para a quadra
+        valorLiquidoQuadra = valorPosAsaas - parcelaSandfriends
+        #Percentual de split para considerar no Asaas
+        split = valorLiquidoQuadra / valorPosAsaas
+        #Precisa retornar um valor de 0 a 100 - o valor é o quanto vai para a wallet da loja
+        split = round(split * 100,2)
+
+    ### Cobramos uma mensalidade fixa da quadra
+    if store.BillingMethod == "FixedPrice":
+        #Todo o valor da partida vai para a quadra (após taxas do Asaas)
+        split = 100
+
+    return split
 
 def createPaymentPix(user, value, store):
     response = requestPost(
