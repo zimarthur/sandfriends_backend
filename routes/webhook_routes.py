@@ -61,7 +61,7 @@ def WebhookPayment():
                 #Caso tenha, altera o status de pagamento dela
                 match.AsaasPaymentStatus = "CONFIRMED"
                 #Verifica se foi usado um cupom de uso único
-                if match.IdCoupon != 0:
+                if match.IdCoupon is not None:
                     if match.Coupon.IsUniqueUse:
                         #Desabilita o cupom, já que ele já foi utilizado
                         match.Coupon.IsValid = False
