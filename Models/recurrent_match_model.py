@@ -111,7 +111,7 @@ class RecurrentMatch(db.Model):
             'Weekday': self.Weekday,
             'TimeBegin': self.TimeBegin.IdAvailableHour,
             'TimeEnd': self.TimeEnd.IdAvailableHour,
-            'IdStoreCourt': self.IdStoreCourt,
+            'StoreCourt': self.StoreCourt.to_json_match(),
             'IdSport': self.IdSport,
             'UserFirstName': firstName,
             'UserLastName': lastName,

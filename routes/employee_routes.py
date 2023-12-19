@@ -9,6 +9,7 @@ from ..responses import webResponse
 from ..Models.http_codes import HttpCode
 from ..Models.city_model import City
 from ..Models.state_model import State
+from ..Models.coupon_model import Coupon
 from ..Models.sport_model import Sport
 from ..Models.gender_category_model import GenderCategory
 from ..Models.rank_category_model import RankCategory
@@ -530,6 +531,15 @@ def initStoreLoginData(employee, isRequestFromAppReq):
     else:
         accessTokenReturn = employee.AccessToken
 
+    couponsList = []
+    coupons = db.session.query(Coupon)\
+                .filter(Coupon.IdStoreValid == store.IdStore)\
+                .filter(((Coupon.DateBeginValid >= startDate) & (Coupon.DateBeginValid <= endDate))\
+                | (Coupon.DateEndValid >=  startDate) & (Coupon.DateEndValid <= endDate)).all()
+
+    for coupon in coupons:
+        couponsList.append(coupon.to_json())
+
     return jsonify({'AccessToken': accessTokenReturn,\
                     'LoggedEmail': employee.Email,\
                     'Sports' : sportsList, \
@@ -545,7 +555,8 @@ def initStoreLoginData(employee, isRequestFromAppReq):
                     'Rewards': rewardsList,\
                     'Notifications': notificationList,\
                     'StorePlayers': storePlayersList,\
-                    'MatchMembers': matchMembersList\
+                    'MatchMembers': matchMembersList,\
+                    'Coupons': couponsList,\
                     })
 
 def returnStoreEmployees(storeId):
