@@ -90,6 +90,70 @@ def EnableDisableCoupon():
 
     db.session.commit()
 
-    return jsonify({'Coupon':coupon.to_json(),}), HttpCode.SUCCESS
+    couponsList = []
+    coupons = db.session.query(Coupon)\
+                .filter(Coupon.IdStoreValid == employee.IdStore).all()
+
+    for coupon in coupons:
+        couponsList.append(coupon.to_json())
+
+    return jsonify({'Coupons': couponsList,}), HttpCode.SUCCESS
 
     
+@bp_coupon.route('/AddCoupon', methods=['POST'])
+def AddCoupon():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    accessTokenReq = request.json.get('AccessToken')
+
+    employee = getEmployeeByToken(accessTokenReq)
+
+    #Caso não encontrar Token
+    if employee is None:
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
+
+    #Verificar se o Token é válido
+    if employee.isAccessTokenExpired():
+        return webResponse("Token expirado", None), HttpCode.EXPIRED_TOKEN
+
+    codeReq = request.json.get('Code').upper()
+    valueReq = request.json.get('Value')
+    discountTypeReq = request.json.get('DiscountType')
+    idTimeBeginReq = request.json.get('IdTimeBegin')
+    idTimeEndReq = request.json.get('IdTimeEnd')
+    dateBeginReq = datetime.strptime(request.json.get('DateBegin'), '%d/%m/%Y')
+    dateEndReq = datetime.strptime(request.json.get('DateEnd'), '%d/%m/%Y')
+
+    coupon = db.session.query(Coupon)\
+                .filter(Coupon.Code == codeReq)\
+                .filter(Coupon.canBeUsed == True)\
+                .filter(Coupon.IdStoreValid == employee.IdStore).first()
+    
+    if coupon is not None:
+        return webResponse("Não foi possível criar o cupom","Você já tem um cupom válido cadastrado com esse nome"), HttpCode.WARNING
+
+    newCoupon = Coupon(
+        Code = codeReq,
+        Value = valueReq,
+        DiscountType = discountTypeReq,
+        IsValid = True,
+        IdStoreValid = employee.IdStore,
+        IdTimeBeginValid= idTimeBeginReq,
+        IdTimeEndValid= idTimeEndReq,
+        DateCreated= datetime.now(),
+        DateBeginValid= dateBeginReq,
+        DateEndValid= dateEndReq,
+    )
+
+    db.session.add(newCoupon)
+    db.session.commit()
+
+    couponsList = []
+    coupons = db.session.query(Coupon)\
+                .filter(Coupon.IdStoreValid == employee.IdStore).all()
+
+    for coupon in coupons:
+        couponsList.append(coupon.to_json())
+
+    return jsonify({'Coupons': couponsList,}), HttpCode.SUCCESS

@@ -1,4 +1,6 @@
 from ..extensions import db
+from datetime import datetime, timedelta
+from sqlalchemy.ext.hybrid import hybrid_property
 
 class Coupon(db.Model):
     __tablename__ = 'coupon'
@@ -21,6 +23,10 @@ class Coupon(db.Model):
     IsUniqueUse = db.Column(db.Boolean)
 
     Matches = db.relationship('Match', back_populates="Coupon")
+
+    @hybrid_property
+    def canBeUsed(self):
+        return (self.IsValid) & (datetime.now() >= self.DateBeginValid) & (datetime.now() <= self.DateEndValid)
 
     def to_json(self):
         profit = 0

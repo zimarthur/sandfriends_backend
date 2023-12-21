@@ -533,9 +533,7 @@ def initStoreLoginData(employee, isRequestFromAppReq):
 
     couponsList = []
     coupons = db.session.query(Coupon)\
-                .filter(Coupon.IdStoreValid == store.IdStore)\
-                .filter(((Coupon.DateBeginValid >= startDate) & (Coupon.DateBeginValid <= endDate))\
-                | (Coupon.DateEndValid >=  startDate) & (Coupon.DateEndValid <= endDate)).all()
+                .filter(Coupon.IdStoreValid == store.IdStore).all()
 
     for coupon in coupons:
         couponsList.append(coupon.to_json())
