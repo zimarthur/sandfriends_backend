@@ -1,4 +1,6 @@
 from ..extensions import db
+from datetime import datetime, timedelta
+from sqlalchemy.ext.hybrid import hybrid_property
 
 class Coupon(db.Model):
     __tablename__ = 'coupon'
@@ -14,23 +16,35 @@ class Coupon(db.Model):
 
     IdTimeBeginValid = db.Column(db.Integer)
     IdTimeEndValid = db.Column(db.Integer)
+    DateCreated = db.Column(db.DateTime)
     DateBeginValid = db.Column(db.DateTime)
     DateEndValid = db.Column(db.DateTime)
 
     IsUniqueUse = db.Column(db.Boolean)
 
+    Matches = db.relationship('Match', back_populates="Coupon")
+
+    @hybrid_property
+    def canBeUsed(self):
+        return (self.IsValid) & (datetime.now() >= self.DateBeginValid) & (datetime.now() <= self.DateEndValid)
+
     def to_json(self):
+        profit = 0
+        for match in self.Matches:
+            profit += match.CostUser
         return {
             'IdCoupon': self.IdCoupon,
             'DiscountType': self.DiscountType,
             'Value': self.Value,
             'Code': self.Code,
             'IsValid': self.IsValid,
-            'IdStoreValid': self.IdStoreValid,
             'IdTimeBeginValid': self.IdTimeBeginValid,
             'IdTimeEndValid': self.IdTimeEndValid,
-            'DateBeginValid': self.DateBeginValid.strftime("%Y-%m-%d"),
-            'DateEndValid': self.DateEndValid.strftime("%Y-%m-%d"),
+            'DateCreated': self.DateCreated.strftime("%d/%m/%Y"),
+            'DateBeginValid': self.DateBeginValid.strftime("%d/%m/%Y"),
+            'DateEndValid': self.DateEndValid.strftime("%d/%m/%Y"),
+            'TimesUsed': len(self.Matches),
+            'Profit': profit,
         }
 
     def to_json_min(self):

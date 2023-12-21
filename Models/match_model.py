@@ -48,7 +48,7 @@ class Match(db.Model):
 
     #Cupom
     IdCoupon = db.Column(db.Integer, db.ForeignKey('coupon.IdCoupon'))
-    Coupon = db.relationship('Coupon', foreign_keys = [IdCoupon])
+    Coupon =  db.relationship('Coupon', back_populates = "Matches")
     CostDiscount = db.Column(db.Numeric(precision=10, scale=2))
 
     @hybrid_property

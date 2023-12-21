@@ -2,10 +2,12 @@ from flask import Blueprint, jsonify, abort, request
 from ..Models.coupon_model import Coupon
 from ..extensions import db
 from ..Models.http_codes import HttpCode
+from ..Models.store_model import Store
+from ..Models.employee_model import getEmployeeByToken
 from datetime import datetime, timedelta
 import string
 import random
-
+from ..responses import webResponse
 bp_coupon = Blueprint('bp_coupon', __name__)
 
 #Verifica se o cupom de desconto é válido
@@ -52,3 +54,106 @@ def generateRandomCouponCode(length):
     else:
         gerenateRandomCoupon(length)
 
+@bp_coupon.route('/EnableDisableCoupon', methods=['POST'])
+def EnableDisableCoupon():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    accessTokenReq = request.json.get('AccessToken')
+
+    employee = getEmployeeByToken(accessTokenReq)
+
+    #Caso não encontrar Token
+    if employee is None:
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
+
+    #Verificar se o Token é válido
+    if employee.isAccessTokenExpired():
+        return webResponse("Token expirado", None), HttpCode.EXPIRED_TOKEN
+
+    idCouponReq = request.json.get('IdCoupon')
+    disableReq = request.json.get('Disable')
+
+    coupon = db.session.query(Coupon)\
+                .filter(Coupon.IdCoupon == idCouponReq)\
+                .filter(Coupon.IdStoreValid == employee.IdStore).first()
+    
+    if coupon is None:
+        return webResponse("Esse cupom não foi encontrato. Entre em contato com nossa equipe.",None), HttpCode.WARNING
+
+    if disableReq:
+        coupon.IsValid = False
+    else:
+        if coupon.DateEndValid < datetime.today().date():
+            return webResponse("Não foi possível habilitar o cupom.","A validade deste cupom de desconto já foi expirada."), HttpCode.WARNING
+        coupon.IsValid = True
+
+    db.session.commit()
+
+    couponsList = []
+    coupons = db.session.query(Coupon)\
+                .filter(Coupon.IdStoreValid == employee.IdStore).all()
+
+    for coupon in coupons:
+        couponsList.append(coupon.to_json())
+
+    return jsonify({'Coupons': couponsList,}), HttpCode.SUCCESS
+
+    
+@bp_coupon.route('/AddCoupon', methods=['POST'])
+def AddCoupon():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    accessTokenReq = request.json.get('AccessToken')
+
+    employee = getEmployeeByToken(accessTokenReq)
+
+    #Caso não encontrar Token
+    if employee is None:
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
+
+    #Verificar se o Token é válido
+    if employee.isAccessTokenExpired():
+        return webResponse("Token expirado", None), HttpCode.EXPIRED_TOKEN
+
+    codeReq = request.json.get('Code').upper()
+    valueReq = request.json.get('Value')
+    discountTypeReq = request.json.get('DiscountType')
+    idTimeBeginReq = request.json.get('IdTimeBegin')
+    idTimeEndReq = request.json.get('IdTimeEnd')
+    dateBeginReq = datetime.strptime(request.json.get('DateBegin'), '%d/%m/%Y')
+    dateEndReq = datetime.strptime(request.json.get('DateEnd'), '%d/%m/%Y')
+
+    coupon = db.session.query(Coupon)\
+                .filter(Coupon.Code == codeReq)\
+                .filter(Coupon.canBeUsed == True)\
+                .filter(Coupon.IdStoreValid == employee.IdStore).first()
+    
+    if coupon is not None:
+        return webResponse("Não foi possível criar o cupom","Você já tem um cupom válido cadastrado com esse nome"), HttpCode.WARNING
+
+    newCoupon = Coupon(
+        Code = codeReq,
+        Value = valueReq,
+        DiscountType = discountTypeReq,
+        IsValid = True,
+        IdStoreValid = employee.IdStore,
+        IdTimeBeginValid= idTimeBeginReq,
+        IdTimeEndValid= idTimeEndReq,
+        DateCreated= datetime.now(),
+        DateBeginValid= dateBeginReq,
+        DateEndValid= dateEndReq,
+    )
+
+    db.session.add(newCoupon)
+    db.session.commit()
+
+    couponsList = []
+    coupons = db.session.query(Coupon)\
+                .filter(Coupon.IdStoreValid == employee.IdStore).all()
+
+    for coupon in coupons:
+        couponsList.append(coupon.to_json())
+
+    return jsonify({'Coupons': couponsList,}), HttpCode.SUCCESS
