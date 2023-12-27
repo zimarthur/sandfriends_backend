@@ -120,19 +120,3 @@ class Store(db.Model):
                 return True
 
         return False
-
-
-
-    # def hasEmptyRequiredValues(storeReq,employeeReq):
-    #     requiredFieldsStore = ["Name", "Address", "AddressNumber", "PhoneNumber1", "CEP", "Neighbourhood", "CPF"]
-    #     requiredFieldsEmployee = ["Email", "FirstName", "LastName"]
-        
-    #     for field in requiredFieldsStore:
-    #         if getattr(storeReq, field) is None or getattr(storeReq, field) == "":
-    #             return True
-
-    #     for field in requiredFieldsEmployee:
-    #         if getattr(employeeReq, field) is None or getattr(employeeReq, field) == "":
-    #             return True
-
-    #     return False

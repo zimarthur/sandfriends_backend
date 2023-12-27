@@ -49,14 +49,13 @@ from ..Models.employee_model import Employee
 from ..Models.employee_model import getEmployeeByToken
 from ..access_token import EncodeToken, DecodeToken
 from sqlalchemy import or_
-from ..emails import emailStoreWelcomeConfirmation, emailStoreApproved, emailStoreAwaitingApproval
+from ..emails import emailStoreWelcomeConfirmation, emailStoreApproved, emailStoreAwaitingApproval, emailStoreMatchConfirmed
 from ..Models.coupon_model import Coupon
 
 import json
 from ..Asaas.asaas_base_api import requestPost
 from .match_routes import GetAvailableCitiesList
 from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard, getSplitPercentage
-from ..emails import emailUserWelcomeConfirmationTest
 from ..encryption import encrypt_aes, decrypt_aes
 bp_debug = Blueprint('bp_debug', __name__)
 
@@ -77,31 +76,18 @@ def getLastMonth():
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
 
-    couponReq = "kkk"
+    idMatch = 1
 
-    coupon = db.session.query(Coupon).filter(Coupon.Code == couponReq).first()
+    match = db.session.query(Match).filter(Match.IdMatch == idMatch).first()
+    if match is None:
+        return "Partida não encontrada", HttpCode.WARNING
 
-    if coupon is None:
-        return "Não localizado", 200
-
-    return str(coupon.Value), 200
-
-    # store = db.session.query(Store).filter(Store.IdStore == 1).first()
-    # employee = db.session.query(Employee).filter(Employee.IdEmployee == 1).first()
-    # city = db.session.query(City).filter(func.lower(City.City) == func.lower("Porto Alegre")).first()
-    # emailStoreAwaitingApproval(store, employee, city)
-
-    # variables = {
-    #     "store": store.Name,
-    #     "city": city.City,
-    #     "email": employee.Email,
-    #     "fullname": f"{employee.FirstName} {employee.LastName}",
-    #     "phone1": f"({store.PhoneNumber1[0:2]}) {store.PhoneNumber1[2:7]}-{store.PhoneNumber1[7:12]}",
-    #     "phone2": f"({store.PhoneNumber2[0:2]}) {store.PhoneNumber2[2:7]}-{store.PhoneNumber2[7:12]}",
-    # }
-
-    # printar = variables["phone2"]
-
-    # return printar, 200
-
+    #E-mail de todos os employees
+    employees = [employee for employee in match.StoreCourt.Store.Employees]
+    
+    lista_employees_emails = ""
+    for employee in employees:
+        emailStoreMatchConfirmed(match, employee.Email)
+    
+    return "Tudo ok", 200
     
