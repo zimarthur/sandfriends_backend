@@ -12,6 +12,7 @@ STORE_CHANGE_PASSWORD = 4954711
 STORE_ADD_EMPLOYEE = 4954715
 STORE_APPROVED = 4954730
 STORE_AWAITING_APPROVAL = 5237400
+STORE_MATCH_CONFIRMED = 5496096
 
 USER_MATCH_CONFIRMED = 4954742
 USER_RECURRENT_MATCH_CONFIRMED = 4978838
@@ -72,13 +73,7 @@ def emailStoreApproved(email, name):
     variables = {
         "nome": "Astor",
     }
-    sendEmail(email, name, STORE_APPROVED, variables)
-#Teste
-def emailUserWelcomeConfirmationTest(email, link):
-    variables = {
-        "link":link,
-    }
-    sendEmail(email,"", USER_WELCOME_CONFIRMATION_TEST, variables)   
+    sendEmail(email, name, STORE_APPROVED, variables) 
 
 #Avisar sobre quadra nova - somente para nós 3
 def emailStoreAwaitingApproval(store, employee, city):
@@ -100,6 +95,42 @@ def emailUserReceiveCoupon(email, coupon):
         "value": f"R$ {coupon.Value}",
     }
     sendEmail(email,"", USER_RECEIVE_COUPON, variables)
+
+#Partida nova - e-mail para a quadra
+def emailStoreMatchConfirmed(match):
+    #Ajuste para deixar mais humano os textos de pagamento
+    payment_type = match.AsaasBillingType
+    if payment_type == "PIX":
+        payment_type = "Pix"
+    elif payment_type == "CREDIT_CARD":
+        payment_type = "Cartão de crédito"
+    elif payment_type == "PAY_IN_STORE":
+        payment_type = "Pagar no local"
+    else:
+        payment_type = "Pagamento não localizado, entre em contato com a equipe Sandfriends para mais informações"
+    
+    #Telefone, caso ele não tenha
+    phone = match.matchCreator().User.PhoneNumber
+    if phone is None or phone == "":
+        phone = "Usuário não informou"
+    else:
+        phone = f"({match.matchCreator().User.PhoneNumber[0:2]}) {match.matchCreator().User.PhoneNumber[2:7]}-{match.matchCreator().User.PhoneNumber[7:12]}"
+
+    variables = {
+        "date": match.Date.strftime("%d/%m/%Y"),
+        "time": f"{match.TimeBegin.HourString} - {match.TimeEnd.HourString}",
+        "sport": match.Sport.Description,
+        "store_court": match.StoreCourt.Description,
+        "name": match.matchCreator().User.FirstName + " " + match.matchCreator().User.LastName,
+        "phone": phone,
+        "price": f"R$ {int(match.Cost)},00",
+        "payment_type": payment_type,
+    }
+
+    #Envia um e-mail para cada employee
+    employees = [employee for employee in match.StoreCourt.Store.Employees]
+    for employee in employees:
+        sendEmail(employee.Email,"", STORE_MATCH_CONFIRMED, variables)
 
 def sendEmail(email, name, templateId, variables):
     #Emails nossos - Irá enviar apenas no ambiente de dev
@@ -128,7 +159,7 @@ def sendEmail(email, name, templateId, variables):
 
     #Para qual e-mail envia
     #Alterei temporariamente para não enviar diretamente para o demo, para criar os usuários de teste
-    #if os.environ['AMBIENTE'] == "prod" or os.environ['AMBIENTE'] == "demo":
+    # if os.environ['AMBIENTE'] == "prod" or os.environ['AMBIENTE'] == "demo":
     if os.environ['AMBIENTE'] == "prod":
         emailToSend = email_account
     else:

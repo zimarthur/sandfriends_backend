@@ -31,7 +31,7 @@ from ..Models.notification_store_model import NotificationStore
 from ..Models.notification_store_category_model import NotificationStoreCategory
 from ..Models.coupon_model import Coupon
 from ..access_token import EncodeToken, DecodeToken
-from ..emails import emailUserMatchConfirmed, emailUserReceiveCoupon
+from ..emails import emailUserMatchConfirmed, emailUserReceiveCoupon, emailStoreMatchConfirmed
 from ..Asaas.Customer.update_customer import updateCpf
 from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard, getSplitPercentage
 from ..Asaas.Payment.refund_payment import refundPayment
@@ -485,8 +485,13 @@ def MatchReservation():
         )
         db.session.add(newNotificationStore)
         db.session.commit()
+        #Envia o e-mail para o jogador
         emailUserMatchConfirmed(newMatch,)
-        sendEmployeesNewMatchNotification(newMatch, newMatch.StoreCourt.Store.Employees )
+        #Envia a notificação para o app das quadras
+        sendEmployeesNewMatchNotification(newMatch, newMatch.StoreCourt.Store.Employees)
+        #Envia o e-mail para a quadra
+        emailStoreMatchConfirmed(newMatch)
+
     #PIX
     if paymentReq == 1:
         return jsonify({'Message':"Sua partida foi reservada!", "Pixcode": asaasPixCode}), HttpCode.ALERT
