@@ -1019,6 +1019,7 @@ def BlockHour():
     blockedReasonReq = request.json.get('BlockedReason')
     idSportReq = request.json.get('IdSport')
     idStorePlayerReq = request.json.get('IdStorePlayer')
+    priceReq = request.json.get('Price')
     
     
     #Verifica se já tem uma partida agendada no mesmo horário
@@ -1032,8 +1033,8 @@ def BlockHour():
             Date = dateReq,
             IdTimeBegin = idHourReq,
             IdTimeEnd = idHourReq+1,
-            Cost = 0,
-            CostUser = 0,
+            Cost = priceReq,
+            CostUser = priceReq,
             CostDiscount = 0,
             OpenUsers = False,
             MaxUsers = 0,
@@ -1045,7 +1046,7 @@ def BlockHour():
             BlockedReason = blockedReasonReq,
             AsaasBillingType = "BLOCKED",
             AsaasPaymentStatus = "CONFIRMED",
-            CostFinal = 0,
+            CostFinal = priceReq,
             CostAsaasTax = 0,
             CostSandfriendsNetTax = 0,
             AsaasSplit = 0
