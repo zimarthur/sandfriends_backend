@@ -31,7 +31,7 @@ from ..Models.notification_store_model import NotificationStore
 from ..Models.notification_store_category_model import NotificationStoreCategory
 from ..Models.coupon_model import Coupon
 from ..access_token import EncodeToken, DecodeToken
-from ..emails import emailUserMatchConfirmed, emailUserReceiveCoupon, emailStoreMatchConfirmed
+from ..emails import emailUserMatchConfirmed, emailUserReceiveCoupon, emailStoreMatchConfirmed, emailStoreMatchCanceled
 from ..Asaas.Customer.update_customer import updateCpf
 from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard, getSplitPercentage
 from ..Asaas.Payment.refund_payment import refundPayment
@@ -573,6 +573,7 @@ def InvitationResponse():
             sendMatchInvitationRefusedNotification(matchCreator.User, matchMember.User, match)
         return "Ok",HttpCode.SUCCESS
 
+#Sai da partida
 @bp_match.route("/LeaveMatch", methods=["POST"])
 def LeaveMatch():
     if not request.json:
@@ -774,11 +775,6 @@ def CancelMatch():
         #Envia o cupom de desconto por e-mail ao jogador
         emailUserReceiveCoupon(user.Email, newCoupon)
 
-        #Realiza o estorno do Asaas
-        #valueToRefund = float(match.CostUser)
-        #responseRefund = refundPayment(paymentId= match.AsaasPaymentId, cost= valueToRefund, description= f"Partida cancelada/IdMatch {match.IdMatch}")
-        #if responseRefund.status_code != 200:
-        #    return "Não conseguimos processar o estorno. Tente novamente", HttpCode.WARNING
         match.AsaasPaymentStatus = "REFUNDED"
 
     match.Canceled = True
@@ -815,6 +811,10 @@ def CancelMatch():
             )
             db.session.add(newNotificationUser)
     sendMatchCanceledFromCreatorNotification(match)
+
+    #Envia e-mail para a quadra avisando sobre o cancelamento
+    emailStoreMatchCanceled(match)
+
     db.session.commit()
     return "Partida cancelada",HttpCode.ALERT
 
