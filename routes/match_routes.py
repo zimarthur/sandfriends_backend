@@ -7,7 +7,7 @@ from ..responses import webResponse
 from ..utils import firstSundayOnNextMonth, lastSundayOnLastMonth, isCurrentMonth
 from ..routes.store_routes import getAvailableStores
 from ..Models.http_codes import HttpCode
-from ..Models.match_model import Match
+from ..Models.match_model import Match, queryMatchesForCourts
 from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.user_model import User
 from ..Models.user_rank_model import UserRank
@@ -31,12 +31,14 @@ from ..Models.notification_store_model import NotificationStore
 from ..Models.notification_store_category_model import NotificationStoreCategory
 from ..Models.coupon_model import Coupon
 from ..access_token import EncodeToken, DecodeToken
-from ..emails import emailUserMatchConfirmed
+from ..emails import emailUserMatchConfirmed, emailUserReceiveCoupon, emailStoreMatchConfirmed, emailStoreMatchCanceled
 from ..Asaas.Customer.update_customer import updateCpf
 from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard, getSplitPercentage
 from ..Asaas.Payment.refund_payment import refundPayment
 from ..Asaas.Payment.generate_qr_code import generateQrCode
 from sandfriends_backend.push_notifications import sendMatchInvitationNotification, sendMatchInvitationRefusedNotification, sendMatchInvitationAcceptedNotification, sendMemberLeftMatchNotification, sendMatchCanceledFromCreatorNotification, sendEmployeesNewMatchNotification
+from sqlalchemy import or_
+from ..routes.coupon_routes import generateRandomCouponCode
 
 bp_match = Blueprint('bp_match', __name__)
 
@@ -119,21 +121,16 @@ def SearchCourts():
     #busca os horarios de todas as quadras e seus respectivos preços
     courtHours = db.session.query(StorePrice)\
                     .filter(StorePrice.IdStoreCourt.in_(court.IdStoreCourt for court in courts)).all()
-                    
-    matches = queryConcurrentMatches([court.IdStoreCourt for court in courts], daterange(dateStart.date(), dateEnd.date()), timeStart, timeEnd)
 
+    
     searchWeekdays= []
     for searchDay in daterange(dateStart.date(), dateEnd.date()):
         if(searchDay.weekday() not in searchWeekdays):
             searchWeekdays.append(searchDay.weekday())
-    #lembrando que aqui são as partidas mensalistas e os horários bloqueados recorrentemente
-    recurrentMatches = db.session.query(RecurrentMatch)\
-                    .filter(RecurrentMatch.IdStoreCourt.in_(court.IdStoreCourt for court in courts))\
-                    .filter(RecurrentMatch.Weekday.in_(searchWeekdays))\
-                    .filter(RecurrentMatch.Canceled == False)\
-                    .filter(((RecurrentMatch.IdTimeBegin >= timeStart) & (RecurrentMatch.IdTimeBegin < timeEnd)) | \
-                            ((RecurrentMatch.IdTimeEnd > timeStart) & (RecurrentMatch.IdTimeEnd <= timeEnd)) | \
-                            ((RecurrentMatch.IdTimeBegin < timeStart) & (RecurrentMatch.IdTimeEnd > timeStart))).all()
+   
+    idStoreCourts = [court.IdStoreCourt for court in courts]
+    matches = queryConcurrentMatches(idStoreCourts, daterange(dateStart.date(), dateEnd.date()), timeStart, timeEnd)
+    recurrentMatches = queryConcurrentRecurrentMatches(idStoreCourts, searchWeekdays, timeStart, timeEnd)
 
     #partidas abertas
     jsonOpenMatches = []
@@ -174,6 +171,7 @@ def SearchCourts():
                 for storeOperationHour in storeOperationHours:
                     jsonAvailableCourts =[]
                     for filteredCourt in filteredCourts:
+                        
                         #Indicadires de partidas já agendadas - conflito de horário
                         concurrentMatch = [match for match in matches if \
                                     (match.IdStoreCourt ==  filteredCourt.IdStoreCourt) and \
@@ -201,10 +199,10 @@ def SearchCourts():
                         #concurrentRecurrentMatch é pra verificar se tem partida recorrente, mas tem um truque aqui
                         # se tem uma partida recorrente, as partidas do mes jáforam marcadas, então vão aparecer no concurrentMatch
                         # se alguma delas foi cancelada, por ex, o horário ainda poderia ser agendado.
-                        if(not concurrentMatch) and \
-                            (not concurrentBlockedHour) and \
-                            (not( not(isCurrentMonth(validDate)) and concurrentRecurrentMatch )):
-
+                        # if(not concurrentMatch) and \
+                        #     (not concurrentBlockedHour) and \
+                        #     (not( not(isCurrentMonth(validDate)) and concurrentRecurrentMatch )):
+                        if isHourAvailableForMatch(matches, recurrentMatches, filteredCourt.IdStoreCourt, validDate, storeOperationHour.IdAvailableHour):
                             jsonAvailableCourts.append({
                                 'IdStoreCourt':filteredCourt.IdStoreCourt,
                                 'Price': [int(courtHour.Price) for courtHour in courtHours if (courtHour.IdStoreCourt == filteredCourt.IdStoreCourt) and (courtHour.Weekday == validDate.weekday()) and (courtHour.IdAvailableHour == storeOperationHour.IdAvailableHour)][0]
@@ -291,20 +289,10 @@ def MatchReservation():
     
     #Verifica se já tem uma partida agendada no mesmo horário
     concurrentMatch = queryConcurrentMatches([idStoreCourtReq],[dateReq], timeStartReq, timeEndReq)
-
-    #Lembrando que aqui são as partidas mensalistas e os horários bloqueados recorrentemente
-    concurrentRecurrentMatch = db.session.query(RecurrentMatch)\
-                    .filter(RecurrentMatch.IdStoreCourt == int(idStoreCourtReq))\
-                    .filter(RecurrentMatch.Weekday == dateReq.weekday())\
-                    .filter(RecurrentMatch.Canceled == False)\
-                    .filter(((RecurrentMatch.IdTimeBegin >= timeStartReq) & (RecurrentMatch.IdTimeBegin < timeEndReq))  | \
-                ((RecurrentMatch.IdTimeEnd > timeStartReq) & (RecurrentMatch.IdTimeEnd <= timeEndReq))      | \
-                ((RecurrentMatch.IdTimeBegin < timeStartReq) & (RecurrentMatch.IdTimeEnd > timeStartReq))   \
-                ).all()
-    concurrentRecurrentMatch = [recurrentMatch for recurrentMatch in concurrentRecurrentMatch if recurrentMatch.isPaymentExpired == False]
+    concurrentRecurrentMatches = queryConcurrentRecurrentMatches([idStoreCourtReq], [dateReq], timeStartReq, timeEndReq)
 
     #Caso o horário não esteja mais disponível na hora dele fazer a reserva
-    if (len(concurrentMatch) > 0) or (len(concurrentRecurrentMatch) > 0):
+    if isHourAvailableForMatch(concurrentMatch, concurrentRecurrentMatches, idStoreCourtReq, dateReq, timeStartReq) == False:
         return f"Ops, esse horário não está mais disponível", HttpCode.WARNING
     
     asaasPaymentId = None
@@ -341,9 +329,13 @@ def MatchReservation():
             if coupon.DiscountType == "PERCENTAGE":
                 discountValue = (costReq * float(coupon.Value))/100
             if coupon.DiscountType == "FIXED":
-                discountValue = coupon.Value
+                discountValue = float(coupon.Value)
 
         costUser = float(costReq - discountValue)
+
+        #Verifica se ficou negativo
+        if costUser <= 0:
+            costUser = 0    
 
         #Gera a cobrança no Asaas
         responsePayment = createPaymentPix(user, costUser, store)
@@ -384,9 +376,13 @@ def MatchReservation():
             if coupon.DiscountType == "PERCENTAGE":
                 discountValue = (costReq * float(coupon.Value))/100
             if coupon.DiscountType == "FIXED":
-                discountValue = coupon.Value
+                discountValue = float(coupon.Value)
 
         costUser = float(costReq - discountValue)
+
+        #Verifica se ficou negativo
+        if costUser < 0:
+            costUser = 0
 
         #Gera a cobrança no Asaas
         responsePayment = createPaymentCreditCard(
@@ -489,8 +485,13 @@ def MatchReservation():
         )
         db.session.add(newNotificationStore)
         db.session.commit()
+        #Envia o e-mail para o jogador
         emailUserMatchConfirmed(newMatch,)
-        sendEmployeesNewMatchNotification(newMatch, newMatch.StoreCourt.Store.Employees )
+        #Envia a notificação para o app das quadras
+        sendEmployeesNewMatchNotification(newMatch, newMatch.StoreCourt.Store.Employees)
+        #Envia o e-mail para a quadra
+        emailStoreMatchConfirmed(newMatch)
+
     #PIX
     if paymentReq == 1:
         return jsonify({'Message':"Sua partida foi reservada!", "Pixcode": asaasPixCode}), HttpCode.ALERT
@@ -572,6 +573,7 @@ def InvitationResponse():
             sendMatchInvitationRefusedNotification(matchCreator.User, matchMember.User, match)
         return "Ok",HttpCode.SUCCESS
 
+#Sai da partida
 @bp_match.route("/LeaveMatch", methods=["POST"])
 def LeaveMatch():
     if not request.json:
@@ -727,6 +729,7 @@ def JoinMatch():
         sendMatchInvitationNotification(matchCreator.User, user, match)
         return "Solicitação enviada",HttpCode.ALERT
 
+#Usuário solicita para cancelar a partida pelo app
 @bp_match.route("/CancelMatch", methods=["POST"])
 def CancelMatch():
     if not request.json:
@@ -735,58 +738,87 @@ def CancelMatch():
     accessToken = request.json.get('AccessToken')
     idMatch = request.json.get('IdMatch')
 
+    #Busca o usuário que solicitou o cancelamento
     user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
         return 'Token inválido', HttpCode.WARNING
 
+    #Busca a partida que será cancelada
     match = Match.query.get(idMatch) 
     if match is None:
         return 'Partida não encontrada', HttpCode.WARNING
-    elif (match.IsFinished()):
+    if match.IsFinished():
          return 'A partida já foi finalizada', HttpCode.WARNING
-    else:
+    
+    #Se for uma partida válida
+    if match.IsPaymentConfirmed and match.AsaasBillingType != "PAY_IN_STORE":
 
-        if match.IsPaymentConfirmed and match.AsaasBillingType != "PAY_IN_STORE":
-            responseRefund = refundPayment(paymentId= match.AsaasPaymentId, description= f"Partida cancelada/IdMatch {match.IdMatch}")
-            if responseRefund.status_code != 200:
-                return "Não conseguimos processar o estorno. Tente novamente", HttpCode.WARNING
-            match.AsaasPaymentStatus = "REFUNDED"
+        #Gera o cupom de desconto
+        #Gerar o código primeiro
+        couponCode = generateRandomCouponCode(6)
 
-        match.Canceled = True
-
-        matchMembers = MatchMember.query.filter(MatchMember.IdMatch == idMatch)\
-                                .filter(MatchMember.WaitingApproval == False)\
-                                .filter(MatchMember.Refused == False)\
-                                .filter(MatchMember.Quit == False).all()
-        for matchMember in matchMembers:
-            matchMember.Quit=True
-            matchMember.QuitDate=datetime.now()
-            if matchMember.IsMatchCreator == True:
-                idNotificationUserCategory = 6
-                #notificação para a loja
-                newNotificationStore = NotificationStore(
-                    IdUser = matchMember.IdUser,
-                    IdStore = match.StoreCourt.IdStore,
-                    IdMatch = idMatch,
-                    IdNotificationStoreCategory = 2,
-                    EventDatetime = datetime.now()
-                )
-                db.session.add(newNotificationStore)
-            else:
-                idNotificationUserCategory = 7
-            if matchMember.Refused == False:
-                newNotificationUser = NotificationUser(
-                    IdUser = matchMember.IdUser,
-                    IdUserReplaceText = match.matchCreator().IdUser,
-                    IdMatch = idMatch,
-                    IdNotificationUserCategory = idNotificationUserCategory,
-                    Seen = False
-                )
-                db.session.add(newNotificationUser)
-        sendMatchCanceledFromCreatorNotification(match)
+        newCoupon = Coupon(
+            DiscountType = "FIXED",
+            Value = match.CostUser,
+            Code = couponCode,
+            IsValid = True,
+            IdStoreValid = match.StoreCourt.IdStore,
+            IdTimeBeginValid = 1,
+            IdTimeEndValid = 24,
+            DateBeginValid = datetime.now(),
+            DateEndValid = datetime.now() + timedelta(days=365),
+            IsUniqueUse = True,
+        )
+        db.session.add(newCoupon)
         db.session.commit()
-        return "Partida cancelada",HttpCode.ALERT
 
+        #Envia o cupom de desconto por e-mail ao jogador
+        emailUserReceiveCoupon(user.Email, newCoupon)
+
+        match.AsaasPaymentStatus = "REFUNDED"
+
+    match.Canceled = True
+
+    #Exclui os jogadores da partida
+    matchMembers = MatchMember.query.filter(MatchMember.IdMatch == idMatch)\
+                            .filter(MatchMember.WaitingApproval == False)\
+                            .filter(MatchMember.Refused == False)\
+                            .filter(MatchMember.Quit == False).all()
+    for matchMember in matchMembers:
+        matchMember.Quit=True
+        matchMember.QuitDate=datetime.now()
+        if matchMember.IsMatchCreator == True:
+            #Envia notificação para a loja
+            idNotificationUserCategory = 6
+            newNotificationStore = NotificationStore(
+                IdUser = matchMember.IdUser,
+                IdStore = match.StoreCourt.IdStore,
+                IdMatch = idMatch,
+                IdNotificationStoreCategory = 2,
+                EventDatetime = datetime.now()
+            )
+            db.session.add(newNotificationStore)
+        else:
+            idNotificationUserCategory = 7
+        if matchMember.Refused == False:
+            #Envia notificação para os jogadores que haviam entrado na partida
+            newNotificationUser = NotificationUser(
+                IdUser = matchMember.IdUser,
+                IdUserReplaceText = match.matchCreator().IdUser,
+                IdMatch = idMatch,
+                IdNotificationUserCategory = idNotificationUserCategory,
+                Seen = False
+            )
+            db.session.add(newNotificationUser)
+    sendMatchCanceledFromCreatorNotification(match)
+
+    #Envia e-mail para a quadra avisando sobre o cancelamento
+    emailStoreMatchCanceled(match)
+
+    db.session.commit()
+    return "Partida cancelada",HttpCode.ALERT
+
+#Loja cancela o horário de um jogador
 @bp_match.route("/CancelMatchEmployee", methods=["POST"])
 def CancelMatchEmployee():
     if not request.json:
@@ -796,7 +828,7 @@ def CancelMatchEmployee():
     idMatchReq = request.json.get('IdMatch')
     cancelationReasonReq = request.json.get('CancelationReason')
 
-    #busca a loja a partir do token do employee
+    #Busca a loja a partir do token do employee
     storeCourt = db.session.query(StoreCourt)\
             .join(Employee, Employee.IdStore == StoreCourt.IdStore)\
             .filter(or_(Employee.AccessToken == accessTokenReq, Employee.AccessTokenApp == accessTokenReq)).first()
@@ -813,7 +845,8 @@ def CancelMatchEmployee():
     else:
         
         if match.IsPaymentConfirmed and match.AsaasBillingType != "PAY_IN_STORE":
-            responseRefund = refundPayment(paymentId= match.AsaasPaymentId, description= f"Partida cancelada pelo estabelecimento/IdMatch {match.IdMatch}")
+            valueToRefund = float(match.CostUser)
+            responseRefund = refundPayment(paymentId= match.AsaasPaymentId, cost= valueToRefund, description= f"Partida cancelada pelo estabelecimento/IdMatch {match.IdMatch}")
             if responseRefund.status_code != 200:
                 return "Não conseguimos processar o estorno. Tente novamente", HttpCode.WARNING
             match.AsaasPaymentStatus = "REFUNDED"
@@ -847,9 +880,8 @@ def CancelMatchEmployee():
 
         courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == storeCourt.IdStore).all()
 
-        matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
-        .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
-        .filter(Match.Canceled == False).all()
+        matches = queryMatchesForCourts([court.IdStoreCourt for court in courts], startDate, endDate)
+
         
         matchList =[]
         for match in matches:
@@ -963,44 +995,46 @@ def GetOpenMatches():
 
     # return jsonify({'OpenMatches': jsonOpenMatches, 'Stores':distinctStores}), HttpCode.SUCCESS
 
-
-@bp_match.route('/BlockUnblockHour', methods=['POST'])
-def BlockUnblockHour():
+#Bloqueia um horário
+@bp_match.route('/BlockHour', methods=['POST'])
+def BlockHour():
     if not request.json:
         abort(400)
 
     accessTokenReq = request.json.get('AccessToken')
     idStoreCourtReq = request.json.get('IdStoreCourt')
 
-    #busca a loja a partir do token do employee
+    #Busca a loja a partir do token do employee
     storeCourt = getStoreCourtByToken(accessTokenReq, idStoreCourtReq)
     
     #Caso não encontrar Token
     if storeCourt is None:
         return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
 
+    #Dia e horário 
     idHourReq = request.json.get('IdHour')
     dateReq = datetime.strptime(request.json.get('Date'), '%d/%m/%Y')
 
-    match = db.session.query(Match)\
-                .filter(Match.Date == dateReq)\
-                .filter((Match.IdTimeBegin == idHourReq) | ((Match.IdTimeBegin < idHourReq) & (Match.IdTimeEnd > idHourReq)))\
-                .filter(Match.IdStoreCourt == idStoreCourtReq).first()
-
-
-    blockedReq = request.json.get('Blocked')
+    #Motivo e esporte bloqueado
     blockedReasonReq = request.json.get('BlockedReason')
     idSportReq = request.json.get('IdSport')
+    idStorePlayerReq = request.json.get('IdStorePlayer')
+    priceReq = request.json.get('Price')
+    
+    
+    #Verifica se já tem uma partida agendada no mesmo horário
+    concurrentMatch = queryConcurrentMatches([idStoreCourtReq],[dateReq], idHourReq, idHourReq+1)
+    concurrentRecurrentMatches = queryConcurrentRecurrentMatches([idStoreCourtReq], [dateReq], idHourReq, idHourReq+1)
 
-    if match is None:
+    if isHourAvailableForMatch(concurrentMatch, concurrentRecurrentMatches, idStoreCourtReq, dateReq, idHourReq):
         newMatch = Match(
             IdStoreCourt = idStoreCourtReq,
             IdSport = idSportReq,
             Date = dateReq,
             IdTimeBegin = idHourReq,
             IdTimeEnd = idHourReq+1,
-            Cost = 0,
-            CostUser = 0,
+            Cost = priceReq,
+            CostUser = priceReq,
             CostDiscount = 0,
             OpenUsers = False,
             MaxUsers = 0,
@@ -1008,38 +1042,135 @@ def BlockUnblockHour():
             CreationDate = datetime.now(),
             CreatorNotes = "",
             IdRecurrentMatch = 0,
-            Blocked = blockedReq,
+            Blocked = True,
             BlockedReason = blockedReasonReq,
             AsaasBillingType = "BLOCKED",
-            AsaasPaymentStatus = "BLOCKED",
-            CostFinal = 0,
+            AsaasPaymentStatus = "CONFIRMED",
+            CostFinal = priceReq,
             CostAsaasTax = 0,
             CostSandfriendsNetTax = 0,
             AsaasSplit = 0
         )
         db.session.add(newMatch)
+        db.session.commit()
+        
+        newMatchMember = matchMember = MatchMember(
+            IdUser = None,
+            IsMatchCreator = True,
+            WaitingApproval = False,
+            Refused = False,
+            IdMatch = newMatch.IdMatch,
+            Quit = False,
+            EntryDate = datetime.now(),
+            IdStorePlayer = idStorePlayerReq,
+        )
+        db.session.add(newMatchMember)
+        db.session.commit()
 
     else:
-        #se tinha alguma partida com custo != 0 quer dizer q alguem agendou uma partida nesse meio tempo, ai não pode mais bloear o horario
-        if match.Cost != 0:
-            return webResponse("Ops", "Não foi possível bloquear o horário. Uma partida já foi ou está sendo marcada"), HttpCode.WARNING
-        
-        #em teoria se chegou aqui é para desbloquear um horário, coloquei esse if só pra ter certeza
-        if blockedReq == False:
-            db.session.delete(match)
-    
+        return webResponse("Ops", "Não foi possível bloquear o horário. Uma partida já foi ou está sendo marcada"), HttpCode.WARNING
+
     db.session.commit()
 
+    #Monta a lista de partidas que terá no mês para atualizar o calendário
+    #Dias do mês
     startDate = lastSundayOnLastMonth(dateReq)
     endDate = firstSundayOnNextMonth(dateReq)
 
     courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == storeCourt.IdStore).all()
 
-    matches = db.session.query(Match).filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
-    .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
-    .filter(Match.Canceled == False).all()
+    #Retorna a lista de partidas
+    matches = queryMatchesForCourts([court.IdStoreCourt for court in courts], startDate, endDate)
     
-    matchList =[]
+    matchList = []
+    for match in matches:
+        matchList.append(match.to_json_min())
+
+    return jsonify({"Matches": matchList}), HttpCode.SUCCESS
+
+#Desbloqueia um horário
+@bp_match.route('/UnblockHour', methods=['POST'])
+def UnblockHour():
+    if not request.json:
+        abort(400)
+
+    accessTokenReq = request.json.get('AccessToken')
+    idStoreCourtReq = request.json.get('IdStoreCourt')
+    #Busca a loja a partir do token do employee
+    storeCourt = getStoreCourtByToken(accessTokenReq, idStoreCourtReq)
+    
+    #Caso não encontrar Token
+    if storeCourt is None:
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
+
+    #Dia e horário 
+    idHourReq = request.json.get('IdHour')
+    dateReq = datetime.strptime(request.json.get('Date'), '%d/%m/%Y')
+
+    match = db.session.query(Match)\
+            .filter(Match.IdStoreCourt == idStoreCourtReq)\
+            .filter(Match.Date == dateReq)\
+            .filter(Match.IdTimeBegin == idHourReq)\
+            .filter(Match.Blocked == True)\
+            .first()
+
+    #Verifica se existe uma partida "Blocked" no horário
+    if match is not None:
+        #apaga os membros da partida
+        for member in match.Members:
+            db.session.delete(member)
+        #Deleta o match que está como "Blocked"
+        db.session.delete(match)
+    
+    #Caso não tenha partida, verifica se existe um bloqueio mensalista nesse horário
+    else:
+        recurrentMatch = db.session.query(RecurrentMatch)\
+            .filter(RecurrentMatch.Blocked == 1)\
+            .filter(RecurrentMatch.Weekday == dateReq.weekday())\
+            .filter((RecurrentMatch.IdTimeBegin == idHourReq) | ((RecurrentMatch.IdTimeBegin < idHourReq) & (RecurrentMatch.IdTimeEnd > idHourReq)))\
+            .filter(RecurrentMatch.IdStoreCourt == idStoreCourtReq).first()
+
+        #Se existir um bloqueio mensalista, cria uma partida como "Cancelled" - Frontend vai entender que uma partida foi cancelada e o horário liberou
+        if recurrentMatch is not None:
+            newMatch = Match(
+                IdStoreCourt = idStoreCourtReq,
+                IdSport = recurrentMatch.IdSport,
+                Date = dateReq,
+                IdTimeBegin = idHourReq,
+                IdTimeEnd = idHourReq+1,
+                Cost = 0,
+                CostUser = 0,
+                CostDiscount = 0,
+                OpenUsers = False,
+                MaxUsers = 0,
+                Canceled = True,
+                CreationDate = datetime.now(),
+                CreatorNotes = "",
+                IdRecurrentMatch = recurrentMatch.IdRecurrentMatch,
+                Blocked = 0,
+                BlockedReason = "",
+                AsaasBillingType = "UNBLOCKED",
+                AsaasPaymentStatus = "CONFIRMED",
+                CostFinal = 0,
+                CostAsaasTax = 0,
+                CostSandfriendsNetTax = 0,
+                AsaasSplit = 0
+            )
+            db.session.add(newMatch)
+    
+    db.session.commit()
+
+    #Monta a lista de partidas que terá no mês para atualizar o calendário
+    #Dias do mês
+    startDate = lastSundayOnLastMonth(dateReq)
+    endDate = firstSundayOnNextMonth(dateReq)
+
+    courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == storeCourt.IdStore).all()
+
+    #Retorna a lista de partidas
+    matches = queryMatchesForCourts([court.IdStoreCourt for court in courts], startDate, endDate)
+    
+    matchList = []
     for match in matches:
         matchList.append(match.to_json_min())
 
@@ -1062,16 +1193,15 @@ def SearchCustomMatches():
     if employee is None:
         return '1', HttpCode.EXPIRED_TOKEN
     
-    matches = db.session.query(Match)\
+    matches =  db.session.query(Match)\
                     .filter(Match.IdStoreCourt.in_([court.IdStoreCourt for court in employee.Store.Courts]))\
                     .filter((Match.Date >= dateStartReq) & (Match.Date <= dateEndReq))\
-                    .filter(Match.Canceled == False)\
+                    .filter((Match.Canceled == False) | ((Match.Canceled == True) & (Match.IsFromRecurrentMatch)))\
                     .filter(Match.Blocked != True).all()
-
+    
     matchList = []
     for match in matches:
         matchList.append(match.to_json_min())
-
     return {'Matches': matchList}, HttpCode.SUCCESS
 
 #Gera lista de partidas no mesmo horário selecionado
@@ -1079,9 +1209,66 @@ def queryConcurrentMatches(listIdStoreCourt, listDate, timeStart, timeEnd):
     matches = db.session.query(Match)\
             .filter(Match.IdStoreCourt.in_(listIdStoreCourt))\
             .filter(Match.Date.in_(listDate))\
-            .filter(Match.Canceled == False) \
+            .filter((Match.Canceled == False) | ((Match.Canceled == True) & (Match.IdRecurrentMatch != 0)))\
             .filter(((Match.IdTimeBegin >= timeStart) & (Match.IdTimeBegin < timeEnd)) | \
                     ((Match.IdTimeEnd > timeStart) & (Match.IdTimeEnd <= timeEnd)) | \
                     ((Match.IdTimeBegin < timeStart) & (Match.IdTimeEnd > timeStart))).all()
     
     return [match for match in matches if match.IsFinished() ==  False and match.isPaymentExpired == False]
+
+#Gera lista de mensalistas no mesmo horário selecionado
+def queryConcurrentRecurrentMatches(listIdStoreCourt, weekdays, timeStart, timeEnd):
+    recurrentMatches = db.session.query(RecurrentMatch)\
+                    .filter(RecurrentMatch.IdStoreCourt.in_(listIdStoreCourt))\
+                    .filter(RecurrentMatch.Weekday.in_(weekdays))\
+                    .filter(RecurrentMatch.Canceled == False)\
+                    .filter(RecurrentMatch.IsExpired == False)\
+                    .filter(((RecurrentMatch.IdTimeBegin >= timeStart) & (RecurrentMatch.IdTimeBegin < timeEnd)) | \
+                            ((RecurrentMatch.IdTimeEnd > timeStart) & (RecurrentMatch.IdTimeEnd <= timeEnd)) | \
+                            ((RecurrentMatch.IdTimeBegin < timeStart) & (RecurrentMatch.IdTimeEnd > timeStart))).all()
+                            
+    return recurrentMatches
+
+
+def isHourAvailableForMatch(matches, recurrentMatches, idStoreCourt, date, hour):
+    #Verifica se não tem nenhuma partida no mesmo horario, dia e quadra
+    if len([match for match in matches if \
+                (match.IdStoreCourt ==  idStoreCourt) and \
+                (match.Canceled == False) and \
+                (match.Date == date) and \
+                ((match.IdTimeBegin == hour) or \
+                ((match.IdTimeBegin < hour) and (match.IdTimeEnd > hour)))\
+        ]) > 0:
+        return False
+    else:
+        concurrentRecurrentMatch = [recurrentMatch for recurrentMatch in recurrentMatches if \
+                    (recurrentMatch.IdStoreCourt ==  idStoreCourt) and \
+                    (recurrentMatch.Weekday == date.weekday()) and \
+                    ((recurrentMatch.IdTimeBegin == hour) or \
+                        ((recurrentMatch.IdTimeBegin < hour) and (recurrentMatch.IdTimeEnd > hour)))\
+        ]
+        if len(concurrentRecurrentMatch) == 0:
+            return True
+        
+        #na teoria, se tem um concurrentRecurrentMatch deveria ter 1 ocorrencia só, mas como ele é uma lista fiz o for loop
+        for recurrentMatch in concurrentRecurrentMatch:
+            #caso tenha um mensalista q foi bloqueado pela quadra. 
+            #Esse caso tem q cuidar porque a quadra pode cancelar uma partida avulsa desse mensalista
+            if recurrentMatch.Blocked == False:
+                if date >= recurrentMatch.ValidUntil.date():
+                    return False
+            
+            if len([match for match in matches if \
+                (match.IdStoreCourt ==  idStoreCourt) and \
+                (match.Canceled == True) and \
+                (match.IdRecurrentMatch == recurrentMatch.IdRecurrentMatch) and \
+                (match.Date == date) and \
+                ((match.IdTimeBegin == hour) or \
+                ((match.IdTimeBegin < hour) and (match.IdTimeEnd > hour)))\
+            ]) > 0:
+                #Quer dizer q o horário é de um mensalista, mas nesse dia foi cancelado
+                return True
+            else:
+                return False
+           
+

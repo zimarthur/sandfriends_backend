@@ -17,6 +17,7 @@ from ..Models.store_court_sport_model import StoreCourtSport
 from ..Models.employee_model import getEmployeeByToken, getStoreByToken,getStoreCourtByToken
 from sqlalchemy import func
 import base64
+from sqlalchemy import or_
 
 bp_court = Blueprint('bp_court', __name__)
 

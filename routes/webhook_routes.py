@@ -2,7 +2,7 @@ from datetime import datetime
 from flask import Blueprint, jsonify, abort, request, json
 
 from sandfriends_backend.Models.notification_store_model import NotificationStore
-from sandfriends_backend.emails import emailUserMatchConfirmed, emailUserRecurrentMatchConfirmed
+from sandfriends_backend.emails import emailUserMatchConfirmed, emailUserRecurrentMatchConfirmed, emailStoreMatchConfirmed
 from sandfriends_backend.push_notifications import sendMatchPaymentAcceptedNotification
 from ..Models.http_codes import HttpCode
 from ..extensions import db
@@ -29,8 +29,6 @@ def WebhookPayment():
     db.session.add(newAsaasWebhookPayment)
     db.session.commit()
 
-    #TODO: verificar o token da requisição para ser o access_token dos webhooks - fazer isso por segurança
-
     #se o evento
     if (eventReq == "PAYMENT_CONFIRMED") or (eventReq == "PAYMENT_RECEIVED"):
         #Verifica se existe uma partida com este payment_id
@@ -49,12 +47,25 @@ def WebhookPayment():
                     recurrentMatch = RecurrentMatch.query.get(match.IdRecurrentMatch)
                     now = datetime.now()
                     if recurrentMatch.LastPaymentDate != recurrentMatch.CreationDate:
-                        validUntil = getLastDayOfMonth(datetime(now.year, now.month+1, 1))
+                        #Ajuste para não dar problema em dezembro
+                        year = now.year
+                        if now.month < 12:
+                            month = now.month
+                        else:
+                            month = 1
+
+                        validUntil = getLastDayOfMonth(datetime(year, month, 1))
                     else:
                         validUntil = getLastDayOfMonth(now)
                     recurrentMatch.ValidUntil = validUntil
                 #Caso tenha, altera o status de pagamento dela
                 match.AsaasPaymentStatus = "CONFIRMED"
+                #Verifica se foi usado um cupom de uso único
+                if match.IdCoupon is not None and match.IdCoupon != 0:
+                    if match.Coupon.IsUniqueUse:
+                        #Desabilita o cupom, já que ele já foi utilizado
+                        match.Coupon.IsValid = False
+
                 db.session.commit()
 
         if sendMatchEmail:
@@ -70,6 +81,8 @@ def WebhookPayment():
             db.session.commit()
             emailUserMatchConfirmed(matches[0])
             sendMatchPaymentAcceptedNotification(matches[0].matchCreator().User, matches[0], matches[0].StoreCourt.Store.Employees)
+            #Enviar e-mail de aviso para a quadra
+            emailStoreMatchConfirmed(matches[0])
         if sendRecurrentMatchEmail:
             recurrentMatch = RecurrentMatch.query.get(matches[0].IdRecurrentMatch)
             if recurrentMatch.LastPaymentDate != recurrentMatch.CreationDate:

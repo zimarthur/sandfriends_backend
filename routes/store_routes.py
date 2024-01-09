@@ -127,8 +127,6 @@ def AddStore():
     return webResponse("Você está quase lá!", \
     "Para concluir seu cadastro, é necessário que você valide seu e-mail.\nAcesse o link que enviamos e sua conta será criada.\n\nSe tiver qualquer dúvida, é só nos chamar, ok?"), HttpCode.ALERT
 
-
-
 #Rota utilizada por nós para aprovar manualmente os estabelecimentos
 @bp_store.route("/ApproveStore", methods=["POST"])
 def ApproveStore():
@@ -142,6 +140,7 @@ def ApproveStore():
     feeSandfriendsHighReq = request.json.get('FeeSandfriendsHigh')
     feeSandfriendsLowReq = request.json.get('FeeSandfriendsLow')
     feeThresholdReq = request.json.get('FeeThreshold')
+    billingMethodReq = request.json.get('BillingMethod')
 
     store = db.session.query(Store).filter(Store.IdStore == idStoreReq).first()
 
@@ -170,6 +169,12 @@ def ApproveStore():
     store.FeeSandfriendsHigh = feeSandfriendsHighReq
     store.FeeSandfriendsLow = feeSandfriendsLowReq
     store.FeeThreshold = feeThresholdReq
+
+    #Método que o Sandfriends irá cobrar do estabelecimento
+    #PercentageFeesIncluded - Taxa do Sandfriends já inclui as taxas do Asaas
+    #PercentageFeesNotIncluded - Taxa do Sandfriends não inclui taxas do Asaas
+    #FixedPrice - Cobramos uma mensalidade fixa da quadra
+    store.BillingMethod = billingMethodReq
 
     #Salva a data atual como ApprovalDate
     store.ApprovalDate = datetime.now()

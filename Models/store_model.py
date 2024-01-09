@@ -35,9 +35,17 @@ class Store(db.Model):
 
     CompanyType = db.Column(db.String(45))
     
+    ### Taxas do Sandfriends
     FeeSandfriendsHigh = db.Column(db.Integer)
     FeeSandfriendsLow = db.Column(db.Integer)
+    #Número de horas agendadas no mês para alterar da taxa alta para a baixa
     FeeThreshold = db.Column(db.Integer)
+
+    #Forma como cobramos das quadras
+    #PercentageFeesIncluded - Taxa do Sandfriends já inclui as taxas do Asaas
+    #PercentageFeesNotIncluded - Taxa do Sandfriends não inclui taxas do Asaas
+    #FixedPrice - Cobramos uma mensalidade fixa da quadra
+    BillingMethod = db.Column(db.String(45))
 
     @property
     def IsAvailable(self):
@@ -112,19 +120,3 @@ class Store(db.Model):
                 return True
 
         return False
-
-
-
-    # def hasEmptyRequiredValues(storeReq,employeeReq):
-    #     requiredFieldsStore = ["Name", "Address", "AddressNumber", "PhoneNumber1", "CEP", "Neighbourhood", "CPF"]
-    #     requiredFieldsEmployee = ["Email", "FirstName", "LastName"]
-        
-    #     for field in requiredFieldsStore:
-    #         if getattr(storeReq, field) is None or getattr(storeReq, field) == "":
-    #             return True
-
-    #     for field in requiredFieldsEmployee:
-    #         if getattr(employeeReq, field) is None or getattr(employeeReq, field) == "":
-    #             return True
-
-    #     return False

@@ -116,8 +116,8 @@ def SearchRecurrentCourts():
     recurrentMatches = db.session.query(RecurrentMatch)\
                         .filter(RecurrentMatch.Canceled == False)\
                         .filter(RecurrentMatch.IdStoreCourt.in_(court.IdStoreCourt for court in courts))\
-                        .filter(RecurrentMatch.ValidUntil > datetime.now()).all()
-
+                        .filter((RecurrentMatch.ValidUntil > datetime.now()) | (RecurrentMatch.Blocked)).all()
+    
     #Rever, a princípio não faz nada, pois já é verificado na linha acima (ValidUntil)
     recurrentMatches = [recurrentMatch for recurrentMatch in recurrentMatches if recurrentMatch.isPaymentExpired == False]
 
@@ -253,6 +253,7 @@ def CourtReservation():
     
     recurrentMatches = [recurrentMatch for recurrentMatch in recurrentMatches if recurrentMatch.isPaymentExpired == False]
 
+    #Caso o horário não esteja disponível
     if (len(recurrentMatches) > 0) and (isRenovatingReq == False):
         return "Ops, esse horário não está mais disponível", HttpCode.WARNING
 
@@ -281,6 +282,9 @@ def CourtReservation():
             .filter(StoreCourt.IdStoreCourt == idStoreCourtReq).first()
     
     now = datetime.now()
+
+    #Número de dias com partida
+    nMatches = int(totalCostReq / costReq)
 
     #### PIX
     if paymentReq == 1:
@@ -313,10 +317,10 @@ def CourtReservation():
         asaasPaymentId = responsePayment.json().get('id')
         asaasBillingType = responsePayment.json().get('billingType')
         #Valor final, após Split - o que a quadra irá receber
-        costFinalReq = responsePayment.json().get('split')[0].get('totalValue')
+        costFinalReq = responsePayment.json().get('split')[0].get('totalValue') / nMatches
         #Valor da taxa do Asaas
-        costNetReq = responsePayment.json().get('netValue')
-        costReq = responsePayment.json().get('value')
+        costNetReq = responsePayment.json().get('netValue') / nMatches
+        costReq = responsePayment.json().get('value') / nMatches
         costAsaasTaxReq = costReq - costNetReq
         #Valor da remuneração do Sandfriends
         costSandfriendsNetTaxReq = costReq - costAsaasTaxReq - costFinalReq
@@ -349,10 +353,10 @@ def CourtReservation():
         asaasBillingType = responsePayment.json().get('billingType')
         asaasPaymentStatus = "PENDING"
         #Valor final, após Split - o que a quadra irá receber
-        costFinalReq = responsePayment.json().get('split')[0].get('totalValue')
+        costFinalReq = responsePayment.json().get('split')[0].get('totalValue') / nMatches
         #Valor da taxa do Asaas
-        costNetReq = responsePayment.json().get('netValue')
-        costReq = responsePayment.json().get('value')
+        costNetReq = responsePayment.json().get('netValue') / nMatches
+        costReq = responsePayment.json().get('value') / nMatches
         costAsaasTaxReq = costReq - costNetReq
         #Valor da remuneração do Sandfriends
         costSandfriendsNetTaxReq = costReq - costAsaasTaxReq - costFinalReq
@@ -372,7 +376,15 @@ def CourtReservation():
         asaasSplitReq = costReq
 
         if isRenovatingReq:
-            validUntil = getLastDayOfMonth(datetime(now.year, now.month+1, 1))
+
+            #Ajuste para não dar problema em dezembro
+            year = now.year
+            if now.month < 12:
+                month = now.month
+            else:
+                month = 1
+
+            validUntil = getLastDayOfMonth(datetime(year, month, 1))
         else:
             validUntil = getLastDayOfMonth(now)
 
@@ -575,8 +587,8 @@ def CancelRecurrentMatchEmployee():
         return jsonify({"RecurrentMatches": recurrentMatchList}), HttpCode.SUCCESS
 
 
-@bp_recurrent_match.route('/RecurrentBlockUnblockHour', methods=['POST'])
-def RecurrentBlockUnblockHour():
+@bp_recurrent_match.route('/RecurrentBlockHour', methods=['POST'])
+def RecurrentBlockHour():
     if not request.json:
         abort(400)
 
@@ -595,11 +607,13 @@ def RecurrentBlockUnblockHour():
 
     recurrentMatch = db.session.query(RecurrentMatch)\
                 .filter(RecurrentMatch.Weekday == weekdayReq)\
+                .filter(RecurrentMatch.Canceled == False)\
+                .filter(RecurrentMatch.IsExpired == False)\
                 .filter((RecurrentMatch.IdTimeBegin == idHourReq) | ((RecurrentMatch.IdTimeBegin < idHourReq) & (RecurrentMatch.IdTimeEnd > idHourReq)))\
                 .filter(RecurrentMatch.IdStoreCourt == idStoreCourtReq).first()
 
 
-    blockedReq = request.json.get('Blocked')
+    idStorePlayerReq = request.json.get('IdStorePlayer')
     blockedReasonReq = request.json.get('BlockedReason')
     idSportReq = request.json.get('IdSport')
 
@@ -614,29 +628,58 @@ def RecurrentBlockUnblockHour():
             CreationDate = datetime.now(),
             LastPaymentDate = datetime.now(),
             Canceled = False,
-            Blocked = blockedReq,
+            Blocked = True,
             BlockedReason = blockedReasonReq,
+            IdStorePlayer = idStorePlayerReq,
         )
         db.session.add(newRecurrentMatch)
 
     else:
         #alguem marcou mensalista nesse meio tempo
-        if recurrentMatch.IsExpired == False and recurrentMatch.Canceled == False:
-            return webResponse("Ops", "Não foi possível bloquear o horário. Um mensalista já foi marcado nesse horário"), HttpCode.WARNING
-        
-        #em teoria se chegou aqui é para desbloquear um horário, coloquei esse if só pra ter certeza
-        if blockedReq == False:
-            db.session.delete(recurrentMatch)
-        else:
-            recurrentMatch.Canceled = False
-            recurrentMatch.Blocked = blockedReq
-            recurrentMatch.BlockedReason = blockedReasonReq
+        return webResponse("Ops", "Não foi possível bloquear o horário. Um mensalista já foi marcado nesse horário"), HttpCode.WARNING
     
     db.session.commit()
 
     courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == storeCourt.IdStore).all()
 
     recurrentMatches = db.session.query(RecurrentMatch).filter(RecurrentMatch.IdStoreCourt.in_([court.IdStoreCourt for court in courts]))\
+                        .filter(RecurrentMatch.Canceled == False)\
+                        .filter(RecurrentMatch.IsExpired == False).all()
+
+    recurrentMatchList =[]
+    for recurrentMatch in recurrentMatches:
+        recurrentMatchList.append(recurrentMatch.to_json_store())
+
+    return jsonify({"RecurrentMatches": recurrentMatchList}), HttpCode.SUCCESS
+
+#rota para desbloquear mensalistas bloqueados pelas quadras
+@bp_recurrent_match.route('/RecurrentUnblockHour', methods=['POST'])
+def RecurrentBlockUnblockHour():
+    if not request.json:
+        abort(400)
+
+    accessTokenReq = request.json.get('AccessToken')
+    idRecurrentMatchReq = request.json.get('IdRecurrentMatch')
+
+    #busca a loja a partir do token do employee
+    store = getStoreByToken(accessTokenReq)
+    
+    #Caso não encontrar Token
+    if store is None:
+        return webResponse("Token não encontrado", None), HttpCode.EXPIRED_TOKEN
+
+    recurrentMatch = db.session.query(RecurrentMatch)\
+                .filter(RecurrentMatch.IdRecurrentMatch == idRecurrentMatchReq).first()
+
+    if recurrentMatch is None:
+        return webResponse("Ops", "Mensalista não encontrado. Atualize a página e tente novamente. Se não conseguir, fale com nosso suporte"), HttpCode.WARNING
+    else:
+        db.session.delete(recurrentMatch)
+    
+    db.session.commit()
+
+
+    recurrentMatches = db.session.query(RecurrentMatch).filter(RecurrentMatch.IdStoreCourt.in_([court.IdStoreCourt for court in store.Courts]))\
                         .filter(RecurrentMatch.Canceled == False)\
                         .filter(RecurrentMatch.IsExpired == False).all()
 
