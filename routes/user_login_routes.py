@@ -3,7 +3,6 @@ from datetime import datetime
 import random
 from sqlalchemy import null, true, ForeignKey
 
-
 from ..routes.reward_routes import RewardStatus
 from ..responses import webResponse
 from ..Models.user_model import User
@@ -111,7 +110,8 @@ def AddUserInfo():
     user = db.session.query(User).filter(User.AccessToken == tokenReq).first()
 
     #Verifica se o token é 0 ou null
-    tokenNullOrZero(tokenReq)
+    if tokenReq == 0 or tokenReq is None:
+        return "Token inválido, faça login novamente", HttpCode.EXPIRED_TOKEN
 
     if not user:
         return "Token expirado", HttpCode.EXPIRED_TOKEN
@@ -155,7 +155,8 @@ def ValidateTokenUser():
     tokenReq = request.json.get('AccessToken')
 
     #Verifica se o token é 0 ou null
-    tokenNullOrZero(tokenReq)
+    if tokenReq == 0 or tokenReq is None:
+        return "Token inválido, faça login novamente", HttpCode.EXPIRED_TOKEN
     
     user = db.session.query(User).filter(User.AccessToken == tokenReq).first()
     payloadUserId = DecodeToken(tokenReq)
@@ -344,7 +345,8 @@ def GetUserInfo():
     user = User.query.filter_by(AccessToken = tokenReq).first()
 
     #Verifica se o token é 0 ou null
-    tokenNullOrZero(tokenReq)
+    if tokenReq == 0 or tokenReq is None:
+        return "Token inválido, faça login novamente", HttpCode.EXPIRED_TOKEN
 
     if user is None:
         return 'Token inválido.', HttpCode.EXPIRED_TOKEN
@@ -435,7 +437,8 @@ def RemoveUser():
     user = User.query.filter_by(AccessToken = tokenReq).first()
     
     #Verifica se o token é 0 ou null
-    tokenNullOrZero(tokenReq)
+    if tokenReq == 0 or tokenReq is None:
+        return "Token inválido, faça login novamente", HttpCode.EXPIRED_TOKEN
 
     if user is None:
         return 'Token inválido.', HttpCode.EXPIRED_TOKEN
@@ -505,10 +508,6 @@ def getMatchCounterList(user):
         })
     
     return matchCounterList
-
-def tokenNullOrZero(token):
-    if token == 0 or token is None:
-        return "Token inválido", HttpCode.EXPIRED_TOKEN
 
 #Usado para gerar o token de confirmação do e-mail
 def generateRandomString(length):

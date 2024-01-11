@@ -48,7 +48,7 @@ class Match(db.Model):
 
     #Cupom
     IdCoupon = db.Column(db.Integer, db.ForeignKey('coupon.IdCoupon'))
-    Coupon = db.relationship('Coupon', foreign_keys = [IdCoupon])
+    Coupon =  db.relationship('Coupon', back_populates = "Matches")
     CostDiscount = db.Column(db.Numeric(precision=10, scale=2))
 
     @hybrid_property
@@ -64,6 +64,10 @@ class Match(db.Model):
     @hybrid_property
     def IsPaymentConfirmed(self):
         return self.AsaasPaymentStatus == "CONFIRMED"
+
+    @hybrid_property
+    def IsFromRecurrentMatch(self):
+        return self.IdRecurrentMatch != 0
 
     def MatchDatetime(self):
         return datetime.strptime(self.Date.strftime("%Y-%m-%d ") + self.TimeBegin.HourString, "%Y-%m-%d %H:%M")
@@ -147,17 +151,21 @@ class Match(db.Model):
         #Retorna uma versão mais simplificada
         #Menos texto para transmitir para o app ao carregar a página
         #cuidado, esses nomes tem q ser vazios (caso de partida bloqueada, q não tem criador)
-        MatchCreatorFirstName = ""
-        MatchCreatorLastName = ""
-        MatchCreatorPhoto = None
+        matchCreatorFirstName = ""
+        matchCreatorLastName = ""
+        matchCreatorPhoto = None
         for member in self.Members:
             if member.IsMatchCreator == 1:
-                MatchCreatorFirstName = member.User.FirstName
-                MatchCreatorLastName = member.User.LastName
-                if member.User.Photo is None:
-                    MatchCreatorPhoto = None
+                if member.StorePlayer is not None:
+                    matchCreatorFirstName = member.StorePlayer.FirstName
+                    matchCreatorLastName = member.StorePlayer.LastName
                 else:
-                    MatchCreatorPhoto = f"/img/usr/{member.User.Photo}.png"
+                    matchCreatorFirstName = member.User.FirstName
+                    matchCreatorLastName = member.User.LastName
+                    if member.User.Photo is None:
+                        matchCreatorPhoto = None
+                    else:
+                        matchCreatorPhoto = f"/img/usr/{member.User.Photo}.png"
 
         return {
             'IdMatch': self.IdMatch,            
@@ -170,9 +178,10 @@ class Match(db.Model):
             'IdSport': self.IdSport,
             'CreatorNotes': self.CreatorNotes,
             'IdRecurrentMatch': self.IdRecurrentMatch,
-            'MatchCreatorFirstName': MatchCreatorFirstName,
-            'MatchCreatorLastName': MatchCreatorLastName,
-            'MatchCreatorPhoto': MatchCreatorPhoto,
+            'MatchCreatorFirstName': matchCreatorFirstName,
+            'MatchCreatorLastName': matchCreatorLastName,
+            'MatchCreatorPhoto': matchCreatorPhoto,
+            'Canceled': self.Canceled,
             'Blocked':self.Blocked,
             'BlockedReason':self.BlockedReason,
             'PaymentStatus': self.AsaasPaymentStatus,
@@ -183,3 +192,9 @@ class Match(db.Model):
             'CostUser': self.CostUser 
         }
         
+def queryMatchesForCourts(courts, startDate, endDate):
+    return db.session.query(Match).filter(Match.IdStoreCourt.in_(courts))\
+        .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
+        .filter(Match.IsPaymentConfirmed | Match.Blocked == True)\
+        .filter((Match.Canceled == False) | ((Match.Canceled == True) & (Match.IsFromRecurrentMatch))).all()
+    
