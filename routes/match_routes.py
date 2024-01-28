@@ -89,7 +89,26 @@ def GetAvailableCitiesList():
 def GetAvailableCities():
     return jsonify({'States':GetAvailableCitiesList()})
 
-    
+#rota para buscar quadras em uma cidade
+@bp_match.route("/SearchStores", methods=["POST"])
+def SearchStores():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    idCityReq = request.json.get('IdCity')
+    idSportReq = request.json.get('IdSport')
+
+    stores = db.session.query(Store)\
+                .filter(Store.IdCity == idCityReq).all()
+
+
+    storesList = []
+    for store in stores:
+        if store.IsAvailable:
+            storesList.append(store.to_json())
+
+    return jsonify({'Stores': storesList}), HttpCode.SUCCESS
+
 #rota utilizada pra buscar horários e partidas abertas
 @bp_match.route("/SearchCourts", methods=["POST"])
 def SearchCourts():
@@ -103,6 +122,7 @@ def SearchCourts():
     dateEnd = datetime.strptime(request.json.get('DateEnd'), '%d-%m-%Y')
     timeStart = request.json.get('TimeStart')
     timeEnd = request.json.get('TimeEnd')
+    searchIdStore = request.json.get('IdStore')
 
     user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
@@ -111,6 +131,9 @@ def SearchCourts():
 
     stores = db.session.query(Store).filter(Store.IdCity == cityId)\
                                     .filter(Store.IdStore.in_([store.IdStore for store in getAvailableStores()])).all()
+
+    if searchIdStore is not None:
+        stores = [store for store in stores if store.IdStore == searchIdStore]
 
     #query de todas as quadras(não estabelecimento) que aceita o esporte solicitado
     courts = db.session.query(StoreCourt)\
