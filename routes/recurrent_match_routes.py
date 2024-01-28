@@ -88,6 +88,7 @@ def SearchRecurrentCourts():
     days = request.json.get('Days').split(";")
     timeStart = request.json.get('TimeStart')
     timeEnd = request.json.get('TimeEnd')
+    searchIdStore = request.json.get('IdStore')
 
     #Verifica se o usuário é válido
     user = User.query.filter_by(AccessToken = accessToken).first()
@@ -98,6 +99,9 @@ def SearchRecurrentCourts():
     stores = db.session.query(Store).filter(Store.IdCity == cityId)\
                                     .filter(Store.IdStore.in_([store.IdStore for store in getAvailableStores()])).all()
 
+    if searchIdStore is not None:
+        stores = [store for store in stores if store.IdStore == searchIdStore]
+        
     #Quadras disponíveis
     #Unir tabela de quadras e a tabela com os esportes de cada quadra
     #Filtra as quadras que possuem o esporte escolhido
