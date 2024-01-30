@@ -198,8 +198,8 @@ def GetStores():
 def GetStore(id):
     store = Store.query.get(id)
 
-    if store is None:
-        return "Quadra não encontrada" + responseStore.text, HttpCode.WARNING
+    if store is None or store.IsAvailable == False:
+        return "Quadra não encontrada", HttpCode.WARNING
     return jsonify(store.to_json())
 
 @bp_store.route("/UpdateStoreInfo", methods=["POST"])
