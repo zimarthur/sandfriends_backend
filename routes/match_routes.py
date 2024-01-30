@@ -92,8 +92,8 @@ def GetAvailableCities():
 #rota para buscar quadras em uma cidade
 @bp_match.route("/SearchStores", methods=["POST"])
 def SearchStores():
-    if not request.json:
-        abort(HttpCode.ABORT)
+    # if not request.json:
+    #     abort(HttpCode.ABORT)
 
     idCityReq = request.json.get('IdCity')
     idSportReq = request.json.get('IdSport')
