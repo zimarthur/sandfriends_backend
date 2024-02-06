@@ -55,7 +55,10 @@ def AddUser():
     if user:
         #O email que o usuário tentou cadastrar já foi cadastrado com o "Login com o google"
         if user.ThirdPartyLogin: 
-            return "E-mail já cadastrado com uma conta Google",HttpCode.ALERT
+            if user.AppleToken is not None:
+                return "E-mail já cadastrado com uma conta Apple",HttpCode.ALERT
+            else:
+                return "E-mail já cadastrado com uma conta Google",HttpCode.ALERT
 
         return "Este e-mail já foi cadastrado anteriormente",HttpCode.WARNING
 
@@ -97,6 +100,10 @@ def AddUserInfo():
     idCityReq = request.json.get('IdCity')
     idSportReq = request.json.get('IdSport')
 
+    #para o caso especifico de o usuario entrar com conta apple a não compartilhar o email. 
+    #Nesse caso temos q pedir o email no oboarding
+    emailReq = request.json.get('Email')
+
     #Verifica se a cidade existe
     cidade = db.session.query(City).filter(City.IdCity == idCityReq).first()
     if cidade is None:
@@ -121,6 +128,13 @@ def AddUserInfo():
     user.PhoneNumber = phoneNumberReq
     user.IdCity = idCityReq
     user.IdSport = idSportReq
+
+    if emailReq is not None:
+        emailInUse = db.session.query(User).filter(User.Email == emailReq).first()
+        if emailInUse is not None:
+            return "Já existe uma conta com esse email", HttpCode.WARNING
+        else:
+            user.Email = emailReq
 
     rankCategories = db.session.query(RankCategory).all()
 
@@ -188,7 +202,10 @@ def LoginUser():
         return "Não foi possível fazer login pois sua conta já foi excluída", HttpCode.WARNING
 
     if user.ThirdPartyLogin:
-        return "Este e-mail foi cadastrado com uma conta do Google - Realize o login através do Google", HttpCode.ALERT
+        if user.AppleToken is not None:
+            return "Este e-mail foi cadastrado com uma conta Apple", HttpCode.ALERT
+        else:
+            return "Este e-mail foi cadastrado com uma conta do Google - Realize o login através do Google", HttpCode.ALERT
 
     #if user.Password != passwordReq:
     if not bcrypt.checkpw(passwordReq, (user.Password).encode('utf-8')):
@@ -219,25 +236,33 @@ def ThirdPartyAuthUser():
 
     user = User.query.filter_by(Email=emailReq).first()
 
+    appleToken = request.json.get('AppleToken')
+
     #Ainda não estava cadastrado - realizar cadastro
     if not user: 
-        user = User(
-        Email = emailReq,
-        Password = '',
-        AccessToken = 0,
-        RegistrationDate = datetime.now(),
-        EmailConfirmationDate = datetime.now(),
-        ThirdPartyLogin = True,
-        )
+        user = User.query.filter_by(AppleToken=appleToken).first()
+        if user is None:
+            user = User(
+            Email = emailReq,
+            Password = '',
+            AccessToken = 0,
+            RegistrationDate = datetime.now(),
+            EmailConfirmationDate = datetime.now(),
+            ThirdPartyLogin = True,
+            AppleToken = appleToken,
+            )
 
-        db.session.add(user)
-        db.session.flush()
-        db.session.refresh(user)
+            db.session.add(user)
+            db.session.flush()
+            db.session.refresh(user)
 
         user.AccessToken = EncodeToken(user.IdUser)
         db.session.commit()
         return initUserLoginData(user), HttpCode.SUCCESS
     
+    if user.AppleToken is not None:
+        if user.AppleToken != appleToken:
+            return "Não foi possível vincular sua conta apple. Contate nossa equipe para ajuda.", HttpCode.WARNING
     #Usuário já estava cadastrado - realizar login
     newToken = EncodeToken(user.IdUser)
 

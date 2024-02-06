@@ -34,7 +34,10 @@ class User(db.Model):
     EmailConfirmationDate = db.Column(db.DateTime)
     EmailConfirmationToken = db.Column(db.String(300))
     ResetPasswordToken = db.Column(db.Integer)
+
     ThirdPartyLogin = db.Column(db.Boolean)
+    AppleToken = db.Column(db.String(255))
+
     AllowNotifications = db.Column(db.Boolean)
     NotificationsToken = db.Column(db.String(255))
 
