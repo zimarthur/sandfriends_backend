@@ -26,7 +26,7 @@ def ValidateCoupon():
     #Busca se o cupom existe e está válido
     coupon = db.session.query(Coupon)\
         .filter(Coupon.Code == codeReq)\
-        .filter(Coupon.IdStoreValid == idStoreReq)\
+        .filter((Coupon.IdStoreValid == idStoreReq) | (Coupon.IdStoreValid == None))\
         .filter(Coupon.IsValid == 1)\
         .filter((Coupon.IdTimeBeginValid <= timeBeginReq) & (Coupon.IdTimeEndValid >= timeEndReq))\
         .filter((Coupon.DateBeginValid <= matchDateReq) & (Coupon.DateEndValid >= matchDateReq))\
