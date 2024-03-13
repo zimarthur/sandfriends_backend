@@ -8,6 +8,7 @@ from ..Models.http_codes import HttpCode
 from ..Models.city_model import City
 from ..Models.state_model import State
 from ..Models.store_photo_model import StorePhoto
+from ..Models.store_price_model import StorePrice
 from ..Models.sport_model import Sport
 from ..Models.match_model import Match
 from ..Models.employee_model import Employee
@@ -141,6 +142,7 @@ def ApproveStore():
     feeSandfriendsLowReq = request.json.get('FeeSandfriendsLow')
     feeThresholdReq = request.json.get('FeeThreshold')
     billingMethodReq = request.json.get('BillingMethod')
+    storeUrl = request.json.get('StoreUrl')
 
     store = db.session.query(Store).filter(Store.IdStore == idStoreReq).first()
 
@@ -194,13 +196,53 @@ def GetStores():
     stores = Store.query.all()
     return jsonify([store.to_json() for store in stores])
 
-@bp_store.route('/GetStore/<id>', methods = ['GET'])
-def GetStore(id):
-    store = Store.query.get(id)
+@bp_store.route('/GetStore/<storeUrl>', methods = ['GET'])
+def GetStore(storeUrl):
+    store = Store.query.filter(Store.Url == storeUrl).first()
 
     if store is None or store.IsAvailable == False:
         return "Quadra não encontrada", HttpCode.WARNING
     return jsonify(store.to_json())
+
+#rota utilizado pelo site sandfriends. Como o jogador pode entrar diretamente no url da store, tem que enviar aqui não só as infos da loj, mas os dados basicos
+@bp_store.route('/GetStoreAndAuthenticate', methods = ['POST'])
+def GetStoreAndAuthenticate():
+    if not request.json:
+        abort(400)
+
+    storeUrlReq = request.json.get('StoreUrl')
+    store = Store.query.filter(Store.Url == storeUrlReq).first()
+
+    if store is None or store.IsAvailable == False:
+        return "Quadra não encontrada", HttpCode.WARNING
+    return  jsonify(store.to_json())
+
+#rota utilizado pelo site sandfriends. Como o jogador pode entrar diretamente no url da store, tem que enviar aqui não só as infos da loj, mas os dados basicos
+@bp_store.route('/GetStoreOperationHours/<storeId>', methods = ['GET'])
+def GetStoreOperationHours(storeId):
+    store = Store.query.filter(Store.IdStore == storeId).first()
+
+    if store is None or store.IsAvailable == False:
+        return "Quadra não encontrada", HttpCode.WARNING
+
+    courtsIds = [court.IdStoreCourt for court in store.Courts]
+    
+    priceHours = db.session.query(StorePrice).filter(StorePrice.IdStoreCourt.in_(courtsIds)).all()
+
+    operationHours = []
+    for weekday in range(7):
+        prices = [priceHour.IdAvailableHour for priceHour in priceHours if priceHour.Weekday == weekday]
+        
+        if prices:
+            minHour = min(prices)
+            maxHour = max(prices)
+        operationHours.append({
+            "Weekday": weekday,
+            "StartingHour": minHour,
+            "EndingHour": maxHour,
+        })
+
+    return  jsonify(operationHours),  HttpCode.SUCCESS
 
 @bp_store.route("/UpdateStoreInfo", methods=["POST"])
 def UpdateStoreInfo():
@@ -261,8 +303,8 @@ def UpdateStoreInfo():
         if(neighbourhoodReq is None or neighbourhoodReq == ""):
             return webResponse("O nome do bairro do seu estabelecimento está em branco", None), HttpCode.WARNING
         
-        if (len(photosReq) < 2):
-            return webResponse("Seu estabelecimento precisa ter pelo menos 2 fotos", None), HttpCode.WARNING
+        if (len(photosReq) < 3):
+            return webResponse("Seu estabelecimento precisa ter pelo menos 3 fotos", None), HttpCode.WARNING
         
     store.Name = nameReq
     store.Address = addressReq

@@ -11,6 +11,7 @@ from ..Models.city_model import City
 from ..Models.state_model import State
 from ..Models.coupon_model import Coupon
 from ..Models.sport_model import Sport
+from ..Models.side_preference_category_model import SidePreferenceCategory
 from ..Models.gender_category_model import GenderCategory
 from ..Models.rank_category_model import RankCategory
 from ..Models.match_model import Match, queryMatchesForCourts
@@ -336,7 +337,7 @@ def ChangePasswordRequestEmployee():
     #envia o email automático para redefinir a senha
     employee.ResetPasswordToken = str(datetime.now().timestamp()) + str(employee.IdEmployee)
     db.session.commit()
-    emailStoreChangePassword(employee.Email, employee.FirstName, "https://" + os.environ['URL_QUADRAS'] + "/cgpw?str=1&tk="+employee.ResetPasswordToken)
+    emailStoreChangePassword(employee.Email, employee.FirstName, "https://" + os.environ['URL_QUADRAS'] + "/cgpw?tk="+employee.ResetPasswordToken)
 
     return webResponse("Link para troca de senha enviado!", "Verifique sua caixa de e-mail e siga as instruções para trocar sua senha"), HttpCode.ALERT
 
@@ -478,7 +479,12 @@ def initStoreLoginData(employee, isRequestFromAppReq):
     ranksList = []
 
     for rank in ranks:
-        ranksList.append(rank.to_json_min())
+        ranksList.append(rank.to_json())
+
+    sidePreferences = db.session.query(SidePreferenceCategory).all()
+    sidePreferencesList = []
+    for sidePreference in sidePreferences:
+        sidePreferencesList.append(sidePreference.to_json())
 
     #Lista com as quadras do estabelecimento(json da quadra, esportes e preço)
     courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == store.IdStore).all()
@@ -541,9 +547,10 @@ def initStoreLoginData(employee, isRequestFromAppReq):
     return jsonify({'AccessToken': accessTokenReturn,\
                     'LoggedEmail': employee.Email,\
                     'Sports' : sportsList, \
-                    'AvailableHours' : hoursList,\
+                    'Hours' : hoursList,\
                     'Genders':gendersList,\
                     'Ranks': ranksList,\
+                    'SidePreferences': sidePreferencesList, \
                     'Store' : store.to_json(),\
                     'Courts' : courtsList,\
                     'Matches':matchList,\
