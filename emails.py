@@ -176,10 +176,6 @@ def sendEmail(email, name, templateId, variables):
                 "Name": "Arthur"
             },
             {
-                "Email": "pedromilano902@gmail.com",
-                "Name": "Pedro"
-            },
-            {
                 "Email": "pietro.berger@gmail.com",
                 "Name": "Pietro"
             },

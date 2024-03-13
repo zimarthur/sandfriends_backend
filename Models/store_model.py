@@ -21,6 +21,7 @@ class Store(db.Model):
     RegistrationDate = db.Column(db.DateTime)
     ApprovalDate = db.Column(db.DateTime)
     Logo = db.Column(db.String(100))
+    Url = db.Column(db.String(255))
 
     IdCity = db.Column(db.Integer, db.ForeignKey('city.IdCity'))
     City = db.relationship('City', foreign_keys = [IdCity])
@@ -49,7 +50,7 @@ class Store(db.Model):
 
     @property
     def IsAvailable(self):
-        return self.ApprovalDate != None and self.Latitude != None and self.Longitude != None and self.Description != None and self.Logo != None and (len(self.Courts) > 0) and (len(self.Photos) > 1)
+        return self.ApprovalDate != None and self.Latitude != None and self.Longitude != None and self.Description != None and self.Logo != None and (len(self.Courts) > 0) and (len(self.Photos) > 2)
     
     @property
     def StoreOwner(self):
@@ -66,6 +67,7 @@ class Store(db.Model):
         return {
             'IdStore': self.IdStore,
             'Name': self.Name,
+            'Url': self.Url,
             'Address': self.Address,
             'AddressNumber': self.AddressNumber,
             'Latitude': self.Latitude,
@@ -91,6 +93,7 @@ class Store(db.Model):
         return {
             'IdStore': self.IdStore,
             'Name': self.Name,
+            'Url': self.Url,
             'Address': self.Address,
             'AddressNumber': self.AddressNumber,
             'Latitude': self.Latitude,

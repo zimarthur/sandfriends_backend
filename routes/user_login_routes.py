@@ -82,7 +82,7 @@ def AddUser():
     userNew.EmailConfirmationToken = generateRandomString(16)
     #emcf=email confirmation(não sei se é legal ter uma url explicita), str(pra distinguir se é store=1 ou user = 0)
     #tk = token
-    emailUserWelcomeConfirmation(userNew.Email, "https://" + os.environ['URL_APP'] + "/redirect/?ct=emcf&bd="+userNew.EmailConfirmationToken)
+    emailUserWelcomeConfirmation(userNew.Email, "https://" + os.environ['URL_APP'] + "/emcf?tk="+userNew.EmailConfirmationToken)
     
     db.session.commit()
     return "Sua conta foi criada! Valide ela com o e-mail que enviamos.", HttpCode.SUCCESS
@@ -161,26 +161,30 @@ def AddUserInfo():
 #Essa rota é utilizada pelo jogador quando inicializa o app. Caso tenha armazenado no cel algum AccessToken, ele envia pra essa rota e valida ele.
 #Se estiver válido ele entra no app sem ter q digitar email e senha e atualiza o accessToken.
 # Ele vai ser inválido quando, por exemplo, um jogador fizer login num cel A e depois num cel B. O AccessToken do cel A vai estar desatualizado.
+##135 Com o Sandfriends Jogador Web, não é mais preciso ter token. Pode ser que envie ou não
 @bp_user_login.route("/ValidateTokenUser", methods=["POST"])
 def ValidateTokenUser():
     if not request.json:
         abort(HttpCode.ABORT)
 
     tokenReq = request.json.get('AccessToken')
+    requiresUserToProceedReq = request.json.get('RequiresUserToProceed')
 
-    #Verifica se o token é 0 ou null
-    if tokenReq == 0 or tokenReq is None:
-        return "Token inválido, faça login novamente", HttpCode.EXPIRED_TOKEN
-    
-    user = db.session.query(User).filter(User.AccessToken == tokenReq).first()
-    payloadUserId = DecodeToken(tokenReq)
+   
+    user = None
 
-    if user is None:
-        return 'Usuário não encontrado', HttpCode.WARNING
-    
-    newToken = EncodeToken(payloadUserId)
-    user.AccessToken = newToken
-    db.session.commit()
+    if tokenReq is not None:
+        user = db.session.query(User).filter(User.AccessToken == tokenReq).first()
+        
+        if user is None and requiresUserToProceedReq == True:
+            return 'Usuário não encontrado', HttpCode.WARNING
+
+        if user is not None: 
+            payloadUserId = DecodeToken(tokenReq)
+            
+            newToken = EncodeToken(payloadUserId)
+            user.AccessToken = newToken
+            db.session.commit()
 
     return initUserLoginData(user), HttpCode.SUCCESS
 
@@ -312,7 +316,7 @@ def ChangePasswordRequestUser():
     #E-mail já  confirmado
     user.ResetPasswordToken = str(datetime.now().timestamp()) + user.AccessToken
     db.session.commit()
-    emailUserChangePassword(user.Email, user.FirstName, "https://" + os.environ['URL_QUADRAS'] + "/cgpw?str=0&tk="+user.ResetPasswordToken)
+    emailUserChangePassword(user.Email, user.FirstName, "https://" + os.environ['URL_QUADRAS'] + "/cgpw?tk="+user.ResetPasswordToken)
 
     return 'Enviamos um e-mail para ser feita a troca de senha', HttpCode.SUCCESS
 
@@ -356,8 +360,9 @@ def ChangePasswordUser():
     #Caso tudo ok
     user.Password = bcrypt.hashpw(newPasswordReq, bcrypt.gensalt())
     user.ResetPasswordToken = None
+    user.AccessToken = EncodeToken(user.IdUser)
     db.session.commit()
-    return webResponse("Sua senha foi alterada com sucesso", None), HttpCode.ALERT
+    return jsonify({"AccessToken":user.AccessToken}), HttpCode.SUCCESS
 
 #Rota utilizada pelo jogador depois de fazer login e entrar na home do app. Aqui sãao requisitadas todas pertidas, recompensas, mensalistas... do jogador
 @bp_user_login.route("/GetUserInfo", methods=["POST"])
@@ -504,8 +509,11 @@ def initUserLoginData(user):
     for hour in hours:
         hoursList.append(hour.to_json())
 
-    
-    return jsonify({'States':GetAvailableCitiesList(), 'Sports':sportsList, 'Genders': gendersList, 'SidePreferences': sidePreferencesList, 'Ranks': ranksList, 'Hours': hoursList, 'User': user.to_json()})
+    userJson = None
+    if user is not None:
+        userJson = user.to_json()
+
+    return jsonify({'States':GetAvailableCitiesList(), 'Sports':sportsList, 'Genders': gendersList, 'SidePreferences': sidePreferencesList, 'Ranks': ranksList, 'Hours': hoursList, 'User': userJson})
 
 def getMatchCounterList(user):
     #Como o num de jogos do jogador não está e não pode ser obtida na tabela User ou UserLogin, tive q fazer a query manualmente(abaixo)
