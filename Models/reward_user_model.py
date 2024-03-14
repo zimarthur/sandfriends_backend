@@ -28,7 +28,7 @@ class RewardUser(db.Model):
         if self.RewardClaimedDate == None:
             rewardClaimedDate = None
         else:
-            rewardClaimedDate = self.RewardClaimedDate.strftime("%Y-%m-%d")
+            rewardClaimedDate = self.RewardClaimedDate.strftime("%d/%m/%Y")
 
         if self.IdStore == None:
             store = None

@@ -15,8 +15,8 @@ class RewardMonth(db.Model):
     def to_json(self):
         return {
             'IdRewardMonth': self.IdRewardMonth,
-            'StartingDate': self.StartingDate.strftime("%Y-%m-%d"),
-            'EndingDate': self.EndingDate.strftime("%Y-%m-%d"),
+            'StartingDate': self.StartingDate.strftime("%d/%m/%Y"),
+            'EndingDate': self.EndingDate.strftime("%d/%m/%Y"),
             'NTimesToReward': self.NTimesToReward,
             'RewardCategory': self.RewardCategory.to_json(),
             'Rewards': [reward.to_json() for reward in self.Rewards]
