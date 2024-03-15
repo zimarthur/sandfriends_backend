@@ -124,16 +124,16 @@ def SearchCourts():
     timeEnd = request.json.get('TimeEnd')
     searchIdStore = request.json.get('IdStore')
 
+    #esse user pode ser nulo pq busca pelo web não precisa estar logado
     user = User.query.filter_by(AccessToken = accessToken).first()
-    if user is None:
-        return '1', HttpCode.INVALID_ACCESS_TOKEN
-
 
     stores = db.session.query(Store).filter(Store.IdCity == cityId)\
                                     .filter(Store.IdStore.in_([store.IdStore for store in getAvailableStores()])).all()
-
-    if searchIdStore is not None:
-        stores = [store for store in stores if store.IdStore == searchIdStore]
+    storeAux =[]
+    for store in stores:
+        if (searchIdStore is not None and store.IdStore == searchIdStore or searchIdStore is None) and store.IsAvailable == True:
+            storeAux.append(store)
+    stores = storeAux
 
     #query de todas as quadras(não estabelecimento) que aceita o esporte solicitado
     courts = db.session.query(StoreCourt)\
@@ -162,9 +162,10 @@ def SearchCourts():
             userAlreadyInMatch = False
             matchMemberCounter = 0
             for member in match.Members:
-                if (member.User.IdUser == user.IdUser)  and (member.Refused == False) and (member.Quit == False):
-                    userAlreadyInMatch = True
-                    break
+                if user is not None:
+                    if (member.User.IdUser == user.IdUser)  and (member.Refused == False) and (member.Quit == False):
+                        userAlreadyInMatch = True
+                        break
             if (userAlreadyInMatch == False) and (matchMemberCounter < match.MaxUsers):
                 jsonOpenMatches.append(
                     match.to_json_open_match(),
@@ -517,7 +518,7 @@ def MatchReservation():
 
     #PIX
     if paymentReq == 1:
-        return jsonify({'Message':"Sua partida foi reservada!", "Pixcode": asaasPixCode}), HttpCode.ALERT
+        return jsonify({'Message':"Sua partida foi reservada!", "Pixcode": asaasPixCode}), HttpCode.SUCCESS
     else:
         return "Sua partida foi agendada!", HttpCode.ALERT
     

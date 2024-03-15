@@ -497,7 +497,7 @@ def CourtReservation():
 
     #PIX
     if paymentReq == 1:
-        return jsonify({'Message':"Seu horário mensalista foi reservado!", "Pixcode": asaasPixCode}), HttpCode.ALERT
+        return jsonify({'Message':"Seu horário mensalista foi reservado!", "Pixcode": asaasPixCode}), HttpCode.SUCCESS
     else:
         return "Seus horários mensalistas foram agendados!", HttpCode.ALERT
 
