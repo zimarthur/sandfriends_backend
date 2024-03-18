@@ -238,13 +238,14 @@ def ThirdPartyAuthUser():
 
     emailReq = request.json.get('Email')
 
-    user = User.query.filter_by(Email=emailReq).first()
+    user = User.query.filter(User.Email == emailReq).first()
 
     appleToken = request.json.get('AppleToken')
 
     #Ainda não estava cadastrado - realizar cadastro
     if not user: 
-        user = User.query.filter_by(AppleToken=appleToken).first()
+        if appleToken is not None:
+            user = User.query.filter(User.AppleToken == appleToken).first()
         if user is None:
             user = User(
             Email = emailReq,
