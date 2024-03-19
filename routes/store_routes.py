@@ -9,6 +9,7 @@ from ..Models.city_model import City
 from ..Models.state_model import State
 from ..Models.store_photo_model import StorePhoto
 from ..Models.store_price_model import StorePrice
+from ..Models.store_infrastructure_model import StoreInfrastructure
 from ..Models.sport_model import Sport
 from ..Models.match_model import Match
 from ..Models.employee_model import Employee
@@ -120,7 +121,7 @@ def AddStore():
     ###Ajustar esta parte no futuro
     employeeReq.EmailConfirmationToken = str(datetime.now().timestamp()) + str(employeeReq.IdEmployee)
     db.session.commit()
-    emailStoreWelcomeConfirmation(employeeReq.Email, employeeReq.FirstName, "https://" + os.environ['URL_QUADRAS'] + "/emcf?str=1&tk="+employeeReq.EmailConfirmationToken)
+    emailStoreWelcomeConfirmation(employeeReq.Email, employeeReq.FirstName, "https://" + os.environ['URL_QUADRAS'] + "/confirme-seu-email/"+employeeReq.EmailConfirmationToken)
     
     #Enviar e-mail para nós avisando
     emailStoreAwaitingApproval(storeReq, employeeReq, city)
@@ -266,6 +267,7 @@ def UpdateStoreInfo():
     cepReq = request.json.get('Cep')
     neighbourhoodReq = request.json.get('Neighbourhood')
     photosReq = request.json.get('Photos')
+    infrastructuresReq = request.json.get('StoreInfrastructures')
 
     #primeiro recebe a cidade e o estado pra ver pegar o stateId e o cityId
     city = db.session.query(City).filter(func.lower(City.City) == func.lower(cityReq)).first()
@@ -355,6 +357,19 @@ def UpdateStoreInfo():
         imageFile = open(f'/var/www/html/img/str/{newStorePhoto.IdStorePhoto}.png', 'wb')
         imageFile.write(imageBytes)
         imageFile.close()
+
+    receivedInfrastructures = [infrastructure["IdInfrastructureCategory"] for infrastructure in infrastructuresReq]
+    for infrastructure in store.Infrastructures:
+        if infrastructure.IdInfrastructureCategory not in receivedInfrastructures:
+            db.session.delete(infrastructure)
+        else:
+            receivedInfrastructures.remove(infrastructure.IdInfrastructureCategory)
+    for infrastructure in receivedInfrastructures:
+        newInfrastructure = StoreInfrastructure(
+            IdStore = store.IdStore,
+            IdInfrastructureCategory = infrastructure
+        )
+        db.session.add(newInfrastructure)
 
     db.session.commit()
 
