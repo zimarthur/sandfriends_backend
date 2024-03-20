@@ -1042,6 +1042,7 @@ def BlockHour():
     #Motivo e esporte bloqueado
     blockedReasonReq = request.json.get('BlockedReason')
     idSportReq = request.json.get('IdSport')
+    idUserReq = request.json.get('IdUser')
     idStorePlayerReq = request.json.get('IdStorePlayer')
     priceReq = request.json.get('Price')
     
@@ -1079,7 +1080,7 @@ def BlockHour():
         db.session.commit()
         
         newMatchMember = matchMember = MatchMember(
-            IdUser = None,
+            IdUser = idUserReq,
             IsMatchCreator = True,
             WaitingApproval = False,
             Refused = False,

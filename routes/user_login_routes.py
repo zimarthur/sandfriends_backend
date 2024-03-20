@@ -14,6 +14,7 @@ from ..Models.gender_category_model import GenderCategory
 from ..Models.side_preference_category_model import SidePreferenceCategory
 from ..Models.store_photo_model import StorePhoto
 from ..Models.store_court_model import StoreCourt
+from ..Models.infrastructure_category_model import InfrastructureCategory
 from ..Models.sport_model import Sport
 from ..Models.city_model import City
 from ..Models.state_model import State
@@ -80,9 +81,8 @@ def AddUser():
     #e criar o token pra confimação do email(que é enviado por email pela função emailUserWelcomeConfirmation())
     userNew.AccessToken = EncodeToken(userNew.IdUser)
     userNew.EmailConfirmationToken = generateRandomString(16)
-    #emcf=email confirmation(não sei se é legal ter uma url explicita), str(pra distinguir se é store=1 ou user = 0)
-    #tk = token
-    emailUserWelcomeConfirmation(userNew.Email, "https://" + os.environ['URL_APP'] + "/emcf?tk="+userNew.EmailConfirmationToken)
+
+    emailUserWelcomeConfirmation(userNew.Email, "https://" + os.environ['URL_APP'] + "/confirme-seu-email/"+userNew.EmailConfirmationToken)
     
     db.session.commit()
     return "Sua conta foi criada! Valide ela com o e-mail que enviamos.", HttpCode.SUCCESS
@@ -128,7 +128,9 @@ def AddUserInfo():
     user.PhoneNumber = phoneNumberReq
     user.IdCity = idCityReq
     user.IdSport = idSportReq
-
+    user.IdGenderCategory = 3
+    user.IdSidePreferenceCategory = 4
+    
     if emailReq is not None:
         emailInUse = db.session.query(User).filter(User.Email == emailReq).first()
         if emailInUse is not None:
@@ -238,13 +240,14 @@ def ThirdPartyAuthUser():
 
     emailReq = request.json.get('Email')
 
-    user = User.query.filter_by(Email=emailReq).first()
+    user = User.query.filter(User.Email == emailReq).first()
 
     appleToken = request.json.get('AppleToken')
 
     #Ainda não estava cadastrado - realizar cadastro
     if not user: 
-        user = User.query.filter_by(AppleToken=appleToken).first()
+        if appleToken is not None:
+            user = User.query.filter(User.AppleToken == appleToken).first()
         if user is None:
             user = User(
             Email = emailReq,
@@ -316,7 +319,7 @@ def ChangePasswordRequestUser():
     #E-mail já  confirmado
     user.ResetPasswordToken = str(datetime.now().timestamp()) + user.AccessToken
     db.session.commit()
-    emailUserChangePassword(user.Email, user.FirstName, "https://" + os.environ['URL_QUADRAS'] + "/cgpw?tk="+user.ResetPasswordToken)
+    emailUserChangePassword(user.Email, user.FirstName, "https://" + os.environ['URL_APP'] + "/troca-senha/"+user.ResetPasswordToken)
 
     return 'Enviamos um e-mail para ser feita a troca de senha', HttpCode.SUCCESS
 
@@ -508,12 +511,17 @@ def initUserLoginData(user):
     hoursList = []
     for hour in hours:
         hoursList.append(hour.to_json())
+    
+    infrastructures = db.session.query(InfrastructureCategory).all()
+    infrastructureList = []
+    for infrastructure in infrastructures:
+        infrastructureList.append(infrastructure.to_json())
 
     userJson = None
     if user is not None:
         userJson = user.to_json()
 
-    return jsonify({'States':GetAvailableCitiesList(), 'Sports':sportsList, 'Genders': gendersList, 'SidePreferences': sidePreferencesList, 'Ranks': ranksList, 'Hours': hoursList, 'User': userJson})
+    return jsonify({'States':GetAvailableCitiesList(), 'Sports':sportsList, 'Genders': gendersList, 'SidePreferences': sidePreferencesList, 'Ranks': ranksList, 'Hours': hoursList, 'Infrastructures': infrastructureList, 'User': userJson})
 
 def getMatchCounterList(user):
     #Como o num de jogos do jogador não está e não pode ser obtida na tabela User ou UserLogin, tive q fazer a query manualmente(abaixo)

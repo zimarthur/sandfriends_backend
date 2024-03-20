@@ -12,6 +12,8 @@ from ..Models.state_model import State
 from ..Models.coupon_model import Coupon
 from ..Models.sport_model import Sport
 from ..Models.side_preference_category_model import SidePreferenceCategory
+from ..Models.infrastructure_category_model import InfrastructureCategory
+from ..Models.store_infrastructure_model import StoreInfrastructure
 from ..Models.gender_category_model import GenderCategory
 from ..Models.rank_category_model import RankCategory
 from ..Models.match_model import Match, queryMatchesForCourts
@@ -154,7 +156,7 @@ def AddEmployee():
     #enviar email para funcionário
     newEmployee.EmailConfirmationToken = str(datetime.now().timestamp()) + str(newEmployee.IdEmployee)
     db.session.commit()
-    emailStoreAddEmployee(newEmployee.Email, "https://" + os.environ['URL_QUADRAS'] + "/adem?tk="+newEmployee.EmailConfirmationToken)
+    emailStoreAddEmployee(newEmployee.Email, "https://" + os.environ['URL_QUADRAS'] + "/novo-funcionario/"+newEmployee.EmailConfirmationToken)
 
     return returnStoreEmployees(employee.IdStore), HttpCode.SUCCESS
 
@@ -337,7 +339,7 @@ def ChangePasswordRequestEmployee():
     #envia o email automático para redefinir a senha
     employee.ResetPasswordToken = str(datetime.now().timestamp()) + str(employee.IdEmployee)
     db.session.commit()
-    emailStoreChangePassword(employee.Email, employee.FirstName, "https://" + os.environ['URL_QUADRAS'] + "/cgpw?tk="+employee.ResetPasswordToken)
+    emailStoreChangePassword(employee.Email, employee.FirstName, "https://" + os.environ['URL_QUADRAS'] + "/troca-senha/"+employee.ResetPasswordToken)
 
     return webResponse("Link para troca de senha enviado!", "Verifique sua caixa de e-mail e siga as instruções para trocar sua senha"), HttpCode.ALERT
 
@@ -486,6 +488,17 @@ def initStoreLoginData(employee, isRequestFromAppReq):
     for sidePreference in sidePreferences:
         sidePreferencesList.append(sidePreference.to_json())
 
+    infrastructures = db.session.query(InfrastructureCategory).all()
+    infrastructureList = []
+    for infrastructure in infrastructures:
+        infrastructureList.append(infrastructure.to_json())
+
+    storeInfrastructureList = []
+    storeInfrastructures = db.session.query(StoreInfrastructure)\
+                .filter(StoreInfrastructure.IdStore == store.IdStore).all()
+    for storeInfrastructure in storeInfrastructures:
+        storeInfrastructureList.append(storeInfrastructure.to_json())
+
     #Lista com as quadras do estabelecimento(json da quadra, esportes e preço)
     courts = db.session.query(StoreCourt).filter(StoreCourt.IdStore == store.IdStore).all()
     courtsList = []
@@ -540,7 +553,6 @@ def initStoreLoginData(employee, isRequestFromAppReq):
     couponsList = []
     coupons = db.session.query(Coupon)\
                 .filter(Coupon.IdStoreValid == store.IdStore).all()
-
     for coupon in coupons:
         couponsList.append(coupon.to_json())
 
@@ -551,6 +563,8 @@ def initStoreLoginData(employee, isRequestFromAppReq):
                     'Genders':gendersList,\
                     'Ranks': ranksList,\
                     'SidePreferences': sidePreferencesList, \
+                    'Infrastructures': infrastructureList, \
+                    'StoreInfrastructures': storeInfrastructureList,\
                     'Store' : store.to_json(),\
                     'Courts' : courtsList,\
                     'Matches':matchList,\
