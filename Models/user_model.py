@@ -40,6 +40,8 @@ class User(db.Model):
 
     AllowNotifications = db.Column(db.Boolean)
     NotificationsToken = db.Column(db.String(255))
+    AllowNotificationsOpenMatches = db.Column(db.Boolean)
+    AllowNotificationsCoupons = db.Column(db.Boolean)
 
     AsaasId = db.Column(db.String(300))
     AsaasCreationDate = db.Column(db.DateTime)
@@ -112,6 +114,10 @@ class User(db.Model):
             'ResetPasswordToken': self.ResetPasswordToken,
             'Cpf': self.Cpf,
             'DateDisabled': dateDisabled,
+            'AllowNotifications': self.AllowNotifications,
+            'NotificationsToken': self.NotificationsToken,
+            'AllowNotificationsOpenMatches': self.AllowNotificationsOpenMatches,
+            'AllowNotificationsCoupons': self.AllowNotificationsCoupons,
         }
 
     def to_json_web(self):
