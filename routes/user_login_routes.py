@@ -388,6 +388,12 @@ def GetUserInfo():
     allowNotificationsReq = request.json.get('AllowNotifications')
     notificationsTokenReq = request.json.get('NotificationsToken')
 
+    #apenas para preencher o notificationsOpenMatch e notificationsDiscount
+    if user.AllowNotificationsOpenMatches is None:
+        user.AllowNotificationsOpenMatches = user.AllowNotifications
+    if user.AllowNotificationsCoupons is None:
+        user.AllowNotificationsCoupons = user.AllowNotifications
+
     if updateNotificationsReq:
         user.AllowNotifications = allowNotificationsReq
     if notificationsTokenReq != "":

@@ -23,7 +23,7 @@ def UpdateUser():
     user = User.query.filter_by(AccessToken = request.json.get('AccessToken')).first()
     
     if user is None:
-        return 'Token invalido', HttpCode.WARNING
+        return 'Token invalido', HttpCode.EXPIRED_TOKEN
     else:
         availableRanks = db.session.query(RankCategory).all()
         availableSports = db.session.query(Sport).all()
@@ -86,3 +86,47 @@ def UpdateUser():
 
         db.session.commit()
         return user.to_json(), HttpCode.SUCCESS
+
+@bp_user.route("/SetUserNotifications", methods=["POST"])
+def SetUserNotifications():
+    if not request.json:
+        abort(HttpCode.ABORT)
+    
+    user = User.query.filter_by(AccessToken = request.json.get('AccessToken')).first()
+    
+    if user is None:
+        return 'Token invalido', HttpCode.EXPIRED_TOKEN
+
+    allowNotificationsReq = request.json.get('AllowNotifications')
+    allowNotificationsCouponsReq = request.json.get('AllowNotificationsCoupons')
+    allowNotificationsOpenMatchesReq = request.json.get('AllowNotificationsOpenMatches')
+    notificationsTokenReq = request.json.get('NotificationsToken')
+
+    if allowNotificationsReq == False and user.AllowNotifications == True:
+        user.AllowNotifications = False
+        user.AllowNotificationsCoupons = False
+        user.AllowNotificationsOpenMatches = False
+        user.NotificationsToken = None
+    else:
+        #se mudou notificação pra true, ativa tudo
+        if allowNotificationsReq != user.AllowNotifications:
+            user.AllowNotificationsCoupons = True
+            user.AllowNotificationsOpenMatches = True
+            user.AllowNotifications = allowNotificationsReq
+        else:
+            user.AllowNotifications =True
+            user.AllowNotificationsCoupons = allowNotificationsCouponsReq
+            user.AllowNotificationsOpenMatches = allowNotificationsOpenMatchesReq
+        user.NotificationsToken = notificationsTokenReq
+
+    db.session.commit()
+
+    return jsonify({
+        "AllowNotifications": user.AllowNotifications, \
+        "AllowNotificationsCoupons": user.AllowNotificationsCoupons, \
+        "AllowNotificationsOpenMatches": user.AllowNotificationsOpenMatches, \
+        "NotificationsToken": user.NotificationsToken, \
+        }), HttpCode.SUCCESS
+
+    
+    
