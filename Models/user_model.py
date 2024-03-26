@@ -49,6 +49,8 @@ class User(db.Model):
 
     DateDisabled = db.Column(db.DateTime)
 
+    IsTeacher = db.Column(db.Boolean)
+
     def fullName(self):
         return self.FirstName+' '+self.LastName
 

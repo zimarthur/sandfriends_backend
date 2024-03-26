@@ -46,6 +46,7 @@ def AddUser():
     if not request.json:
         abort(HttpCode.ABORT)
 
+    isTeacherReq = request.json.get('IsTeacher')
     emailReq = request.json.get('Email')
     passwordReq = request.json.get('Password').encode('utf-8')
     time = datetime.now()
@@ -54,6 +55,12 @@ def AddUser():
 
     #Criar usuário novo
     if user:
+        if user.IsTeacher != isTeacherReq:
+            if isTeacherReq:
+                return "Você já utilizou esse e-mail para uma conta jogador. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
+            else:
+                return "Você já utilizou esse e-mail para uma conta professor. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
+
         #O email que o usuário tentou cadastrar já foi cadastrado com o "Login com o google"
         if user.ThirdPartyLogin: 
             if user.AppleToken is not None:
@@ -69,6 +76,7 @@ def AddUser():
         AccessToken = 0, 
         RegistrationDate = time,
         ThirdPartyLogin = False,
+        IsTeacher = isTeacherReq,
     )
 
     #A etapa abaixo acontece porque o IdUser da tabela User é incrementado automaticamente.
@@ -82,7 +90,10 @@ def AddUser():
     userNew.AccessToken = EncodeToken(userNew.IdUser)
     userNew.EmailConfirmationToken = generateRandomString(16)
 
-    emailUserWelcomeConfirmation(userNew.Email, "https://" + os.environ['URL_APP'] + "/confirme-seu-email/"+userNew.EmailConfirmationToken)
+    if userNew.IsTeacher:
+        emailUserWelcomeConfirmation(userNew.Email, "https://" + os.environ['URL_AULAS'] + "/confirme-seu-email/"+userNew.EmailConfirmationToken)
+    else:
+        emailUserWelcomeConfirmation(userNew.Email, "https://" + os.environ['URL_APP'] + "/confirme-seu-email/"+userNew.EmailConfirmationToken)
     
     db.session.commit()
     return "Sua conta foi criada! Valide ela com o e-mail que enviamos.", HttpCode.SUCCESS
@@ -169,24 +180,33 @@ def ValidateTokenUser():
     if not request.json:
         abort(HttpCode.ABORT)
 
+    isTeacherReq = request.json.get('IsTeacher')
     tokenReq = request.json.get('AccessToken')
     requiresUserToProceedReq = request.json.get('RequiresUserToProceed')
 
    
     user = None
 
-    if tokenReq is not None:
-        user = db.session.query(User).filter(User.AccessToken == tokenReq).first()
-        
-        if user is None and requiresUserToProceedReq == True:
-            return 'Usuário não encontrado', HttpCode.WARNING
+    if tokenReq is None:
+        return "Token expirado", HttpCode.EXPIRED_TOKEN
 
-        if user is not None: 
-            payloadUserId = DecodeToken(tokenReq)
+    user = db.session.query(User).filter(User.AccessToken == tokenReq).first()
+    
+    if user is None and requiresUserToProceedReq == True:
+        return 'Usuário não encontrado', HttpCode.WARNING
+
+    if user.IsTeacher != isTeacherReq:
+        if isTeacherReq:
+            return "Você já utilizou esse e-mail para uma conta jogador. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
+        else:
+            return "Você já utilizou esse e-mail para uma conta professor. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
             
-            newToken = EncodeToken(payloadUserId)
-            user.AccessToken = newToken
-            db.session.commit()
+    if user is not None: 
+        payloadUserId = DecodeToken(tokenReq)
+        
+        newToken = EncodeToken(payloadUserId)
+        user.AccessToken = newToken
+        db.session.commit()
 
     return initUserLoginData(user), HttpCode.SUCCESS
 
@@ -198,6 +218,7 @@ def LoginUser():
 
     emailReq = request.json.get('Email')
     passwordReq = request.json.get('Password').encode('utf-8')
+    isTeacherReq = request.json.get('IsTeacher')
 
     user = User.query.filter_by(Email = emailReq).first()
 
@@ -206,6 +227,12 @@ def LoginUser():
     
     if user.DateDisabled is not None:
         return "Não foi possível fazer login pois sua conta já foi excluída", HttpCode.WARNING
+
+    if user.IsTeacher != isTeacherReq:
+        if isTeacherReq:
+            return "Você já utilizou esse e-mail para uma conta jogador. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
+        else:
+            return "Você já utilizou esse e-mail para uma conta professor. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
 
     if user.ThirdPartyLogin:
         if user.AppleToken is not None:
@@ -239,6 +266,7 @@ def ThirdPartyAuthUser():
         abort(HttpCode.ABORT)
 
     emailReq = request.json.get('Email')
+    isTeacherReq = request.json.get('IsTeacher')
 
     user = User.query.filter(User.Email == emailReq).first()
 
@@ -270,6 +298,13 @@ def ThirdPartyAuthUser():
     if user.AppleToken is not None:
         if user.AppleToken != appleToken:
             return "Não foi possível vincular sua conta apple. Contate nossa equipe para ajuda.", HttpCode.WARNING
+
+    if user.IsTeacher != isTeacherReq:
+        if isTeacherReq:
+            return "Você já utilizou esse e-mail para uma conta jogador. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
+        else:
+            return "Você já utilizou esse e-mail para uma conta professor. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
+
     #Usuário já estava cadastrado - realizar login
     newToken = EncodeToken(user.IdUser)
 

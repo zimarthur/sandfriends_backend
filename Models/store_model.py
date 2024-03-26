@@ -30,6 +30,7 @@ class Store(db.Model):
     Photos = db.relationship('StorePhoto', backref="Store")
     Employees = db.relationship('Employee', backref="Store")
     Infrastructures = db.relationship('StoreInfrastructure', backref="Store")
+    Schools = db.relationship('StoreSchool', backref="Store")
 
     AsaasId = db.Column(db.String(255))
     AsaasWalletId = db.Column(db.String(255))
@@ -89,6 +90,7 @@ class Store(db.Model):
             'Courts':[court.to_json() for court in self.Courts],
             'Employees': [employee.to_json() for employee in self.Employees if employee.DateDisabled is None],
             'StoreInfrastructures': [infrastructure.to_json() for infrastructure in self.Infrastructures],
+            'StoreSchools': [school.to_json() for school in self.Schools],
         }
     
     def to_json_match(self):

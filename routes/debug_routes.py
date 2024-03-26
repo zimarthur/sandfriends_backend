@@ -42,6 +42,8 @@ from ..Models.store_model import Store
 from ..Models.store_price_model import StorePrice
 from ..Models.store_photo_model import StorePhoto
 from ..Models.store_court_model import StoreCourt
+from ..Models.store_school_model import StoreSchool
+from ..Models.store_school_teacher_model import StoreSchoolTeacher
 from ..Models.store_court_sport_model import StoreCourtSport
 from ..Models.sport_model import Sport
 from ..Models.reward_month_model import RewardMonth
@@ -76,18 +78,9 @@ def getLastMonth():
 @bp_debug.route('/debug', methods=['POST'])
 def debug():
 
-    idMatch = 1
 
-    match = db.session.query(Match).filter(Match.IdMatch == idMatch).first()
-    if match is None:
-        return "Partida não encontrada", HttpCode.WARNING
-
-    #E-mail de todos os employees
-    employees = [employee for employee in match.StoreCourt.Store.Employees]
+    store = db.session.query(StoreSchoolTeacher).first()
     
-    lista_employees_emails = ""
-    for employee in employees:
-        emailStoreMatchConfirmed(match, employee.Email)
     
-    return "Tudo ok", 200
+    return jsonify({"a": store.to_json()}), 200
     

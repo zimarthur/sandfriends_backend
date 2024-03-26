@@ -21,6 +21,7 @@ from ..Models.match_member_model import MatchMember
 from ..Models.reward_user_model import RewardUser
 from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.employee_model import Employee
+from ..Models.store_school_model import StoreSchool
 from ..Models.available_hour_model import AvailableHour
 from ..Models.store_court_model import StoreCourt
 from ..Models.notification_store_model import NotificationStore
