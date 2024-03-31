@@ -21,6 +21,7 @@ from .routes.user_credit_card_routes import bp_user_credit_card
 from .routes.webhook_routes import bp_webhook
 from .routes.coupon_routes import bp_coupon
 from .routes.store_schools_routes import bp_store_schools
+from .routes.team_routes import bp_team
 import os
 import firebase_admin
 from firebase_admin import credentials
@@ -54,6 +55,7 @@ def create_app():
     app.register_blueprint(bp_store_player)
     app.register_blueprint(bp_coupon)
     app.register_blueprint(bp_store_schools)
+    app.register_blueprint(bp_team)
 
     firebase_sandfriends = firebase_admin.initialize_app(credentials.Certificate(os.environ['GOOGLE_APPLICATION_CREDENTIALS']))
 

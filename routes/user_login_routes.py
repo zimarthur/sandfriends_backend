@@ -20,6 +20,9 @@ from ..Models.city_model import City
 from ..Models.state_model import State
 from ..Models.user_rank_model import UserRank
 from ..Models.match_model import Match
+from ..Models.teacher_plan_model import TeacherPlan
+from ..Models.store_school_teacher_model import StoreSchoolTeacher
+from ..Models.team_model import Team
 from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.match_member_model import MatchMember
 from ..routes.match_routes import getHourString
@@ -298,7 +301,9 @@ def ThirdPartyAuthUser():
     if user.AppleToken is not None:
         if user.AppleToken != appleToken:
             return "Não foi possível vincular sua conta apple. Contate nossa equipe para ajuda.", HttpCode.WARNING
-
+    if user.IsTeacher is None:
+        user.IsTeacher = False
+        
     if user.IsTeacher != isTeacherReq:
         if isTeacherReq:
             return "Você já utilizou esse e-mail para uma conta jogador. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
@@ -500,6 +505,56 @@ def GetUserInfo():
 
     return  jsonify({'UserMatches': userMatchesList, 'UserRecurrentMatches':  userRecurrentMatchesList,'OpenMatches': openMatchesList, 'Notifications': notificationList, 'UserRewards': RewardStatus(user.IdUser), 'MatchCounter': matchCounterList, 'CreditCards': userCreditCardsList}), 200
 
+
+#Rota utilizada pelo professor depois de fazer login e entrar na home do app.
+@bp_user_login.route("/GetTeacherInfo", methods=["POST"])
+def GetTeacherInfo():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    tokenReq = request.json.get('AccessToken')
+
+    user = User.query.filter_by(AccessToken = tokenReq)\
+                    .filter_by(IsTeacher = True).first()
+
+    #Verifica se o token é 0 ou null
+    if tokenReq == 0 or tokenReq is None:
+        return "Token inválido, faça login novamente", HttpCode.EXPIRED_TOKEN
+
+    if user is None:
+        return 'Token inválido.', HttpCode.EXPIRED_TOKEN
+
+    teacherPlans = db.session.query(TeacherPlan).filter(TeacherPlan.IdUser == user.IdUser).all()
+
+    teacherPlansList =[]
+    for teacherPlan in teacherPlans:
+        teacherPlansList.append(teacherPlan.to_json())
+    
+    teams = db.session.query(Team).filter(Team.IdUser == user.IdUser).all()
+
+    teamsList =[]
+    for team in teams:
+        teamsList.append(team.to_json())
+    
+    teacherSchools = db.session.query(StoreSchoolTeacher)\
+                    .filter(StoreSchoolTeacher.IdUser == user.IdUser)\
+                    .filter(StoreSchoolTeacher.Refused == False).all()
+
+    teacherSchoolsList =[]
+    for teacherSchool in teacherSchools:
+        teacherSchoolsList.append(teacherSchool.to_json_teacher())
+
+    teacherRecurrentMatchesList = []
+    #query para os mensalistas que do jogador
+    teacherRecurrentMatches =  db.session.query(RecurrentMatch)\
+                .filter(RecurrentMatch.IdUser == user.IdUser)\
+                .filter(RecurrentMatch.IsExpired == False)\
+                .filter(RecurrentMatch.Canceled == False).all()
+
+    teacherRecurrentMatchesList = [recurrentMatch.to_json() for recurrentMatch in teacherRecurrentMatches if recurrentMatch.isPaymentExpired == False]
+
+    return  jsonify({'TeacherPlans': teacherPlansList, 'Teams': teamsList, 'Schools': teacherSchoolsList, 'RecurrentMatches': teacherRecurrentMatchesList}), HttpCode.SUCCESS
+    
 #Rota utilizada para excluir a conta do jogador
 @bp_user_login.route("/RemoveUser", methods=["POST"])
 def RemoveUser():

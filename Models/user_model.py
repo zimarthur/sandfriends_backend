@@ -25,7 +25,6 @@ class User(db.Model):
     IdSport = db.Column(db.Integer, db.ForeignKey('sport.IdSport'))
     Sport = db.relationship('Sport', foreign_keys = [IdSport])
 
-    Ranks = db.relationship("UserRank", backref="User")
 
     Email = db.Column(db.String(255))
     Password = db.Column(db.String(255))
@@ -50,6 +49,9 @@ class User(db.Model):
     DateDisabled = db.Column(db.DateTime)
 
     IsTeacher = db.Column(db.Boolean)
+
+    Ranks = db.relationship("UserRank", backref="User")
+
 
     def fullName(self):
         return self.FirstName+' '+self.LastName

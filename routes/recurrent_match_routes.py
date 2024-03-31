@@ -22,6 +22,7 @@ from ..Models.store_price_model import StorePrice
 from ..Models.store_photo_model import StorePhoto
 from ..Models.store_court_model import StoreCourt
 from ..Models.store_court_sport_model import StoreCourtSport
+from ..Models.store_school_teacher_model import StoreSchoolTeacher
 from ..Models.sport_model import Sport
 from ..Models.user_model import User
 from ..Models.notification_store_model import NotificationStore
@@ -89,15 +90,29 @@ def SearchRecurrentCourts():
     timeStart = request.json.get('TimeStart')
     timeEnd = request.json.get('TimeEnd')
     searchIdStore = request.json.get('IdStore')
+    isTeacherReq = request.json.get('IsTeacher')
 
     #Verifica se o usuário é válido
     user = User.query.filter_by(AccessToken = accessToken).first()
     if user is None:
         return 'Token inválido - Realize login novamente', HttpCode.EXPIRED_TOKEN
 
+    availableStoreIds = [store.IdStore for store in getAvailableStores()]
+
+    storeSchoolTeacherFilter =[]
+    if isTeacherReq:
+        storeSchoolsTeacher = db.session.query(StoreSchoolTeacher)\
+                                .filter(StoreSchoolTeacher.IdUser == user.IdUser)\
+                                .filter(StoreSchoolTeacher.Refused == False)\
+                                .filter(StoreSchoolTeacher.WaitingApproval == False).all()
+        storeSchoolTeacherFilter = [storeSchoolTeacher.StoreSchool.IdStore for storeSchoolTeacher in storeSchoolsTeacher]
+        for storeId in availableStoreIds:
+            if storeId not in storeSchoolTeacherFilter:
+                availableStoreIds.remove(storeId)
+
     #Estabelecimentos na cidade e validados/aprovados
     stores = db.session.query(Store).filter(Store.IdCity == cityId)\
-                                    .filter(Store.IdStore.in_([store.IdStore for store in getAvailableStores()])).all()
+                                    .filter(Store.IdStore.in_(availableStoreIds)).all()
 
     if searchIdStore is not None:
         stores = [store for store in stores if store.IdStore == searchIdStore]
@@ -174,10 +189,14 @@ def SearchRecurrentCourts():
                                     ][0]
                             #Se naõ tiver preço, quer dizer que o estabelecimento não aceita horário mensalista neste dia nesta quadra
                             if recurrentCourtHour.RecurrentPrice is not None:
+                                if isTeacherReq:
+                                    price = recurrentCourtHour.RecurrentPriceTeacher
+                                else:
+                                    price = recurrentCourtHour.RecurrentPrice
                                 #Adiciona no json o horário e preço que está disponível para mensalista
                                 jsonAvailableCourts.append({
                                     'IdStoreCourt':filteredCourt.IdStoreCourt,
-                                    'Price': int(recurrentCourtHour.RecurrentPrice)
+                                    'Price': int(price)
                                 })
 
                     if jsonAvailableCourts:
@@ -233,6 +252,7 @@ def CourtReservation():
     paymentReq = request.json.get('Payment')
     cpfReq = request.json.get('Cpf')
     isRenovatingReq = request.json.get('IsRenovating')
+    idTeamReq = request.json.get('IdTeam')
 
     if request.json.get("IdCreditCard")== "": 
         idCreditCardReq =  None 
@@ -420,7 +440,8 @@ def CourtReservation():
             IdTimeEnd = timeEndReq,
             LastPaymentDate = now.date(),
             ValidUntil = validUntil,
-            Blocked = False
+            Blocked = False,
+            IdTeam = idTeamReq,
         )
         db.session.add(newRecurrentMatch)
         db.session.commit()

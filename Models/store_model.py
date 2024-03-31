@@ -30,7 +30,7 @@ class Store(db.Model):
     Photos = db.relationship('StorePhoto', backref="Store")
     Employees = db.relationship('Employee', backref="Store")
     Infrastructures = db.relationship('StoreInfrastructure', backref="Store")
-    Schools = db.relationship('StoreSchool', backref="Store")
+    Schools = db.relationship('StoreSchool', back_populates="Store")
 
     AsaasId = db.Column(db.String(255))
     AsaasWalletId = db.Column(db.String(255))
@@ -50,6 +50,13 @@ class Store(db.Model):
     #FixedPrice - Cobramos uma mensalidade fixa da quadra
     BillingMethod = db.Column(db.String(45))
 
+    @hybrid_property
+    def LogoUrl(self):
+        if self.Logo == None or self.Logo == "":
+            return  None
+        else:
+            return f"/img/str/logo/{self.Logo}.png"    
+
     @property
     def IsAvailable(self):
         return self.ApprovalDate != None and self.Latitude != None and self.Longitude != None and self.Description != None and self.Logo != None and (len(self.Courts) > 0) and (len(self.Photos) > 2)
@@ -61,11 +68,6 @@ class Store(db.Model):
                 return employee
 
     def to_json(self):
-        if self.Logo == None or self.Logo == "":
-            logo = None
-        else:
-            logo = f"/img/str/logo/{self.Logo}.png"
-        
         return {
             'IdStore': self.IdStore,
             'Name': self.Name,
@@ -78,7 +80,7 @@ class Store(db.Model):
             'City': self.City.to_json(),
             'PhoneNumber1': self.PhoneNumber1,
             'PhoneNumber2': self.PhoneNumber2,
-            'Logo': logo,
+            'Logo': self.LogoUrl,
             'Description': self.Description,
             'Instagram': self.Instagram,
             'Cnpj': self.CNPJ,
@@ -92,7 +94,31 @@ class Store(db.Model):
             'StoreInfrastructures': [infrastructure.to_json() for infrastructure in self.Infrastructures],
             'StoreSchools': [school.to_json() for school in self.Schools],
         }
-    
+
+    def to_json_user(self):
+        return {
+            'IdStore': self.IdStore,
+            'Name': self.Name,
+            'Url': self.Url,
+            'Address': self.Address,
+            'AddressNumber': self.AddressNumber,
+            'Latitude': self.Latitude,
+            'Longitude': self.Longitude,
+            'IdCity': self.IdCity,
+            'City': self.City.to_json(),
+            'PhoneNumber1': self.PhoneNumber1,
+            'PhoneNumber2': self.PhoneNumber2,
+            'Logo': self.LogoUrl,
+            'Description': self.Description,
+            'Instagram': self.Instagram,
+            'Cnpj': self.CNPJ,
+            'Cep': self.CEP,
+            'Neighbourhood': self.Neighbourhood,
+            'Cpf': self.CPF,
+            'ApprovalDate': self.ApprovalDate.strftime("%d/%m/%Y"),
+            'StorePhotos':[photo.to_json() for photo in self.Photos if not(photo.Deleted)],
+        }
+
     def to_json_match(self):
         return {
             'IdStore': self.IdStore,
