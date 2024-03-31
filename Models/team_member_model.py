@@ -5,9 +5,11 @@ class TeamMember(db.Model):
     IdTeamMember = db.Column(db.Integer, primary_key=True)
 
     IdTeam = db.Column(db.Integer, db.ForeignKey('team.IdTeam'))
+    Team =  db.relationship('Team', back_populates = "Members")
 
     #dono do time
     IdUser = db.Column(db.Integer, db.ForeignKey('user.IdUser'))
+    User = db.relationship('User', foreign_keys = [IdUser])
 
     WaitingApproval = db.Column(db.Boolean)
     Refused = db.Column(db.Boolean)
@@ -21,8 +23,9 @@ class TeamMember(db.Model):
             responseData = self.ResponseDate.strftime("%d/%m/%Y")
         return {
             'IdTeamMember': self.IdTeamMember,
-            'IdUser': self.IdUser,
+            'User': self.User.to_json_web(),
             'WaitingApproval': self.WaitingApproval,
             'Refused': self.Refused,
+            'RequestDate': self.RequestDate.strftime("%d/%m/%Y"),
             'ResponseDate': responseData,
         }

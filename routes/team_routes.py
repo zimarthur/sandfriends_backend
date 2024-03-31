@@ -99,3 +99,93 @@ def SchoolInvitationResponse():
 
     return jsonify({"SchoolTeacher": storeTeacher.to_json_teacher()}), HttpCode.SUCCESS
 
+
+@bp_team.route('/JoinTeam', methods=['POST'])
+def JoinTeam():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    tokenReq = request.json.get('AccessToken')
+
+    user = User.query.filter_by(AccessToken = tokenReq).first()
+
+    #Verifica se o token é 0 ou null
+    if tokenReq == 0 or tokenReq is None:
+        return "Token inválido, faça login novamente", HttpCode.EXPIRED_TOKEN
+
+    if user is None:
+        return 'Token inválido.', HttpCode.EXPIRED_TOKEN
+
+    idTeamReq = request.json.get('IdTeam')
+
+    team = db.session.query(Team).get(idTeamReq)
+
+    if team is None:
+        return 'Turma não encontrada, atualize a págine ou entre em contato com o suporte', HttpCode.WARNING
+
+    memberNotFount = True
+    for member in team.Members:
+        if member.IdUser == user.IdUser:
+            if member.WaitingApproval:
+                return 'Você já enviou um convite. Aguarde a resposta do professor.', HttpCode.WARNING
+            if member.Refused:
+                memberNotFount = False
+                member.Refused = False
+                member.WaitingApproval = True
+    
+    if memberNotFount:
+        newMember = TeamMember(
+            IdTeam = team.IdTeam,
+            IdUser = user.IdUser,
+            WaitingApproval = True,
+            Refused = False,
+            RequestDate = datetime.now()
+        )
+        db.session.add(newMember)
+    
+    db.session.commit()
+    
+    membersList = []
+    for member in team.Members:
+        membersList.append(member.to_json())
+
+    return jsonify({"Members": membersList}), HttpCode.SUCCESS
+
+
+
+@bp_team.route('/SendMemberResponse', methods=['POST'])
+def SendMemberResponse():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    tokenReq = request.json.get('AccessToken')
+
+    user = User.query.filter_by(AccessToken = tokenReq).first()
+
+    #Verifica se o token é 0 ou null
+    if tokenReq == 0 or tokenReq is None:
+        return "Token inválido, faça login novamente", HttpCode.EXPIRED_TOKEN
+
+    if user is None:
+        return 'Token inválido.', HttpCode.EXPIRED_TOKEN
+
+    idTeamMemberReq = request.json.get('IdTeamMember')
+    acceptedReq = request.json.get('Accepted')
+
+    teamMember = db.session.query(TeamMember).get(idTeamMemberReq)
+
+    if teamMember is None:
+        return 'Usuário não encontrado, atualize a págine ou entre em contato com o suporte', HttpCode.WARNING
+
+    teamMember.WaitingApproval = False
+    teamMember.Refused = not(acceptedReq)
+    teamMember.ResponseDate = datetime.now()
+    
+    db.session.commit()
+    
+    membersList = []
+    for member in teamMember.Team.Members:
+        membersList.append(member.to_json())
+
+    return jsonify({"Members": membersList}), HttpCode.SUCCESS
+

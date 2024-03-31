@@ -1,4 +1,5 @@
 from ..extensions import db
+from sqlalchemy.ext.hybrid import hybrid_property
 
 class StoreSchoolTeacher(db.Model):
     __tablename__ = 'store_school_teacher'
@@ -15,6 +16,10 @@ class StoreSchoolTeacher(db.Model):
     RequestDate = db.Column(db.DateTime)
     ResponseDate = db.Column(db.DateTime)
 
+    @hybrid_property
+    def Teams(self):
+        return self.User.Teams
+
     def to_json(self):
         if self.ResponseDate is None:
             responseData = None
@@ -26,6 +31,20 @@ class StoreSchoolTeacher(db.Model):
             'WaitingApproval': self.WaitingApproval,
             'Refused': self.Refused,
             'ResponseDate': responseData,
+        }
+
+    def to_json_user(self):
+        if self.ResponseDate is None:
+            responseData = None
+        else: 
+            responseData = self.ResponseDate.strftime("%d/%m/%Y")
+        return {
+            'IdStoreSchoolTeacher': self.IdStoreSchoolTeacher,
+            'User': self.User.identification_to_json_teacher(),
+            'WaitingApproval': self.WaitingApproval,
+            'Refused': self.Refused,
+            'ResponseDate': responseData,
+            'Teams':[team.to_json() for team in self.Teams]
         }
     
     def to_json_teacher(self):

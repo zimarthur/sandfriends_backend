@@ -298,8 +298,6 @@ def GetClassesInfo():
         for teacher in school.Teachers:
             if teacher.IdUser not in addedTeacherUserIds:
                 addedTeacherUserIds.append(teacher.IdUser)
-                teachersList.append(teacher.to_json_teacher())
-    
-    teachers = db.session.query(User).filter(User.IdCity == user.IdCity).all()
-    
+                teachersList.append(teacher.to_json_user())
+        
     return jsonify({"Schools": schoolsList, "Teachers": teachersList}), HttpCode.SUCCESS

@@ -51,6 +51,8 @@ class User(db.Model):
     IsTeacher = db.Column(db.Boolean)
 
     Ranks = db.relationship("UserRank", backref="User")
+    Teams = db.relationship('Team', back_populates="User")
+
 
 
     def fullName(self):
@@ -155,4 +157,17 @@ class User(db.Model):
             'FirstName': self.FirstName,
             'LastName': self.LastName,
             'Photo': photo,
+        }
+
+    def identification_to_json_teacher(self):
+        if self.Photo == None:
+            photo = None
+        else:
+            photo = f"/img/usr/{self.Photo}.png"
+        return {
+            'IdUser': self.IdUser,
+            'FirstName': self.FirstName,
+            'LastName': self.LastName,
+            'Photo': photo,
+            'PhoneNumber': self.PhoneNumber,
         }

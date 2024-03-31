@@ -20,6 +20,9 @@ class Team(db.Model):
     IdRankCategory = db.Column(db.Integer, db.ForeignKey('rank_category.IdRankCategory'))
     RankCategory = db.relationship('RankCategory', foreign_keys = [IdRankCategory])
 
+    Members = db.relationship('TeamMember', back_populates="Team")
+    RecurrentMatches = db.relationship('RecurrentMatch', back_populates="Team")
+    
     def to_json(self):
         return {
             'IdTeam': self.IdTeam,
@@ -30,4 +33,6 @@ class Team(db.Model):
             'IdSport': self.IdSport,
             'IdGenderCategory': self.IdGenderCategory,
             'IdRankCategory': self.IdRankCategory,
+            'Members': [member.to_json() for member in self.Members if member.Refused == False],
+            'RecurrentMatches': [recurrentMatch.to_json_team() for recurrentMatch in self.RecurrentMatches ],
         }
