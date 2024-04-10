@@ -40,11 +40,10 @@ class StoreSchoolTeacher(db.Model):
             responseData = self.ResponseDate.strftime("%d/%m/%Y")
         return {
             'IdStoreSchoolTeacher': self.IdStoreSchoolTeacher,
-            'User': self.User.identification_to_json_teacher(),
             'WaitingApproval': self.WaitingApproval,
             'Refused': self.Refused,
             'ResponseDate': responseData,
-            'Teams':[team.to_json() for team in self.Teams]
+            'StoreSchool': self.StoreSchool.to_json_teacher(),
         }
     
     def to_json_teacher(self):

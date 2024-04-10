@@ -40,6 +40,7 @@ class StoreSchool(db.Model):
             'Name': self.Name,
             'CreationDate': self.CreationDate.strftime("%d/%m/%Y"),
             'Logo': self.LogoUrl,
+            'Store': self.Store.to_json_user(),
         }
 
     def to_json_user(self):

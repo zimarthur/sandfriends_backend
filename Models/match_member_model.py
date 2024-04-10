@@ -18,6 +18,9 @@ class MatchMember(db.Model):
 
     IdMatch = db.Column(db.Integer, db.ForeignKey('match.IdMatch'))
 
+    Cost = db.Column(db.Numeric(precision=10, scale=2))
+    HasPaid = db.Column(db.Boolean, default=False)
+
     def isInMatch(self):
         return self.WaitingApproval == False and self.Refused == False and self.Quit == False
 
@@ -31,5 +34,7 @@ class MatchMember(db.Model):
             'IdMatch': self.IdMatch,
             'EntryDate': self.EntryDate,
             'QuitDate': self.QuitDate,
-            'Quit': self.Quit
+            'Quit': self.Quit,
+            'HasPaid': self.HasPaid,
+            'Cost': self.Cost,
         }

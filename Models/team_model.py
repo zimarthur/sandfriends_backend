@@ -22,6 +22,7 @@ class Team(db.Model):
 
     Members = db.relationship('TeamMember', back_populates="Team")
     RecurrentMatches = db.relationship('RecurrentMatch', back_populates="Team")
+    Matches = db.relationship('Match', back_populates="Team")
     
     def to_json(self):
         return {
@@ -35,4 +36,29 @@ class Team(db.Model):
             'IdRankCategory': self.IdRankCategory,
             'Members': [member.to_json() for member in self.Members if member.Refused == False],
             'RecurrentMatches': [recurrentMatch.to_json_team() for recurrentMatch in self.RecurrentMatches ],
+        }
+    
+    def to_json_teacher(self):
+        return {
+            'IdTeam': self.IdTeam,
+            'Name': self.Name,
+            'Description': self.Description,
+            'CreationDate': self.CreationDate.strftime("%d/%m/%Y"),
+            'IdSport': self.IdSport,
+            'IdGenderCategory': self.IdGenderCategory,
+            'IdRankCategory': self.IdRankCategory,
+            'Members': [member.to_json() for member in self.Members if member.Refused == False],
+            'RecurrentMatches': [recurrentMatch.to_json_team() for recurrentMatch in self.RecurrentMatches ],
+        }
+    
+    def to_json_match(self):
+        return {
+            'IdTeam': self.IdTeam,
+            'User': self.User.to_json(),
+            'Name': self.Name,
+            'Description': self.Description,
+            'CreationDate': self.CreationDate.strftime("%d/%m/%Y"),
+            'IdSport': self.IdSport,
+            'IdGenderCategory': self.IdGenderCategory,
+            'IdRankCategory': self.IdRankCategory,
         }

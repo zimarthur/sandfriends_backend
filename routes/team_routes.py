@@ -11,6 +11,7 @@ from ..Models.teacher_plan_model import TeacherPlan
 from ..Models.sport_model import Sport
 from ..Models.store_school_model import StoreSchool
 from ..Models.team_model import Team
+from ..Models.match_member_model import MatchMember
 from ..Models.team_member_model import TeamMember
 from ..Models.store_school_teacher_model import StoreSchoolTeacher
 from ..extensions import db
@@ -189,3 +190,31 @@ def SendMemberResponse():
 
     return jsonify({"Members": membersList}), HttpCode.SUCCESS
 
+
+@bp_team.route("/UpdateClassPaymentDetails", methods=["POST"])
+def UpdateClassPaymentDetails():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    tokenReq = request.json.get('AccessToken')
+
+    user = User.query.filter_by(AccessToken = tokenReq).first()
+
+    if user is None:
+        return "Sessão inválida, faça login novamente", HttpCode.EXPIRED_TOKEN
+
+    idMatchMemberReq = request.json.get('IdMatchMember')
+    hasPaidReq = request.json.get('HasPaid')
+    costReq = request.json.get('Cost')
+
+    matchMember = db.session.query(MatchMember).filter(MatchMember.IdMatchMember == idMatchMemberReq).first()
+
+    if matchMember is None:
+        return "Aluno não encontrado. Por favor, avise a equipe sandfriends", HttpCode.WARNING
+
+    matchMember.HasPaid = hasPaidReq
+    matchMember.Cost = costReq
+
+    db.session.commit()
+
+    return jsonify({'HasPaid': matchMember.HasPaid, 'Cost': matchMember.Cost,}), HttpCode.SUCCESS

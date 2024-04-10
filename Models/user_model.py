@@ -51,9 +51,9 @@ class User(db.Model):
     IsTeacher = db.Column(db.Boolean)
 
     Ranks = db.relationship("UserRank", backref="User")
+    TeacherSchools = db.relationship('StoreSchoolTeacher', back_populates="User")
     Teams = db.relationship('Team', back_populates="User")
-
-
+    TeacherClassPlans = db.relationship('TeacherPlan', back_populates="User")
 
     def fullName(self):
         return self.FirstName+' '+self.LastName
@@ -170,4 +170,20 @@ class User(db.Model):
             'LastName': self.LastName,
             'Photo': photo,
             'PhoneNumber': self.PhoneNumber,
+        }
+
+    def to_json_teacher(self):
+        if self.Photo == None:
+            photo = None
+        else:
+            photo = f"/img/usr/{self.Photo}.png"
+        return {
+            'IdUser': self.IdUser,
+            'FirstName': self.FirstName,
+            'LastName': self.LastName,
+            'Photo': photo,
+            'PhoneNumber': self.PhoneNumber,
+            'TeacherSchools':[teacherSchool.to_json_user() for teacherSchool in self.TeacherSchools],
+            'Teams':[team.to_json_teacher() for team in self.Teams],
+            'TeacherPlans':[teacherPlan.to_json() for teacherPlan in self.TeacherClassPlans],
         }

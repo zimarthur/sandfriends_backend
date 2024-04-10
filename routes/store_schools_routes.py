@@ -1,10 +1,12 @@
 from flask import Blueprint, jsonify, abort, request
 from datetime import datetime
 import random
+from ..utils import firstSundayOnNextMonth, lastSundayOnLastMonth, isCurrentMonth
 from sqlalchemy import null, true, ForeignKey, func
 from ..responses import webResponse
 from ..Models.user_model import User
 from ..Models.store_model import Store
+from ..Models.match_model import Match
 from ..Models.available_hour_model import AvailableHour
 from ..Models.store_court_model import StoreCourt
 from ..Models.teacher_plan_model import TeacherPlan
@@ -288,6 +290,11 @@ def GetClassesInfo():
     stores = db.session.query(Store).filter(Store.IdCity == user.IdCity).all()
 
     schools = db.session.query(StoreSchool).filter(StoreSchool.IdStore.in_([store.IdStore for store in stores])).all()
+    teachers = db.session.query(StoreSchoolTeacher)\
+                                .filter(StoreSchoolTeacher.IdStoreSchool.in_([school.IdStoreSchool for school in schools]))\
+                                .filter(StoreSchoolTeacher.Refused == False)\
+                                .filter(StoreSchoolTeacher.WaitingApproval == False)\
+                                .filter(StoreSchoolTeacher.ResponseDate != None).all()
 
     addedTeacherUserIds =[]
     teachersList = []
@@ -295,9 +302,44 @@ def GetClassesInfo():
     schoolsList = []
     for school in schools:
         schoolsList.append(school.to_json_user())
-        for teacher in school.Teachers:
-            if teacher.IdUser not in addedTeacherUserIds:
-                addedTeacherUserIds.append(teacher.IdUser)
-                teachersList.append(teacher.to_json_user())
+
+    teachersList =[]
+    idUsersInList =[]
+    for teacher in teachers:
+        if teacher.IdUser not in idUsersInList:
+            idUsersInList.append(teacher.IdUser)
+            teachersList.append(teacher.User.to_json_teacher())
+    
         
     return jsonify({"Schools": schoolsList, "Teachers": teachersList}), HttpCode.SUCCESS
+
+
+@bp_store_schools.route("/SearchClasses", methods=["POST"])
+def SearchClasses():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    tokenReq = request.json.get('AccessToken')
+
+    user = User.query.filter_by(AccessToken = tokenReq).first()
+
+    if user is None:
+        return "Sessão inválida, faça login novamente", HttpCode.EXPIRED_TOKEN
+    
+    dateReq = datetime.strptime(request.json.get('Date'), '%d/%m/%Y')
+    
+    startDate = lastSundayOnLastMonth(dateReq)
+    endDate = firstSundayOnNextMonth(dateReq)
+    
+    matches = db.session.query(Match)\
+            .filter((Match.Date >= startDate) & (Match.Date <= endDate))\
+            .filter(Match.IdTeam.in_([team.IdTeam for team in user.Teams])).all()
+
+    matchesList = []
+    for match in matches:
+        matchesList.append(match.to_json())
+        
+    return jsonify({
+        "StartDate": startDate.strftime("%d/%m/%Y"),
+        "EndDate": endDate.strftime("%d/%m/%Y"),
+        "Matches": matchesList}), HttpCode.SUCCESS

@@ -5,6 +5,7 @@ class TeacherPlan(db.Model):
     IdTeacherPlan = db.Column(db.Integer, primary_key=True)
 
     IdUser = db.Column(db.Integer, db.ForeignKey('user.IdUser'))
+    User = db.relationship('User', foreign_keys = [IdUser])
 
     ClassSize = db.Column(db.Integer)
     TimesPerWeek = db.Column(db.Integer)

@@ -98,7 +98,7 @@ def SearchRecurrentCourts():
         return 'Token inválido - Realize login novamente', HttpCode.EXPIRED_TOKEN
 
     availableStoreIds = [store.IdStore for store in getAvailableStores()]
-
+    idsToRemove =[]
     storeSchoolTeacherFilter =[]
     if isTeacherReq:
         storeSchoolsTeacher = db.session.query(StoreSchoolTeacher)\
@@ -108,7 +108,9 @@ def SearchRecurrentCourts():
         storeSchoolTeacherFilter = [storeSchoolTeacher.StoreSchool.IdStore for storeSchoolTeacher in storeSchoolsTeacher]
         for storeId in availableStoreIds:
             if storeId not in storeSchoolTeacherFilter:
-                availableStoreIds.remove(storeId)
+                idsToRemove.append(storeId)
+        for idToRemove in idsToRemove:
+            availableStoreIds.remove(idToRemove)
 
     #Estabelecimentos na cidade e validados/aprovados
     stores = db.session.query(Store).filter(Store.IdCity == cityId)\
@@ -477,7 +479,8 @@ def CourtReservation():
             CostFinal = costFinalReq,
             CostAsaasTax = costAsaasTaxReq,
             CostSandfriendsNetTax = costSandfriendsNetTaxReq,
-            AsaasSplit = asaasSplitReq
+            AsaasSplit = asaasSplitReq,
+            IdTeam = idTeamReq,
         )
         db.session.add(newMatch)
         db.session.commit()
@@ -491,6 +494,7 @@ def CourtReservation():
             IdMatch = newMatch.IdMatch,
             Quit = False,
             EntryDate = datetime.now(),
+            HasPaid = False,
         )
         db.session.add(matchMember)
         db.session.commit()

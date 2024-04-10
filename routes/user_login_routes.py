@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, abort, request
 from datetime import datetime
 import random
 from sqlalchemy import null, true, ForeignKey
+from ..utils import firstSundayOnNextMonth, lastSundayOnLastMonth, getFirstDayOfLastMonth
 
 from ..routes.reward_routes import RewardStatus
 from ..responses import webResponse
@@ -58,6 +59,8 @@ def AddUser():
 
     #Criar usuário novo
     if user:
+        if user.IsTeacher is None:
+            user.IsTeacher = False
         if user.IsTeacher != isTeacherReq:
             if isTeacherReq:
                 return "Você já utilizou esse e-mail para uma conta jogador. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
@@ -198,6 +201,9 @@ def ValidateTokenUser():
     if user is None and requiresUserToProceedReq == True:
         return 'Usuário não encontrado', HttpCode.WARNING
 
+    if user.IsTeacher is None:
+        user.IsTeacher = False
+    
     if user.IsTeacher != isTeacherReq:
         if isTeacherReq:
             return "Você já utilizou esse e-mail para uma conta jogador. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
@@ -230,7 +236,10 @@ def LoginUser():
     
     if user.DateDisabled is not None:
         return "Não foi possível fazer login pois sua conta já foi excluída", HttpCode.WARNING
-
+    
+    if user.IsTeacher is None:
+        user.IsTeacher = False
+    
     if user.IsTeacher != isTeacherReq:
         if isTeacherReq:
             return "Você já utilizou esse e-mail para uma conta jogador. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
@@ -524,26 +533,6 @@ def GetTeacherInfo():
     if user is None:
         return 'Token inválido.', HttpCode.EXPIRED_TOKEN
 
-    teacherPlans = db.session.query(TeacherPlan).filter(TeacherPlan.IdUser == user.IdUser).all()
-
-    teacherPlansList =[]
-    for teacherPlan in teacherPlans:
-        teacherPlansList.append(teacherPlan.to_json())
-    
-    teams = db.session.query(Team).filter(Team.IdUser == user.IdUser).all()
-
-    teamsList =[]
-    for team in teams:
-        teamsList.append(team.to_json())
-    
-    teacherSchools = db.session.query(StoreSchoolTeacher)\
-                    .filter(StoreSchoolTeacher.IdUser == user.IdUser)\
-                    .filter(StoreSchoolTeacher.Refused == False).all()
-
-    teacherSchoolsList =[]
-    for teacherSchool in teacherSchools:
-        teacherSchoolsList.append(teacherSchool.to_json_teacher())
-
     teacherRecurrentMatchesList = []
     #query para os mensalistas que do jogador
     teacherRecurrentMatches =  db.session.query(RecurrentMatch)\
@@ -553,7 +542,25 @@ def GetTeacherInfo():
 
     teacherRecurrentMatchesList = [recurrentMatch.to_json() for recurrentMatch in teacherRecurrentMatches if recurrentMatch.isPaymentExpired == False]
 
-    return  jsonify({'TeacherPlans': teacherPlansList, 'Teams': teamsList, 'Schools': teacherSchoolsList, 'RecurrentMatches': teacherRecurrentMatchesList}), HttpCode.SUCCESS
+    #query das partidas do professor. Pegar todas as partidas do mês atual contando a semana atual.
+    #ex: se em um mês dia 31 fosse quarta, eu ainda preciso do resto da semana (quinta, sex, sab e dom), mesmo q sejam de outro mes
+    startDate = lastSundayOnLastMonth(datetime.today())
+    endDate = firstSundayOnNextMonth(datetime.today())
+
+    teacherMatches =  db.session.query(Match)\
+                .join(MatchMember, Match.IdMatch == MatchMember.IdMatch)\
+                .filter(MatchMember.IdUser == user.IdUser)\
+                .filter((Match.Date > startDate) & (Match.Date < endDate)).all()
+
+    matchList =[]
+    for match in teacherMatches:
+        matchList.append(match.to_json())
+
+    return  jsonify({'Teacher': user.to_json_teacher(),\
+                    'RecurrentMatches': teacherRecurrentMatchesList,\
+                    'Matches':matchList,\
+                    'MatchesStartDate': startDate.strftime("%d/%m/%Y"),\
+                    'MatchesEndDate': endDate.strftime("%d/%m/%Y"),}), HttpCode.SUCCESS
     
 #Rota utilizada para excluir a conta do jogador
 @bp_user_login.route("/RemoveUser", methods=["POST"])
