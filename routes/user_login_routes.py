@@ -512,7 +512,14 @@ def GetUserInfo():
         userCreditCardsList.append(creditCard.to_json())
 
 
-    return  jsonify({'UserMatches': userMatchesList, 'UserRecurrentMatches':  userRecurrentMatchesList,'OpenMatches': openMatchesList, 'Notifications': notificationList, 'UserRewards': RewardStatus(user.IdUser), 'MatchCounter': matchCounterList, 'CreditCards': userCreditCardsList}), 200
+    return  jsonify({
+        'UserMatches': userMatchesList, 
+        'UserRecurrentMatches':  userRecurrentMatchesList,
+        'OpenMatches': openMatchesList, 
+        'Notifications': notificationList, 
+        'UserRewards': RewardStatus(user.IdUser), 
+        'MatchCounter': matchCounterList, 
+        'CreditCards': userCreditCardsList}), 200
 
 
 #Rota utilizada pelo professor depois de fazer login e entrar na home do app.
@@ -532,6 +539,15 @@ def GetTeacherInfo():
 
     if user is None:
         return 'Token inválido.', HttpCode.EXPIRED_TOKEN
+
+    updateNotificationsReq = request.json.get('UpdateNotifications')
+    allowNotificationsReq = request.json.get('AllowNotifications')
+    notificationsTokenReq = request.json.get('NotificationsToken')
+
+    if updateNotificationsReq:
+        user.AllowNotifications = allowNotificationsReq
+    if notificationsTokenReq != "":
+        user.NotificationsToken = notificationsTokenReq
 
     teacherRecurrentMatchesList = []
     #query para os mensalistas que do jogador
@@ -556,9 +572,19 @@ def GetTeacherInfo():
     for match in teacherMatches:
         matchList.append(match.to_json())
 
+    notificationList = []
+    notifications = db.session.query(NotificationUser).filter(NotificationUser.IdUser == user.IdUser).all()
+    
+    for notification in notifications:
+        notificationList.append(notification.to_json())
+        notification.Seen = True
+
+    db.session.commit()
+    
     return  jsonify({'Teacher': user.to_json_teacher(),\
                     'RecurrentMatches': teacherRecurrentMatchesList,\
                     'Matches':matchList,\
+                    'Notifications': notificationList, \
                     'MatchesStartDate': startDate.strftime("%d/%m/%Y"),\
                     'MatchesEndDate': endDate.strftime("%d/%m/%Y"),}), HttpCode.SUCCESS
     

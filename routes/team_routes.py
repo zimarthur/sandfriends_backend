@@ -18,6 +18,8 @@ from ..extensions import db
 from ..Models.http_codes import HttpCode
 from ..access_token import EncodeToken, DecodeToken
 from ..Models.employee_model import getEmployeeByToken
+from sandfriends_backend.push_notifications import \
+                        sendTeacherResponseTeamInvitationNotification
 import bcrypt
 import json
 import os
@@ -150,6 +152,8 @@ def JoinTeam():
     for member in team.Members:
         membersList.append(member.to_json())
 
+    sendStudentRequestJoinTeamNotification(team, user)
+
     return jsonify({"Members": membersList}), HttpCode.SUCCESS
 
 
@@ -187,6 +191,8 @@ def SendMemberResponse():
     membersList = []
     for member in teamMember.Team.Members:
         membersList.append(member.to_json())
+
+    sendTeacherResponseTeamInvitationNotification(teamMember.Team, teamMember.User, acceptedReq)
 
     return jsonify({"Members": membersList}), HttpCode.SUCCESS
 

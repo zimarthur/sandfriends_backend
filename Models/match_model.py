@@ -82,6 +82,9 @@ class Match(db.Model):
         duration = (end - begin).total_seconds() / 3600
         return int(duration)
 
+    def IsClass(self):
+        return self.IdTeam is not None
+
     def matchCreator(self):
         return [user for user in self.Members if user.IsMatchCreator][0]
     

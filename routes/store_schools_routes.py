@@ -2,6 +2,8 @@ from flask import Blueprint, jsonify, abort, request
 from datetime import datetime
 import random
 from ..utils import firstSundayOnNextMonth, lastSundayOnLastMonth, isCurrentMonth
+from sandfriends_backend.push_notifications import \
+                            sendSchoolInvitationToTeacherNotification
 from sqlalchemy import null, true, ForeignKey, func
 from ..responses import webResponse
 from ..Models.user_model import User
@@ -165,6 +167,8 @@ def AddSchoolTeacher():
     db.session.add(newSchoolTeacher)
     db.session.commit()
     db.session.refresh(storeSchool)
+
+    sendSchoolInvitationToTeacherNotification(storeSchool ,teacher)
 
     return jsonify({ "EditSchool": storeSchool.to_json()}), HttpCode.SUCCESS
 

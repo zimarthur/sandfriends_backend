@@ -114,10 +114,6 @@ class User(db.Model):
             'Email': self.Email,
             'AccessToken': self.AccessToken,
             'RegistrationDate': self.RegistrationDate.strftime("%d/%m/%Y"),
-            'EmailConfirmationDate': self.EmailConfirmationDate.strftime("%d/%m/%Y"),
-            'EmailConfirmationToken': self.EmailConfirmationToken,
-            'ThirdPartyLogin': self.ThirdPartyLogin,
-            'ResetPasswordToken': self.ResetPasswordToken,
             'Cpf': self.Cpf,
             'DateDisabled': dateDisabled,
             'AllowNotifications': self.AllowNotifications,
@@ -170,6 +166,7 @@ class User(db.Model):
             'LastName': self.LastName,
             'Photo': photo,
             'PhoneNumber': self.PhoneNumber,
+            'RegistrationDate': self.RegistrationDate.strftime("%d/%m/%Y"),
         }
 
     def to_json_teacher(self):
@@ -183,6 +180,7 @@ class User(db.Model):
             'LastName': self.LastName,
             'Photo': photo,
             'PhoneNumber': self.PhoneNumber,
+            'RegistrationDate': self.RegistrationDate.strftime("%d/%m/%Y"),
             'TeacherSchools':[teacherSchool.to_json_user() for teacherSchool in self.TeacherSchools],
             'Teams':[team.to_json_teacher() for team in self.Teams],
             'TeacherPlans':[teacherPlan.to_json() for teacherPlan in self.TeacherClassPlans],

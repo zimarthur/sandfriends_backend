@@ -61,4 +61,5 @@ class Team(db.Model):
             'IdSport': self.IdSport,
             'IdGenderCategory': self.IdGenderCategory,
             'IdRankCategory': self.IdRankCategory,
+            'Members': [member.to_json() for member in self.Members if member.Refused == False],
         }
