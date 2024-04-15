@@ -34,6 +34,9 @@ class RecurrentMatch(db.Model):
     IdStorePlayer = db.Column(db.Integer, db.ForeignKey('store_player.IdStorePlayer'))
     StorePlayer = db.relationship('StorePlayer', foreign_keys = [IdStorePlayer])
 
+    IdTeam = db.Column(db.Integer, db.ForeignKey('team.IdTeam'))
+    Team =  db.relationship('Team', back_populates = "RecurrentMatches")
+    
     Matches = db.relationship('Match', backref="RecurrentMatch")
     
     IsExpired = ((LastPaymentDate == CreationDate) & (datetime.today().replace(day=1).date() > CreationDate)) | \
@@ -69,6 +72,29 @@ class RecurrentMatch(db.Model):
         return recurrentMatchesList
 
     def to_json(self):
+        if self.IdTeam == None:
+            team = None
+        else:
+            team = self.Team.to_json()
+
+        return {
+            'IdRecurrentMatch': self.IdRecurrentMatch,
+            'CreationDate': self.CreationDate.strftime("%d/%m/%Y"),
+            'LastPaymentDate': self.LastPaymentDate.strftime("%d/%m/%Y"),
+            'Weekday': self.Weekday,
+            'TimeBegin': self.TimeBegin.IdAvailableHour,
+            'TimeEnd': self.TimeEnd.IdAvailableHour,
+            'IdSport': self.IdSport,
+            'Canceled': self.Canceled,
+            'StoreCourt': self.StoreCourt.to_json_match(),
+            'User': self.User.to_json(),
+            'RecurrentMatchCounter':self.getMatchCounter(),
+            'NextRecurrentMatches': self.getNextRecurrentMatches(True),
+            'ValidUntil': self.ValidUntil.strftime("%d/%m/%Y"),
+            'Team': team,
+        }
+
+    def to_json_team(self):
         return {
             'IdRecurrentMatch': self.IdRecurrentMatch,
             'CreationDate': self.CreationDate.strftime("%d/%m/%Y"),

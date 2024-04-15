@@ -68,6 +68,8 @@ def AddCourt():
                 IdAvailableHour = price["IdHour"],
                 Price = price["Price"],
                 RecurrentPrice = price["RecurrentPrice"],
+                PriceTeacher = price["PriceTeacher"],
+                RecurrentPriceTeacher = price["RecurrentPriceTeacher"],
             )
             db.session.add(newStorePrice)
 
@@ -204,6 +206,8 @@ def SaveCourtChanges():
                         Weekday = operationDayReq["Weekday"],
                         Price = priceReq["Price"],
                         RecurrentPrice = priceReq["RecurrentPrice"],
+                        PriceTeacher = priceReq["PriceTeacher"],
+                        RecurrentPriceTeacher = priceReq["RecurrentPriceTeacher"],
                         IdAvailableHour = priceReq["IdHour"],
                         IdStoreCourt = court.IdStoreCourt,
                     )
@@ -211,6 +215,8 @@ def SaveCourtChanges():
                 else:
                     courtPrice[0].Price = priceReq["Price"]
                     courtPrice[0].RecurrentPrice = priceReq["RecurrentPrice"]
+                    courtPrice[0].PriceTeacher = priceReq["PriceTeacher"]
+                    courtPrice[0].RecurrentPriceTeacher = priceReq["RecurrentPriceTeacher"]
         
         #esse é pra apagar os que não apareceram na requisição
         for courtPrice in courtPrices:

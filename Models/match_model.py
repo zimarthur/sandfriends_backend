@@ -46,6 +46,9 @@ class Match(db.Model):
     CostSandfriendsNetTax = db.Column(db.Numeric(precision=10, scale=2))
     AsaasSplit = db.Column(db.Numeric(precision=10, scale=2))
 
+    IdTeam = db.Column(db.Integer, db.ForeignKey('team.IdTeam'))
+    Team =  db.relationship('Team', back_populates = "Matches")
+
     #Cupom
     IdCoupon = db.Column(db.Integer, db.ForeignKey('coupon.IdCoupon'))
     Coupon =  db.relationship('Coupon', back_populates = "Matches")
@@ -79,6 +82,9 @@ class Match(db.Model):
         duration = (end - begin).total_seconds() / 3600
         return int(duration)
 
+    def IsClass(self):
+        return self.IdTeam is not None
+
     def matchCreator(self):
         return [user for user in self.Members if user.IsMatchCreator][0]
     
@@ -94,6 +100,10 @@ class Match(db.Model):
             coupon = None
         else:
             coupon = self.Coupon.to_json_min()
+        if self.IdTeam == None:
+            team = None
+        else:
+            team = self.Team.to_json_match()
         
         return {
             'IdMatch': self.IdMatch,
@@ -119,11 +129,12 @@ class Match(db.Model):
             'CostFinal': self.CostFinal,
             'CostUser': self.CostUser ,
             'Coupon': coupon,
+            'Team': team,
         }
 
     def to_json_open_match(self):
         members = [member.to_json() for member in self.Members if not(member.WaitingApproval) and not(member.Refused) and not(member.Quit) ]
-
+    
         return {
             'IdMatch': self.IdMatch,
             'StoreCourt': self.StoreCourt.to_json_match(),
@@ -144,7 +155,7 @@ class Match(db.Model):
             'PaymentType': self.AsaasBillingType,
             'PaymentExpirationDate': self.paymentExpiration.strftime("%d/%m/%Y %H:%M:%S"),
             'CostFinal': self.CostFinal,
-            'CostUser': self.CostUser 
+            'CostUser': self.CostUser, 
         }
 
     def to_json_min(self):
