@@ -36,7 +36,16 @@ from ..Asaas.Customer.update_customer import updateCpf
 from ..Asaas.Payment.create_payment import createPaymentPix, createPaymentCreditCard, getSplitPercentage
 from ..Asaas.Payment.refund_payment import refundPayment
 from ..Asaas.Payment.generate_qr_code import generateQrCode
-from sandfriends_backend.push_notifications import sendMatchInvitationNotification, sendMatchInvitationRefusedNotification, sendMatchInvitationAcceptedNotification, sendMemberLeftMatchNotification, sendMatchCanceledFromCreatorNotification, sendEmployeesNewMatchNotification
+from sandfriends_backend.push_notifications import \
+                sendMatchInvitationNotification,\
+                sendMatchInvitationRefusedNotification,\
+                sendMatchInvitationAcceptedNotification,\
+                sendMemberLeftMatchNotification,\
+                sendMatchCanceledFromCreatorNotification,\
+                sendEmployeesNewMatchNotification,\
+                sendStudentConfirmedClassNotification,\
+                sendStudentUnconfirmedClassNotification,\
+                sendClassCanceledByTeacher
 from sqlalchemy import or_
 from ..routes.coupon_routes import generateRandomCouponCode
 
@@ -491,6 +500,8 @@ def MatchReservation():
         IdMatch = newMatch.IdMatch,
         Quit = False,
         EntryDate = datetime.now(),
+        HasPaid = True,
+        Cost = 0,
     )
     db.session.add(matchMember)
 
@@ -620,6 +631,12 @@ def LeaveMatch():
         matchMember.Quit=True
         matchMember.WaitingApproval=False
         matchMember.QuitDate=datetime.now()
+        matchMember.HasPaid = False
+
+        if match.IsClass:
+            IdNotif = 11
+        else:
+            IdNotif = 8
 
         for member in match.Members:
             if member.IsMatchCreator == True:
@@ -627,14 +644,17 @@ def LeaveMatch():
                     IdUser = member.IdUser,
                     IdUserReplaceText = matchMember.IdUser,
                     IdMatch = idMatch,
-                    IdNotificationUserCategory = 8,
+                    IdNotificationUserCategory = IdNotif,
                     Seen = False
                 )
                 db.session.add(newNotificationUser)
                 break
         db.session.commit()
 
-        sendMemberLeftMatchNotification(match.matchCreator().User, matchMember.User, match)
+        if match.IsClass:
+            sendStudentUnconfirmedClassNotification(match.matchCreator().User, matchMember.User, match)
+        else:
+            sendMemberLeftMatchNotification(match.matchCreator().User, matchMember.User, match)
         return "Você saiu da partida",HttpCode.ALERT
 
 @bp_match.route("/SaveCreatorNotes", methods=["POST"])
@@ -718,7 +738,8 @@ def JoinMatch():
                 Refused = False,
                 IdMatch = idMatch,
                 EntryDate = datetime.now(),
-                Quit = False
+                Quit = False,
+                HasPaid = False,
             )
             db.session.add(newMatchMember)
 
@@ -730,6 +751,7 @@ def JoinMatch():
             matchMember.IdMatch = idMatch
             matchMember.EntryDate = datetime.now()
             matchMember.Quit = False
+            matchMember.HasPaid = False
         
         matchCreator = db.session.query(MatchMember).filter((MatchMember.IdMatch == idMatch) & (MatchMember.IsMatchCreator == True)).first()
         newNotificationUser = NotificationUser(
@@ -752,6 +774,72 @@ def JoinMatch():
 
         sendMatchInvitationNotification(matchCreator.User, user, match)
         return "Solicitação enviada",HttpCode.ALERT
+
+
+@bp_match.route("/JoinClass", methods=["POST"])
+def JoinClass():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    accessToken = request.json.get('AccessToken')
+    idMatch = request.json.get('IdMatch')
+
+    user = User.query.filter_by(AccessToken = accessToken).first()
+    if user is None:
+        return 'Token inválido', HttpCode.WARNING
+
+    match = db.session.query(Match).get(idMatch)
+    if match is None:
+        return 'Aula não encontrada', HttpCode.WARNING
+    elif (match.Date < datetime.today().date()) or((match.Date == datetime.today().date()) and (match.IsFinished())):
+        return 'A aula já foi finalizada', HttpCode.WARNING
+    elif match.IdTeam is None:
+        return 'Aula não encontrada', HttpCode.WARNING
+    
+    memberUserIds = [member.IdUser for member in match.Team.Members if member.Refused == False and member.WaitingApproval == False]
+    if user.IdUser not in memberUserIds:
+        return 'Você não está nessa turma. Entre na turma para poder participar da aula', HttpCode.WARNING
+
+    matchMember = db.session.query(MatchMember).filter((MatchMember.IdMatch == idMatch) & (MatchMember.IdUser == user.IdUser)).first()
+    if matchMember is None:
+        newMatchMember = MatchMember(
+            IdUser = user.IdUser,
+            IsMatchCreator = False,
+            WaitingApproval = False,
+            Refused = False,
+            IdMatch = idMatch,
+            EntryDate = datetime.now(),
+            Quit = False,
+            HasPaid = False,
+        )
+        db.session.add(newMatchMember)
+
+    else:
+        matchMember.IdUser = user.IdUser
+        matchMember.IsMatchCreator = False
+        matchMember.WaitingApproval = False
+        matchMember.Refused = False
+        matchMember.IdMatch = idMatch
+        matchMember.EntryDate = datetime.now()
+        matchMember.Quit = False
+        matchMember.HasPaid = False
+    
+    for member in match.Members:
+        if member.IsMatchCreator == True:
+            teacher = member.User 
+
+    newNotificationUser = NotificationUser(
+        IdUser = teacher.IdUser,
+        IdUserReplaceText = user.IdUser,
+        IdMatch = idMatch,
+        IdNotificationUserCategory = 10,
+        Seen = False
+    )
+    db.session.add(newNotificationUser)
+    db.session.commit()
+
+    sendStudentConfirmedClassNotification(teacher, user, match)
+    return "Sua presença foi confirmada!",HttpCode.ALERT
 
 #Usuário solicita para cancelar a partida pelo app
 @bp_match.route("/CancelMatch", methods=["POST"])
@@ -789,6 +877,7 @@ def CancelMatch():
             IdStoreValid = match.StoreCourt.IdStore,
             IdTimeBeginValid = 1,
             IdTimeEndValid = 24,
+            DateCreated= datetime.now(),
             DateBeginValid = datetime.now(),
             DateEndValid = datetime.now() + timedelta(days=365),
             IsUniqueUse = True,
@@ -809,8 +898,6 @@ def CancelMatch():
                             .filter(MatchMember.Refused == False)\
                             .filter(MatchMember.Quit == False).all()
     for matchMember in matchMembers:
-        matchMember.Quit=True
-        matchMember.QuitDate=datetime.now()
         if matchMember.IsMatchCreator == True:
             #Envia notificação para a loja
             idNotificationUserCategory = 6
@@ -823,7 +910,10 @@ def CancelMatch():
             )
             db.session.add(newNotificationStore)
         else:
-            idNotificationUserCategory = 7
+            if match.IsClass:
+                idNotificationUserCategory = 12
+            else:
+                idNotificationUserCategory = 7
         if matchMember.Refused == False:
             #Envia notificação para os jogadores que haviam entrado na partida
             newNotificationUser = NotificationUser(
@@ -834,7 +924,10 @@ def CancelMatch():
                 Seen = False
             )
             db.session.add(newNotificationUser)
-    sendMatchCanceledFromCreatorNotification(match)
+    if match.IsClass:
+        sendClassCanceledByTeacher(match)
+    else:
+        sendMatchCanceledFromCreatorNotification(match)
 
     #Envia e-mail para a quadra avisando sobre o cancelamento
     emailStoreMatchCanceled(match)
@@ -883,8 +976,6 @@ def CancelMatchEmployee():
                         .filter(MatchMember.Refused == False)\
                         .filter(MatchMember.Quit == False).all()
         for matchMember in matchMembers:
-            matchMember.Quit=True
-            matchMember.QuitDate=datetime.now()
 
             newNotificationUser = NotificationUser(
                 IdUser = matchMember.IdUser,
@@ -940,6 +1031,8 @@ def RemoveMatchMember():
         matchMember.Quit = True
         matchMember.WaitingApproval = False
         matchMember.QuitDate = datetime.now()
+        matchMember.HasPaid = False
+
         newNotificationUser = NotificationUser(
             IdUser = idUserDelete,
             IdUserReplaceText = matchCreator.IdUser,
@@ -1087,6 +1180,7 @@ def BlockHour():
             Quit = False,
             EntryDate = datetime.now(),
             IdStorePlayer = idStorePlayerReq,
+            HasPaid = False,
         )
         db.session.add(newMatchMember)
         db.session.commit()
@@ -1227,6 +1321,57 @@ def SearchCustomMatches():
     for match in matches:
         matchList.append(match.to_json_min())
     return {'Matches': matchList}, HttpCode.SUCCESS
+
+@bp_match.route('/UpdateClassMatchMembers', methods=['POST'])
+def UpdateClassMatchMembers():
+
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    accessToken = request.json.get('AccessToken')
+    idMatch = request.json.get('IdMatch')
+    usersToAdd = request.json.get('UsersToAdd')
+    usersToRemove = request.json.get('UsersToRemove')
+
+    user = User.query.filter_by(AccessToken = accessToken).first()
+    if user is None:
+        return 'Token inválido', HttpCode.WARNING
+
+    match = Match.query.get(idMatch)
+    if match is None:
+        return 'Partida não encontrada', HttpCode.WARNING
+
+    for member in match.Members:
+        print("1")
+        print(member.User.FirstName)
+        if member.IdUser in usersToRemove:
+            print("FOUND")
+            member.Quit = True
+            member.QuitDate = datetime.now()
+            member.Cost = None
+            member.HasPaid = False
+        elif member.IdUser in usersToAdd:
+            member.Quit = False
+            member.QuitDate = None
+            usersToAdd.remove(member.IdUser)
+
+    for idUser in usersToAdd:
+        print("2")
+        print(idUser)
+        newMember = MatchMember(
+            IdMatch = idMatch,
+            IdUser = idUser,
+            IsMatchCreator = False,
+            WaitingApproval = False,
+            Refused = False,
+            Quit = False,
+            HasPaid = False,
+        )
+        db.session.add(newMember)
+
+    db.session.commit()
+    print("will return")
+    return 'Sua aula foi alterada', HttpCode.ALERT
 
 #Gera lista de partidas no mesmo horário selecionado
 def queryConcurrentMatches(listIdStoreCourt, listDate, timeStart, timeEnd):
