@@ -193,24 +193,26 @@ def ValidateTokenUser():
    
     user = None
 
-    if tokenReq is None:
+    if tokenReq is None and requiresUserToProceedReq == True:
         return "Token expirado", HttpCode.EXPIRED_TOKEN
 
     user = db.session.query(User).filter(User.AccessToken == tokenReq).first()
     
     if user is None and requiresUserToProceedReq == True:
-        return 'Usuário não encontrado', HttpCode.WARNING
+        return 'Usuário não encontrado', HttpCode.EXPIRED_TOKEN
 
-    if user.IsTeacher is None:
-        user.IsTeacher = False
-    
-    if user.IsTeacher != isTeacherReq:
-        if isTeacherReq:
-            return "Você já utilizou esse e-mail para uma conta jogador. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
-        else:
-            return "Você já utilizou esse e-mail para uma conta professor. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
+   
             
     if user is not None: 
+        if user.IsTeacher is None:
+            user.IsTeacher = False
+    
+        if user.IsTeacher != isTeacherReq:
+            if isTeacherReq:
+                return "Você já utilizou esse e-mail para uma conta jogador. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
+            else:
+                return "Você já utilizou esse e-mail para uma conta professor. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
+                
         payloadUserId = DecodeToken(tokenReq)
         
         newToken = EncodeToken(payloadUserId)
