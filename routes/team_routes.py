@@ -19,7 +19,8 @@ from ..Models.http_codes import HttpCode
 from ..access_token import EncodeToken, DecodeToken
 from ..Models.employee_model import getEmployeeByToken
 from sandfriends_backend.push_notifications import \
-                        sendTeacherResponseTeamInvitationNotification
+                        sendTeacherResponseTeamInvitationNotification,\
+                        sendStudentRequestJoinTeamNotification
 import bcrypt
 import json
 import os

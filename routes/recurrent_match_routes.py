@@ -538,6 +538,7 @@ def RecurrentMonthAvailableHours():
     timeStart = int(request.json.get('TimeBegin'))
     timeEnd = int(request.json.get('TimeEnd'))
     isRenovating = request.json.get('IsRenovating')
+    isTeacher = request.json.get('IsTeacher')
 
     user = User.query.filter_by(AccessToken = accessToken).first()
 
@@ -554,6 +555,17 @@ def RecurrentMonthAvailableHours():
                         ((RecurrentMatch.IdTimeBegin < timeStart) & (RecurrentMatch.IdTimeEnd > timeStart))   \
                         ).first()
 
+    storePrices = db.session.query(StorePrice).filter(StorePrice.IdStoreCourt == int(idStoreCourt))\
+                                            .filter((StorePrice.IdAvailableHour >= timeStart) & (StorePrice.IdAvailableHour < timeEnd))\
+                                            .filter(StorePrice.Weekday == weekDay).all()
+
+    hourPricesList =[]
+
+    for price in storePrices:
+        if isTeacher:
+            hourPricesList.append(price.to_json_recurrentTeacher())
+        else:
+            hourPricesList.append(price.to_json_recurrentUser())
 
     if (recurrentMatch is not None) and (isRenovating == False) and(recurrentMatch.isPaymentExpired == False):
         return "Ops, esse horário não está mais disponível", HttpCode.WARNING
@@ -573,7 +585,7 @@ def RecurrentMonthAvailableHours():
         if not concurrentMatch:
             recurrentMonthAvailableHours.append(day.strftime("%d/%m/%Y"))
             
-    return jsonify({"RecurrentMonthAvailableHours": recurrentMonthAvailableHours}), HttpCode.SUCCESS
+    return jsonify({"RecurrentMonthAvailableHours": recurrentMonthAvailableHours, "HourPrices":hourPricesList,}), HttpCode.SUCCESS
    
 
 

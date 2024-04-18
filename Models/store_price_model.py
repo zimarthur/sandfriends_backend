@@ -26,3 +26,14 @@ class StorePrice(db.Model):
             'PriceTeacher': self.PriceTeacher,
             'RecurrentPriceTeacher':self.RecurrentPriceTeacher,
         }
+
+    def to_json_recurrentUser(self):
+        return {
+            'IdAvailableHour': self.IdAvailableHour,
+            'Price': self.RecurrentPrice,
+        }
+    def to_json_recurrentTeacher(self):
+        return {
+            'IdAvailableHour': self.IdAvailableHour,
+            'Price': self.RecurrentPriceTeacher,
+        }
