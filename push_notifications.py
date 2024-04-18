@@ -121,10 +121,6 @@ def sendMatchCanceledFromStoreNotification(store, user, match ):
 def sendMatchCanceledFromCreatorNotification(match ):
     userNotificationTokensList =[]
     for matchMember in match.Members:
-        print(matchMember.IdMatchMember)
-        print(matchMember.isInMatch())
-        print(matchMember.User.AllowNotifications == True)
-
         if matchMember.IsMatchCreator == True:
             matchCreator = matchMember.User.fullName()
         elif matchMember.isInMatch() and matchMember.User.AllowNotifications:
@@ -145,6 +141,119 @@ def sendMatchCanceledFromCreatorNotification(match ):
     responseUsers = messaging.send_multicast(messageUsers)
     print('Successfully sent message to employees:', responseUsers)
 
+
+def sendStudentConfirmedClassNotification(teacher, user, match ):
+    if teacher.AllowNotifications != True:
+        return
+
+    message = messaging.Message(
+        token= teacher.NotificationsToken,
+        notification=messaging.Notification(
+            title= user.fullName()+' confirmou presença na sua aula!',
+            body= 'Aula dia '+ match.Date.strftime('%d/%m') + ' às '+match.TimeBegin.HourString+'.',
+        ),
+        data={
+            "type": "match",
+            "matchUrl": match.MatchUrl,
+        },
+    )
+    response = messaging.send(message)
+    print('Successfully sent message:', response)
+
+def sendStudentUnconfirmedClassNotification(teacher, user, match ):
+    if teacher.AllowNotifications != True:
+        return
+
+    message = messaging.Message(
+        token= teacher.NotificationsToken,
+        notification=messaging.Notification(
+            title= user.fullName()+' saiu da sua aula :(',
+            body= 'Aula dia '+ match.Date.strftime('%d/%m') + ' às '+match.TimeBegin.HourString+'.',
+        ),
+        data={
+            "type": "match",
+            "matchUrl": match.MatchUrl,
+        },
+    )
+    response = messaging.send(message)
+    print('Successfully sent message:', response)
+
+def sendClassCanceledByTeacher(match):
+    userNotificationTokensList =[]
+    for matchMember in match.Members:
+        print(matchMember.User.FirstName)
+        print(str(matchMember.IsMatchCreator))
+        print(str(matchMember.isInMatch()))
+        print(str(matchMember.User.AllowNotifications))
+        if matchMember.IsMatchCreator == True:
+            matchCreator = matchMember.User.fullName()
+        elif matchMember.isInMatch() and matchMember.User.AllowNotifications:
+            userNotificationTokensList.append(matchMember.User.NotificationsToken)
+    
+        print("no send NOTIG")
+    for a in userNotificationTokensList:
+        print(a)
+    messageUsers = messaging.MulticastMessage(
+        notification=messaging.Notification(
+            title= matchCreator+' cancelou a aula :(',
+            body='Aula do dia '+match.Date.strftime('%d/%m') + ' às '+match.TimeBegin.HourString+'.',
+        ),
+        data={
+            "type": "match",
+            "matchUrl": match.MatchUrl,
+        },
+        tokens= userNotificationTokensList,
+    )
+    responseUsers = messaging.send_multicast(messageUsers)
+    print('Successfully sent message to employees:', responseUsers)
+
+def sendStudentRequestJoinTeamNotification(team, user ):
+    if team.User.AllowNotifications != True:
+        return
+
+    message = messaging.Message(
+        token= team.User.NotificationsToken,
+        notification=messaging.Notification(
+            title= user.fullName()+' quer entrar na sua turma',
+            body= 'Turma: '+team.Name,
+        ),
+    )
+    response = messaging.send(message)
+    print('Successfully sent message:', response)
+
+def sendTeacherResponseTeamInvitationNotification(team, user, accepted ):
+    if user.AllowNotifications != True:
+        return
+
+    if accepted:
+        responseText = "aceito"
+    else:
+        responseText = "recusado"
+    
+    message = messaging.Message(
+        token= user.NotificationsToken,
+        notification=messaging.Notification(
+            title= 'Convite '+responseText, 
+            body= 'Seu convite para a turma '+team.Name+' foi '+ responseText,
+        ),
+    )
+    response = messaging.send(message)
+    print('Successfully sent message:', response)
+
+def sendSchoolInvitationToTeacherNotification(school, user):
+    if user.AllowNotifications != True:
+        return
+
+    message = messaging.Message(
+        token= user.NotificationsToken,
+        notification=messaging.Notification(
+            title= 'Você recebeu um convite da escola ' +school.Name, 
+            body=  'Aceite para poder dar aulas lá!',
+        ),
+    )
+    response = messaging.send(message)
+    print('Successfully sent message:', response)
+    
 
 def availableEmployeesList(employees):
     employeesNotificationToken = []

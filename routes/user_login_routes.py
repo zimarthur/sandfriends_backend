@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, abort, request
 from datetime import datetime
 import random
 from sqlalchemy import null, true, ForeignKey
+from ..utils import firstSundayOnNextMonth, lastSundayOnLastMonth, getFirstDayOfLastMonth
 
 from ..routes.reward_routes import RewardStatus
 from ..responses import webResponse
@@ -20,6 +21,9 @@ from ..Models.city_model import City
 from ..Models.state_model import State
 from ..Models.user_rank_model import UserRank
 from ..Models.match_model import Match
+from ..Models.teacher_plan_model import TeacherPlan
+from ..Models.store_school_teacher_model import StoreSchoolTeacher
+from ..Models.team_model import Team
 from ..Models.recurrent_match_model import RecurrentMatch
 from ..Models.match_member_model import MatchMember
 from ..routes.match_routes import getHourString
@@ -46,6 +50,7 @@ def AddUser():
     if not request.json:
         abort(HttpCode.ABORT)
 
+    isTeacherReq = request.json.get('IsTeacher')
     emailReq = request.json.get('Email')
     passwordReq = request.json.get('Password').encode('utf-8')
     time = datetime.now()
@@ -54,6 +59,14 @@ def AddUser():
 
     #Criar usuário novo
     if user:
+        if user.IsTeacher is None:
+            user.IsTeacher = False
+        if user.IsTeacher != isTeacherReq:
+            if isTeacherReq:
+                return "Você já utilizou esse e-mail para uma conta jogador. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
+            else:
+                return "Você já utilizou esse e-mail para uma conta professor. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
+
         #O email que o usuário tentou cadastrar já foi cadastrado com o "Login com o google"
         if user.ThirdPartyLogin: 
             if user.AppleToken is not None:
@@ -69,6 +82,7 @@ def AddUser():
         AccessToken = 0, 
         RegistrationDate = time,
         ThirdPartyLogin = False,
+        IsTeacher = isTeacherReq,
     )
 
     #A etapa abaixo acontece porque o IdUser da tabela User é incrementado automaticamente.
@@ -82,7 +96,10 @@ def AddUser():
     userNew.AccessToken = EncodeToken(userNew.IdUser)
     userNew.EmailConfirmationToken = generateRandomString(16)
 
-    emailUserWelcomeConfirmation(userNew.Email, "https://" + os.environ['URL_APP'] + "/confirme-seu-email/"+userNew.EmailConfirmationToken)
+    if userNew.IsTeacher:
+        emailUserWelcomeConfirmation(userNew.Email, "https://" + os.environ['URL_AULAS'] + "/confirme-seu-email/"+userNew.EmailConfirmationToken)
+    else:
+        emailUserWelcomeConfirmation(userNew.Email, "https://" + os.environ['URL_APP'] + "/confirme-seu-email/"+userNew.EmailConfirmationToken)
     
     db.session.commit()
     return "Sua conta foi criada! Valide ela com o e-mail que enviamos.", HttpCode.SUCCESS
@@ -169,24 +186,36 @@ def ValidateTokenUser():
     if not request.json:
         abort(HttpCode.ABORT)
 
+    isTeacherReq = request.json.get('IsTeacher')
     tokenReq = request.json.get('AccessToken')
     requiresUserToProceedReq = request.json.get('RequiresUserToProceed')
 
    
     user = None
 
-    if tokenReq is not None:
-        user = db.session.query(User).filter(User.AccessToken == tokenReq).first()
-        
-        if user is None and requiresUserToProceedReq == True:
-            return 'Usuário não encontrado', HttpCode.WARNING
+    if tokenReq is None:
+        return "Token expirado", HttpCode.EXPIRED_TOKEN
 
-        if user is not None: 
-            payloadUserId = DecodeToken(tokenReq)
+    user = db.session.query(User).filter(User.AccessToken == tokenReq).first()
+    
+    if user is None and requiresUserToProceedReq == True:
+        return 'Usuário não encontrado', HttpCode.WARNING
+
+    if user.IsTeacher is None:
+        user.IsTeacher = False
+    
+    if user.IsTeacher != isTeacherReq:
+        if isTeacherReq:
+            return "Você já utilizou esse e-mail para uma conta jogador. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
+        else:
+            return "Você já utilizou esse e-mail para uma conta professor. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
             
-            newToken = EncodeToken(payloadUserId)
-            user.AccessToken = newToken
-            db.session.commit()
+    if user is not None: 
+        payloadUserId = DecodeToken(tokenReq)
+        
+        newToken = EncodeToken(payloadUserId)
+        user.AccessToken = newToken
+        db.session.commit()
 
     return initUserLoginData(user), HttpCode.SUCCESS
 
@@ -198,6 +227,7 @@ def LoginUser():
 
     emailReq = request.json.get('Email')
     passwordReq = request.json.get('Password').encode('utf-8')
+    isTeacherReq = request.json.get('IsTeacher')
 
     user = User.query.filter_by(Email = emailReq).first()
 
@@ -206,6 +236,15 @@ def LoginUser():
     
     if user.DateDisabled is not None:
         return "Não foi possível fazer login pois sua conta já foi excluída", HttpCode.WARNING
+    
+    if user.IsTeacher is None:
+        user.IsTeacher = False
+    
+    if user.IsTeacher != isTeacherReq:
+        if isTeacherReq:
+            return "Você já utilizou esse e-mail para uma conta jogador. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
+        else:
+            return "Você já utilizou esse e-mail para uma conta professor. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
 
     if user.ThirdPartyLogin:
         if user.AppleToken is not None:
@@ -239,6 +278,7 @@ def ThirdPartyAuthUser():
         abort(HttpCode.ABORT)
 
     emailReq = request.json.get('Email')
+    isTeacherReq = request.json.get('IsTeacher')
 
     user = User.query.filter(User.Email == emailReq).first()
 
@@ -270,6 +310,15 @@ def ThirdPartyAuthUser():
     if user.AppleToken is not None:
         if user.AppleToken != appleToken:
             return "Não foi possível vincular sua conta apple. Contate nossa equipe para ajuda.", HttpCode.WARNING
+    if user.IsTeacher is None:
+        user.IsTeacher = False
+        
+    if user.IsTeacher != isTeacherReq:
+        if isTeacherReq:
+            return "Você já utilizou esse e-mail para uma conta jogador. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
+        else:
+            return "Você já utilizou esse e-mail para uma conta professor. Crie uma nova conta com outro e-mail.",HttpCode.WARNING
+
     #Usuário já estava cadastrado - realizar login
     newToken = EncodeToken(user.IdUser)
 
@@ -463,8 +512,82 @@ def GetUserInfo():
         userCreditCardsList.append(creditCard.to_json())
 
 
-    return  jsonify({'UserMatches': userMatchesList, 'UserRecurrentMatches':  userRecurrentMatchesList,'OpenMatches': openMatchesList, 'Notifications': notificationList, 'UserRewards': RewardStatus(user.IdUser), 'MatchCounter': matchCounterList, 'CreditCards': userCreditCardsList}), 200
+    return  jsonify({
+        'UserMatches': userMatchesList, 
+        'UserRecurrentMatches':  userRecurrentMatchesList,
+        'OpenMatches': openMatchesList, 
+        'Notifications': notificationList, 
+        'UserRewards': RewardStatus(user.IdUser), 
+        'MatchCounter': matchCounterList, 
+        'CreditCards': userCreditCardsList}), 200
 
+
+#Rota utilizada pelo professor depois de fazer login e entrar na home do app.
+@bp_user_login.route("/GetTeacherInfo", methods=["POST"])
+def GetTeacherInfo():
+    if not request.json:
+        abort(HttpCode.ABORT)
+
+    tokenReq = request.json.get('AccessToken')
+
+    user = User.query.filter_by(AccessToken = tokenReq)\
+                    .filter_by(IsTeacher = True).first()
+
+    #Verifica se o token é 0 ou null
+    if tokenReq == 0 or tokenReq is None:
+        return "Token inválido, faça login novamente", HttpCode.EXPIRED_TOKEN
+
+    if user is None:
+        return 'Token inválido.', HttpCode.EXPIRED_TOKEN
+
+    updateNotificationsReq = request.json.get('UpdateNotifications')
+    allowNotificationsReq = request.json.get('AllowNotifications')
+    notificationsTokenReq = request.json.get('NotificationsToken')
+
+    if updateNotificationsReq:
+        user.AllowNotifications = allowNotificationsReq
+    if notificationsTokenReq != "":
+        user.NotificationsToken = notificationsTokenReq
+
+    teacherRecurrentMatchesList = []
+    #query para os mensalistas que do jogador
+    teacherRecurrentMatches =  db.session.query(RecurrentMatch)\
+                .filter(RecurrentMatch.IdUser == user.IdUser)\
+                .filter(RecurrentMatch.IsExpired == False)\
+                .filter(RecurrentMatch.Canceled == False).all()
+
+    teacherRecurrentMatchesList = [recurrentMatch.to_json() for recurrentMatch in teacherRecurrentMatches if recurrentMatch.isPaymentExpired == False]
+
+    #query das partidas do professor. Pegar todas as partidas do mês atual contando a semana atual.
+    #ex: se em um mês dia 31 fosse quarta, eu ainda preciso do resto da semana (quinta, sex, sab e dom), mesmo q sejam de outro mes
+    startDate = lastSundayOnLastMonth(datetime.today())
+    endDate = firstSundayOnNextMonth(datetime.today())
+
+    teacherMatches =  db.session.query(Match)\
+                .join(MatchMember, Match.IdMatch == MatchMember.IdMatch)\
+                .filter(MatchMember.IdUser == user.IdUser)\
+                .filter((Match.Date > startDate) & (Match.Date < endDate)).all()
+
+    matchList =[]
+    for match in teacherMatches:
+        matchList.append(match.to_json())
+
+    notificationList = []
+    notifications = db.session.query(NotificationUser).filter(NotificationUser.IdUser == user.IdUser).all()
+    
+    for notification in notifications:
+        notificationList.append(notification.to_json())
+        notification.Seen = True
+
+    db.session.commit()
+    
+    return  jsonify({'Teacher': user.to_json_teacher(),\
+                    'RecurrentMatches': teacherRecurrentMatchesList,\
+                    'Matches':matchList,\
+                    'Notifications': notificationList, \
+                    'MatchesStartDate': startDate.strftime("%d/%m/%Y"),\
+                    'MatchesEndDate': endDate.strftime("%d/%m/%Y"),}), HttpCode.SUCCESS
+    
 #Rota utilizada para excluir a conta do jogador
 @bp_user_login.route("/RemoveUser", methods=["POST"])
 def RemoveUser():

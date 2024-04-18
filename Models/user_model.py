@@ -25,7 +25,6 @@ class User(db.Model):
     IdSport = db.Column(db.Integer, db.ForeignKey('sport.IdSport'))
     Sport = db.relationship('Sport', foreign_keys = [IdSport])
 
-    Ranks = db.relationship("UserRank", backref="User")
 
     Email = db.Column(db.String(255))
     Password = db.Column(db.String(255))
@@ -48,6 +47,13 @@ class User(db.Model):
     Cpf = db.Column(db.String(11))
 
     DateDisabled = db.Column(db.DateTime)
+
+    IsTeacher = db.Column(db.Boolean)
+
+    Ranks = db.relationship("UserRank", backref="User")
+    TeacherSchools = db.relationship('StoreSchoolTeacher', back_populates="User")
+    Teams = db.relationship('Team', back_populates="User")
+    TeacherClassPlans = db.relationship('TeacherPlan', back_populates="User")
 
     def fullName(self):
         return self.FirstName+' '+self.LastName
@@ -108,10 +114,6 @@ class User(db.Model):
             'Email': self.Email,
             'AccessToken': self.AccessToken,
             'RegistrationDate': self.RegistrationDate.strftime("%d/%m/%Y"),
-            'EmailConfirmationDate': self.EmailConfirmationDate.strftime("%d/%m/%Y"),
-            'EmailConfirmationToken': self.EmailConfirmationToken,
-            'ThirdPartyLogin': self.ThirdPartyLogin,
-            'ResetPasswordToken': self.ResetPasswordToken,
             'Cpf': self.Cpf,
             'DateDisabled': dateDisabled,
             'AllowNotifications': self.AllowNotifications,
@@ -151,4 +153,35 @@ class User(db.Model):
             'FirstName': self.FirstName,
             'LastName': self.LastName,
             'Photo': photo,
+        }
+
+    def identification_to_json_teacher(self):
+        if self.Photo == None:
+            photo = None
+        else:
+            photo = f"/img/usr/{self.Photo}.png"
+        return {
+            'IdUser': self.IdUser,
+            'FirstName': self.FirstName,
+            'LastName': self.LastName,
+            'Photo': photo,
+            'PhoneNumber': self.PhoneNumber,
+            'RegistrationDate': self.RegistrationDate.strftime("%d/%m/%Y"),
+        }
+
+    def to_json_teacher(self):
+        if self.Photo == None:
+            photo = None
+        else:
+            photo = f"/img/usr/{self.Photo}.png"
+        return {
+            'IdUser': self.IdUser,
+            'FirstName': self.FirstName,
+            'LastName': self.LastName,
+            'Photo': photo,
+            'PhoneNumber': self.PhoneNumber,
+            'RegistrationDate': self.RegistrationDate.strftime("%d/%m/%Y"),
+            'TeacherSchools':[teacherSchool.to_json_user() for teacherSchool in self.TeacherSchools],
+            'Teams':[team.to_json_teacher() for team in self.Teams],
+            'TeacherPlans':[teacherPlan.to_json() for teacherPlan in self.TeacherClassPlans],
         }

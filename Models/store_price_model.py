@@ -6,6 +6,8 @@ class StorePrice(db.Model):
     Weekday = db.Column(db.Integer, nullable=False)
     Price = db.Column(db.Numeric, nullable=False)
     RecurrentPrice = db.Column(db.Integer)
+    PriceTeacher = db.Column(db.Numeric, nullable=False)
+    RecurrentPriceTeacher = db.Column(db.Integer)
 
     IdAvailableHour = db.Column(db.Integer, db.ForeignKey('available_hour.IdAvailableHour'))
     AvailableHour = db.relationship('AvailableHour', foreign_keys = [IdAvailableHour])
@@ -21,4 +23,17 @@ class StorePrice(db.Model):
             'IdAvailableHour': self.IdAvailableHour,
             'Price': self.Price,
             'RecurrentPrice':self.RecurrentPrice,
+            'PriceTeacher': self.PriceTeacher,
+            'RecurrentPriceTeacher':self.RecurrentPriceTeacher,
+        }
+
+    def to_json_recurrentUser(self):
+        return {
+            'IdAvailableHour': self.IdAvailableHour,
+            'Price': self.RecurrentPrice,
+        }
+    def to_json_recurrentTeacher(self):
+        return {
+            'IdAvailableHour': self.IdAvailableHour,
+            'Price': self.RecurrentPriceTeacher,
         }
